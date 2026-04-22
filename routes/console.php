@@ -79,6 +79,111 @@ Artisan::command('users:backfill-exco-accounts {--dry-run}', function (BranchSer
     $this->line("Accounts " . ($dryRun ? 'to create' : 'created') . ": {$accountsCreated}");
 })->purpose('Backfill the 4 standard member accounts for existing current/former exco users.');
 
+Artisan::command('branches:backfill-account-users {--dry-run}', function (BranchService $branchService) {
+    $dryRun = (bool) $this->option('dry-run');
+
+    $branches = \App\Models\Branch::query()
+        ->whereNull('deleted_at')
+        ->orderBy('id')
+        ->get();
+
+    $branchesScanned = 0;
+    $usersCreated = 0;
+    $branchesLinked = 0;
+    $accountsCreated = 0;
+    $alreadyHealthy = 0;
+
+    foreach ($branches as $branch) {
+        $branchesScanned++;
+
+        $existingBranchUser = \App\Models\User::query()
+            ->where('branch_id', (string) $branch->id)
+            ->where('branch_account', true)
+            ->orderBy('id')
+            ->first();
+
+        $hasBranchSavingsAccount = false;
+
+        if ($existingBranchUser) {
+            $hasBranchSavingsAccount = \App\Models\SavingsAccount::query()
+                ->where('user_id', $existingBranchUser->id)
+                ->where('is_branch_acount', 1)
+                ->exists();
+        }
+
+        $needsUser = ! $existingBranchUser;
+        $needsLink = ! $existingBranchUser || (int) $branch->branch_user_id !== (int) $existingBranchUser->id;
+        $needsAccount = $existingBranchUser && ! $hasBranchSavingsAccount;
+
+        if (! $needsUser && ! $needsLink && ! $needsAccount) {
+            $alreadyHealthy++;
+            continue;
+        }
+
+        if ($dryRun) {
+            $parts = [];
+
+            if ($needsUser) {
+                $parts[] = 'create branch user';
+                $parts[] = 'link branch_user_id';
+                $parts[] = 'create branch savings account';
+                $usersCreated++;
+                $branchesLinked++;
+                $accountsCreated++;
+            } else {
+                if ($needsLink) {
+                    $parts[] = 'link branch_user_id';
+                    $branchesLinked++;
+                }
+
+                if ($needsAccount) {
+                    $parts[] = 'create branch savings account';
+                    $accountsCreated++;
+                }
+            }
+
+            $this->line("- Branch {$branch->id} ({$branch->name}) would " . implode(' and ', $parts) . '.');
+            continue;
+        }
+
+        $result = $branchService->ensureBranchAccount($branch);
+
+        if ($result['user_created']) {
+            $usersCreated++;
+        }
+
+        if ($result['branch_linked']) {
+            $branchesLinked++;
+        }
+
+        if ($result['account_created']) {
+            $accountsCreated++;
+        }
+
+        $actions = [];
+        if ($result['user_created']) {
+            $actions[] = 'created branch user';
+        }
+        if ($result['branch_linked']) {
+            $actions[] = 'linked branch';
+        }
+        if ($result['account_created']) {
+            $actions[] = 'created branch savings account';
+        }
+
+        if ($actions !== []) {
+            $this->line("- Branch {$branch->id} ({$branch->name}): " . implode(', ', $actions) . '.');
+        }
+    }
+
+    $this->info($dryRun ? 'Dry run complete.' : 'Branch account user backfill complete.');
+    $this->line("Branches scanned: {$branchesScanned}");
+    $this->line("Branch users " . ($dryRun ? 'to create' : 'created') . ": {$usersCreated}");
+    $this->line("Branches " . ($dryRun ? 'to relink' : 'relinked') . ": {$branchesLinked}");
+    $this->line("Branch savings accounts " . ($dryRun ? 'to create' : 'created') . ": {$accountsCreated}");
+    $this->line("Already healthy: {$alreadyHealthy}");
+})->purpose('Create missing branch-account users and relink branch account records for existing branches.');
+
 Artisan::command('sms:process-pending', function (SmsCampaignService $campaignService, SmsAutomationService $automationService) {
     $queuedMessages = $campaignService->processScheduledMessages();
     $automaticMessages = $automationService->processDateBasedAutomations();

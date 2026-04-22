@@ -15,6 +15,75 @@ use RuntimeException;
 
 class BranchService
 {
+    public function ensureBranchAccount(Branch $branch): array
+    {
+        return DB::transaction(function () use ($branch): array {
+            $branchUser = User::query()
+                ->where('branch_id', (string) $branch->id)
+                ->where('branch_account', true)
+                ->orderBy('id')
+                ->first();
+
+            $userCreated = false;
+            $accountCreated = false;
+            $branchLinked = false;
+
+            if (! $branchUser) {
+                $branchUser = User::create([
+                    'name' => $branch->name,
+                    'last_name' => 'Branch',
+                    'email' => $this->makeSystemEmail($branch->name, 'branch'),
+                    'password' => Hash::make(Str::password(32)),
+                    'user_type' => 'branch',
+                    'role_id' => null,
+                    'branch_id' => (string) $branch->id,
+                    'status' => 1,
+                    'profile_picture' => null,
+                    'society_role' => null,
+                    'society_exco' => false,
+                    'date_added_as_exco' => null,
+                    'former_exco' => false,
+                    'date_removed_as_exco' => null,
+                    'user_level' => null,
+                    'branch_account' => true,
+                    'is_verified' => true,
+                    'signature' => null,
+                    'member_no' => null,
+                    'designation' => 'Branch Account',
+                    'former_designation' => null,
+                ]);
+
+                $userCreated = true;
+            }
+
+            if ((int) $branch->branch_user_id !== (int) $branchUser->id) {
+                $branch->update([
+                    'branch_user_id' => $branchUser->id,
+                ]);
+
+                $branchLinked = true;
+            }
+
+            $hasBranchSavingsAccount = SavingsAccount::query()
+                ->where('user_id', $branchUser->id)
+                ->where('is_branch_acount', 1)
+                ->exists();
+
+            if (! $hasBranchSavingsAccount) {
+                $this->createBranchSavingsAccount($branch, $branchUser);
+                $accountCreated = true;
+            }
+
+            return [
+                'branch' => $branch->fresh(['branchUser']),
+                'branch_user' => $branchUser->fresh(),
+                'user_created' => $userCreated,
+                'account_created' => $accountCreated,
+                'branch_linked' => $branchLinked,
+            ];
+        });
+    }
+
     public function ensureMemberAccounts(User $user): void
     {
         $this->createMemberAccounts($user, $user->name);
