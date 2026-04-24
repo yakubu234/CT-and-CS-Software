@@ -165,7 +165,20 @@
             margin-bottom: 0.25rem;
         }
 
+        .table-mobile-keep,
+        .table-mobile-keep * {
+            white-space: nowrap;
+        }
+
         @media (max-width: 991.98px) {
+            .content-wrapper > .content-header {
+                padding-top: 0.5rem;
+            }
+
+            .page-branch-banner {
+                padding: 0.85rem 0.9rem;
+            }
+
             .table-responsive > .table,
             .card-body.table-responsive > .table {
                 font-size: 0.92rem;
@@ -180,6 +193,59 @@
         }
 
         @media (max-width: 767.98px) {
+            .main-header .navbar-nav.ml-auto {
+                align-items: center;
+            }
+
+            .content-wrapper > .content-header {
+                padding-top: 0.35rem;
+            }
+
+            .content-header .row.mb-2 {
+                margin-bottom: 0 !important;
+            }
+
+            .content-header h1 {
+                font-size: 1.45rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .content-header .col-sm-6.text-sm-right {
+                text-align: left !important;
+            }
+
+            .content-wrapper .content {
+                padding-bottom: 1rem;
+            }
+
+            .container-fluid {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+
+            .card-body,
+            .card-header,
+            .card-footer {
+                padding-left: 0.85rem;
+                padding-right: 0.85rem;
+            }
+
+            .page-branch-banner {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 0.85rem;
+                margin-bottom: 0.85rem;
+            }
+
+            .page-branch-banner .btn {
+                width: 100%;
+            }
+
+            .current-branch-chip {
+                max-width: 210px;
+                font-size: 0.85rem;
+            }
+
             .table-responsive > .table,
             .card-body.table-responsive > .table {
                 font-size: 0.84rem;
@@ -190,6 +256,104 @@
             .card-body.table-responsive > .table th,
             .card-body.table-responsive > .table td {
                 padding: 0.45rem 0.35rem;
+            }
+
+            .table-responsive.mobile-card-ready {
+                overflow: visible;
+            }
+
+            .table-responsive.mobile-card-ready > .table,
+            .card-body.table-responsive.mobile-card-ready > .table {
+                table-layout: auto;
+                border-collapse: separate;
+                border-spacing: 0;
+                background: transparent;
+            }
+
+            .table-responsive.mobile-card-ready > .table thead,
+            .card-body.table-responsive.mobile-card-ready > .table thead {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody,
+            .table-responsive.mobile-card-ready > .table tr,
+            .table-responsive.mobile-card-ready > .table td,
+            .card-body.table-responsive.mobile-card-ready > .table tbody,
+            .card-body.table-responsive.mobile-card-ready > .table tr,
+            .card-body.table-responsive.mobile-card-ready > .table td {
+                display: block;
+                width: 100% !important;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody tr,
+            .card-body.table-responsive.mobile-card-ready > .table tbody tr {
+                margin-bottom: 0.9rem;
+                padding: 0.2rem 0;
+                border: 1px solid #dbe5f0;
+                border-radius: 0.9rem;
+                background: #fff;
+                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+                overflow: hidden;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td,
+            .card-body.table-responsive.mobile-card-ready > .table tbody td {
+                position: relative;
+                min-height: 3rem;
+                padding: 0.8rem 0.85rem 0.8rem 45%;
+                border: 0 !important;
+                border-bottom: 1px solid #eef2f7 !important;
+                text-align: left !important;
+                vertical-align: top;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td:last-child,
+            .card-body.table-responsive.mobile-card-ready > .table tbody td:last-child {
+                border-bottom: 0 !important;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td::before,
+            .card-body.table-responsive.mobile-card-ready > .table tbody td::before {
+                content: attr(data-label);
+                position: absolute;
+                top: 0.8rem;
+                left: 0.85rem;
+                width: calc(45% - 1rem);
+                font-size: 0.72rem;
+                font-weight: 700;
+                line-height: 1.3;
+                color: #475569;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td[data-label=""]::before,
+            .card-body.table-responsive.mobile-card-ready > .table tbody td[data-label=""]::before {
+                display: none;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td[data-label=""],
+            .card-body.table-responsive.mobile-card-ready > .table tbody td[data-label=""] {
+                padding-left: 0.85rem;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td .btn,
+            .card-body.table-responsive.mobile-card-ready > .table tbody td .btn {
+                width: auto;
+                max-width: 100%;
+            }
+
+            .table-responsive.mobile-card-ready > .table tbody td .badge,
+            .card-body.table-responsive.mobile-card-ready > .table tbody td .badge {
+                white-space: normal;
             }
         }
     </style>
@@ -358,10 +522,44 @@
             });
         }
 
+        function initializeResponsiveTables(scope) {
+            const root = scope || document;
+
+            root.querySelectorAll('.table-responsive > table:not(.table-mobile-keep), .card-body.table-responsive > table:not(.table-mobile-keep)').forEach((table) => {
+                const wrapper = table.closest('.table-responsive');
+
+                if (!wrapper) {
+                    return;
+                }
+
+                wrapper.classList.add('mobile-card-ready');
+
+                const headings = Array.from(table.querySelectorAll('thead th')).map((heading) => {
+                    return heading.textContent.replace(/\s+/g, ' ').trim();
+                });
+
+                table.querySelectorAll('tbody tr').forEach((row) => {
+                    const cells = Array.from(row.children).filter((cell) => cell.tagName === 'TD' || cell.tagName === 'TH');
+                    const isSingleSpanRow = cells.length === 1 && cells[0].hasAttribute('colspan');
+
+                    cells.forEach((cell, index) => {
+                        if (isSingleSpanRow) {
+                            cell.setAttribute('data-label', '');
+                            return;
+                        }
+
+                        cell.setAttribute('data-label', headings[index] || '');
+                    });
+                });
+            });
+        }
+
         window.initializeSelect2 = initializeSelect2;
+        window.initializeResponsiveTables = initializeResponsiveTables;
 
         $(function () {
             initializeSelect2(document);
+            initializeResponsiveTables(document);
 
             $(document).on('focus click', 'input[type="date"]', function () {
                 if (typeof this.showPicker === 'function') {

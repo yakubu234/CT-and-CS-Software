@@ -89,6 +89,11 @@ class BranchService
         $this->createMemberAccounts($user, $user->name);
     }
 
+    public function nextAccountNumberForProduct(SavingsProduct $product): string
+    {
+        return $this->generateAccountNumber($product);
+    }
+
     public function create(array $data): Branch
     {
         return DB::transaction(function () use ($data): Branch {
