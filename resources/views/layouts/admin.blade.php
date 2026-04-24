@@ -102,6 +102,7 @@
             justify-content: space-between;
             gap: 1rem;
             padding: 0.9rem 1rem;
+            margin-top: 1rem;
             margin-bottom: 1rem;
             border: 1px solid #dbe5f0;
             border-radius: 0.75rem;
@@ -110,6 +111,14 @@
 
         .page-branch-banner strong {
             display: block;
+            color: #0f172a;
+        }
+
+        .page-branch-banner-title {
+            margin: 0 0 0.35rem;
+            font-size: 1.65rem;
+            font-weight: 800;
+            line-height: 1.2;
             color: #0f172a;
         }
 
@@ -234,7 +243,13 @@
                 flex-direction: column;
                 align-items: stretch;
                 padding: 0.85rem;
+                margin-top: 0.85rem;
                 margin-bottom: 0.85rem;
+            }
+
+            .page-branch-banner-title {
+                font-size: 1.35rem;
+                margin-bottom: 0.5rem;
             }
 
             .page-branch-banner .btn {
@@ -439,22 +454,6 @@
     </aside>
 
     <div class="content-wrapper">
-        <section class="content-header">
-            <div class="container-fluid">
-                <div class="row mb-2">
-                    <div class="col-sm-6">
-                        <h1>@yield('page_title', 'Dashboard')</h1>
-                    </div>
-                    <div class="col-sm-6 text-sm-right">
-                        <a href="{{ route('branches.switch.index') }}" class="btn btn-outline-primary btn-sm mt-2 mt-sm-0">
-                            <i class="fas fa-code-branch mr-1"></i>
-                            Switch Branch
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <section class="content">
             <div class="container-fluid">
                 @if (session('status'))
@@ -468,6 +467,7 @@
 
                 <div class="page-branch-banner">
                     <div>
+                        <h1 class="page-branch-banner-title">@yield('page_title', 'Dashboard')</h1>
                         <strong>Current Branch: {{ $currentBranch?->name ?? 'No Active Branch Selected' }}</strong>
                         <span>
                             {{ $currentBranch?->prefix ? 'Prefix: ' . $currentBranch->prefix . ' · ' : '' }}
