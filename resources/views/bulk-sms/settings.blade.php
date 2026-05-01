@@ -252,7 +252,7 @@
                                         <div class="col-12">
                                             <div class="form-group mb-0">
                                                 <label for="test_message">Test Message</label>
-                                                <textarea name="test_message" id="test_message" rows="3" class="form-control" required>{{ old('test_message', 'Test SMS from Oreoluwapo CT&CS.') }}</textarea>
+                                                <textarea name="test_message" id="test_message" rows="3" class="form-control" required>{{ old('test_message', 'Test SMS from Oreoluwapo CT&CU.') }}</textarea>
                                             </div>
                                         </div>
                                     </div>

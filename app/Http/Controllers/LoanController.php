@@ -24,6 +24,7 @@ class LoanController extends Controller
         protected ActiveBranchService $activeBranchService,
         protected LoanService $loanService,
     ) {
+        $this->middleware('module:loans');
     }
 
     public function index(Request $request): View|RedirectResponse

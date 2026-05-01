@@ -21,36 +21,8 @@ class MemberBalanceReportService
         $membersQuery = $this->baseQuery($branch, $request, $startDate, $endDate)
             ->orderBy('display_name');
 
+        $summary = $this->aggregateSummary((clone $membersQuery)->reorder());
         $members = TableListing::paginate($membersQuery, $request);
-
-        $summary = DB::query()
-            ->fromSub((clone $membersQuery)->reorder()->toBase(), 'member_balances')
-            ->selectRaw('
-                COALESCE(SUM(loan_opening), 0) as loan_opening,
-                COALESCE(SUM(loan_current), 0) as loan_current,
-                COALESCE(SUM(savings_opening), 0) as savings_opening,
-                COALESCE(SUM(savings_current), 0) as savings_current,
-                COALESCE(SUM(shares_opening), 0) as shares_opening,
-                COALESCE(SUM(shares_current), 0) as shares_current,
-                COALESCE(SUM(auth_opening), 0) as auth_opening,
-                COALESCE(SUM(auth_current), 0) as auth_current,
-                COALESCE(SUM(deposit_opening), 0) as deposit_opening,
-                COALESCE(SUM(deposit_current), 0) as deposit_current
-            ')
-            ->first();
-
-        $summary ??= (object) [
-            'loan_opening' => 0,
-            'loan_current' => 0,
-            'savings_opening' => 0,
-            'savings_current' => 0,
-            'shares_opening' => 0,
-            'shares_current' => 0,
-            'auth_opening' => 0,
-            'auth_current' => 0,
-            'deposit_opening' => 0,
-            'deposit_current' => 0,
-        ];
 
         return [
             'members' => $members,
@@ -361,6 +333,38 @@ class MemberBalanceReportService
             'deposit_current' => round((float) $members->sum('deposit_current'), 2),
             'savings_opening' => round((float) $members->sum('savings_opening'), 2),
             'savings_current' => round((float) $members->sum('savings_current'), 2),
+        ];
+    }
+
+    protected function aggregateSummary(Builder $query): stdClass
+    {
+        $summary = DB::query()
+            ->fromSub($query->toBase(), 'member_balances')
+            ->selectRaw('
+                COALESCE(SUM(loan_opening), 0) as loan_opening,
+                COALESCE(SUM(loan_current), 0) as loan_current,
+                COALESCE(SUM(savings_opening), 0) as savings_opening,
+                COALESCE(SUM(savings_current), 0) as savings_current,
+                COALESCE(SUM(shares_opening), 0) as shares_opening,
+                COALESCE(SUM(shares_current), 0) as shares_current,
+                COALESCE(SUM(auth_opening), 0) as auth_opening,
+                COALESCE(SUM(auth_current), 0) as auth_current,
+                COALESCE(SUM(deposit_opening), 0) as deposit_opening,
+                COALESCE(SUM(deposit_current), 0) as deposit_current
+            ')
+            ->first();
+
+        return $summary ?? (object) [
+            'loan_opening' => 0,
+            'loan_current' => 0,
+            'savings_opening' => 0,
+            'savings_current' => 0,
+            'shares_opening' => 0,
+            'shares_current' => 0,
+            'auth_opening' => 0,
+            'auth_current' => 0,
+            'deposit_opening' => 0,
+            'deposit_current' => 0,
         ];
     }
 

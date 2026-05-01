@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'title' => 'Oreoluwapo CT&CS',
+    'title' => 'Oreoluwapo CT&CU',
     'title_prefix' => '',
     'title_postfix' => '',
 
@@ -68,7 +68,7 @@ return [
     'logo_img_class' => 'brand-image img-circle elevation-3',
     'logo_img_xl' => null,
     'logo_img_xl_class' => 'brand-image-xs',
-    'logo_img_alt' => 'Oreoluwapo CT&CS Logo',
+    'logo_img_alt' => 'Oreoluwapo CT&CU Logo',
 
     /*
     |--------------------------------------------------------------------------
@@ -87,7 +87,7 @@ return [
         'enabled' => false,
         'img' => [
             'path' => 'vendor/adminlte/dist/img/AdminLTELogo.png',
-            'alt' => 'Oreoluwapo CT&CS Auth Logo',
+            'alt' => 'Oreoluwapo CT&CU Auth Logo',
             'class' => '',
             'width' => 50,
             'height' => 50,
@@ -114,7 +114,7 @@ return [
         'mode' => 'fullscreen',
         'img' => [
             'path' => 'vendor/adminlte/dist/img/AdminLTELogo.png',
-            'alt' => 'Oreoluwapo CT&CS Preloader Image',
+            'alt' => 'Oreoluwapo CT&CU Preloader Image',
             'effect' => 'animation__shake',
             'width' => 60,
             'height' => 60,
@@ -304,28 +304,33 @@ return [
             'url' => 'dashboard',
             'icon' => 'fas fa-tachometer-alt',
             'active' => ['dashboard'],
+            'permission' => 'dashboard.view',
         ],
         [
             'text' => 'Accounts',
             'icon' => 'fas fa-landmark',
+            'permissions' => ['accounts.view', 'accounts.manage'],
             'submenu' => [
                 [
                     'text' => 'All accounts',
                     'url' => 'accounts',
                     'icon' => 'far fa-circle',
                     'active' => ['accounts', 'accounts/*'],
+                    'permissions' => ['accounts.view', 'accounts.manage'],
                 ],
                 [
                     'text' => 'Inactive accounts',
                     'url' => 'accounts/inactive',
                     'icon' => 'far fa-circle',
                     'active' => ['accounts/inactive'],
+                    'permissions' => ['accounts.view', 'accounts.manage'],
                 ],
                 [
                     'text' => 'Account types',
                     'url' => 'account-types',
                     'icon' => 'far fa-circle',
                     'active' => ['account-types', 'account-types/*'],
+                    'permissions' => ['accounts.view', 'accounts.manage'],
                 ],
             ],
         ],
@@ -334,40 +339,47 @@ return [
             'url' => 'branches/switch',
             'icon' => 'fas fa-code-branch',
             'active' => ['branches/switch'],
+            'permissions' => ['branches.view', 'branches.manage'],
         ],
         [
             'text' => 'Loans',
             'icon' => 'fas fa-folder-open',
+            'permissions' => ['loans.view', 'loans.manage'],
             'submenu' => [
                 [
                     'text' => 'All loans',
                     'url' => 'loans',
                     'icon' => 'fas fa-list',
                     'active' => ['loans', 'loans/*'],
+                    'permissions' => ['loans.view', 'loans.manage'],
                 ],
                 [
                     'text' => 'Pending loans',
                     'url' => 'loans/pending',
                     'icon' => 'fas fa-hourglass-half',
                     'active' => ['loans/pending'],
+                    'permissions' => ['loans.view', 'loans.manage'],
                 ],
                 [
                     'text' => 'Active loans',
                     'url' => 'loans/active',
                     'icon' => 'fas fa-bolt',
                     'active' => ['loans/active'],
+                    'permissions' => ['loans.view', 'loans.manage'],
                 ],
                 [
                     'text' => 'Declined loans',
                     'url' => 'loans/declined',
                     'icon' => 'fas fa-ban',
                     'active' => ['loans/declined'],
+                    'permissions' => ['loans.view', 'loans.manage'],
                 ],
                 [
                     'text' => 'Custom fields',
                     'url' => 'loans/custom-fields',
                     'icon' => 'fas fa-sliders-h',
                     'active' => ['loans/custom-fields'],
+                    'permissions' => ['loans.view', 'loans.manage'],
                 ],
             ],
         ],
@@ -376,46 +388,54 @@ return [
             'url' => 'loan-payments',
             'icon' => 'fas fa-receipt',
             'active' => ['loan-payments', 'loan-payments/*'],
+            'permissions' => ['loan-payments.view', 'loan-payments.manage'],
         ],
         [
             'text' => 'Branches',
             'url' => 'branches',
             'icon' => 'fas fa-building',
             'active' => ['branches', 'branches/*'],
+            'permissions' => ['branches.view', 'branches.manage'],
         ],
         [
             'text' => 'Income & Expenses',
             'icon' => 'fas fa-wallet',
+            'permissions' => ['income-expenses.view', 'income-expenses.manage'],
             'submenu' => [
                 [
                     'text' => 'All inc & exp',
                     'url' => 'income-expenses',
                     'icon' => 'far fa-circle',
                     'active' => ['income-expenses', 'income-expenses/*'],
+                    'permissions' => ['income-expenses.view', 'income-expenses.manage'],
                 ],
                 [
                     'text' => 'Expense category',
                     'url' => 'expense-categories',
                     'icon' => 'far fa-circle',
                     'active' => ['expense-categories', 'expense-categories/*'],
+                    'permissions' => ['income-expenses.view', 'income-expenses.manage'],
                 ],
             ],
         ],
         [
             'text' => 'Members',
             'icon' => 'fas fa-users',
+            'permissions' => ['members.view', 'members.manage'],
             'submenu' => [
                 [
                     'text' => 'View members',
                     'url' => 'members',
                     'icon' => 'far fa-circle',
                     'active' => ['members', 'members/*'],
+                    'permissions' => ['members.view', 'members.manage'],
                 ],
                 [
                     'text' => 'Custom fields',
                     'url' => 'members/custom-fields',
                     'icon' => 'far fa-circle',
                     'active' => ['members/custom-fields'],
+                    'permissions' => ['members.view', 'members.manage'],
                 ],
             ],
         ],
@@ -428,114 +448,140 @@ return [
         [
             'text' => 'Bulk sms',
             'icon' => 'fas fa-comments',
+            'permissions' => ['sms.view', 'sms.manage'],
             'submenu' => [
                 [
                     'text' => 'SMS Settings',
                     'url' => 'bulk-sms/settings',
                     'icon' => 'fas fa-cogs',
                     'active' => ['bulk-sms/settings'],
+                    'permissions' => ['sms.view', 'sms.manage'],
                 ],
                 [
                     'text' => 'SMS Templates',
                     'url' => 'bulk-sms/templates',
                     'icon' => 'fas fa-file-alt',
                     'active' => ['bulk-sms/templates', 'bulk-sms/templates/*'],
+                    'permissions' => ['sms.view', 'sms.manage'],
                 ],
                 [
                     'text' => 'SMS Campaigns',
                     'url' => 'bulk-sms/campaigns',
                     'icon' => 'fas fa-bullhorn',
                     'active' => ['bulk-sms/campaigns', 'bulk-sms/campaigns/*'],
+                    'permissions' => ['sms.view', 'sms.manage'],
                 ],
                 [
                     'text' => 'SMS Automations',
                     'url' => 'bulk-sms/automations',
                     'icon' => 'fas fa-magic',
                     'active' => ['bulk-sms/automations', 'bulk-sms/automations/*'],
+                    'permissions' => ['sms.view', 'sms.manage'],
                 ],
                 [
                     'text' => 'SMS Logs',
                     'url' => 'bulk-sms/logs',
                     'icon' => 'fas fa-history',
                     'active' => ['bulk-sms/logs', 'bulk-sms/logs/*'],
+                    'permissions' => ['sms.view', 'sms.manage'],
                 ],
             ],
         ],
         [
             'text' => 'Transaction',
             'icon' => 'fas fa-exchange-alt',
+            'permissions' => ['transactions.view', 'transactions.manage'],
             'submenu' => [
                 [
                     'text' => 'All transaction',
                     'url' => 'transactions',
                     'icon' => 'far fa-circle',
                     'active' => ['transactions', 'transactions/*'],
+                    'permissions' => ['transactions.view', 'transactions.manage'],
                 ],
                 [
                     'text' => 'Transaction Category',
                     'url' => 'transaction-categories',
                     'icon' => 'far fa-circle',
                     'active' => ['transaction-categories', 'transaction-categories/*'],
+                    'permissions' => ['transactions.view', 'transactions.manage'],
                 ],
             ],
         ],
         [
             'text' => 'Reports',
             'icon' => 'fas fa-chart-line',
+            'permissions' => ['reports.view', 'reports.manage'],
             'submenu' => [
                 [
                     'text' => 'Member balance',
                     'url' => 'reports/member-balance',
                     'icon' => 'far fa-circle',
                     'active' => ['reports/member-balance'],
+                    'permissions' => ['reports.view', 'reports.manage'],
                 ],
                 [
                     'text' => 'Loan Report',
                     'url' => 'reports/loan-report',
                     'icon' => 'far fa-circle',
                     'active' => ['reports/loan-report'],
+                    'permissions' => ['reports.view', 'reports.manage'],
                 ],
                 [
                     'text' => 'Loan Due Report',
                     'url' => 'reports/loan-due-report',
                     'icon' => 'far fa-circle',
                     'active' => ['reports/loan-due-report'],
+                    'permissions' => ['reports.view', 'reports.manage'],
                 ],
                 [
                     'text' => 'Soc. Ledger Report',
                     'url' => 'reports/soc-ledger-report',
                     'icon' => 'far fa-circle',
                     'active' => ['reports/soc-ledger-report'],
+                    'permissions' => ['reports.view', 'reports.manage'],
                 ],
                 [
                     'text' => 'Inc & Expense Report',
                     'url' => 'reports/income-expense-report',
                     'icon' => 'far fa-circle',
                     'active' => ['reports/income-expense-report'],
+                    'permissions' => ['reports.view', 'reports.manage'],
+                ],
+                [
+                    'text' => 'Interest Report',
+                    'url' => 'reports/interest-report',
+                    'icon' => 'far fa-circle',
+                    'active' => ['reports/interest-report'],
+                    'permissions' => ['reports.view', 'reports.manage'],
                 ],
                 [
                     'text' => 'Society Report',
                     'url' => 'reports/society-report',
                     'icon' => 'far fa-circle',
                     'active' => ['reports/society-report'],
+                    'permissions' => ['reports.view', 'reports.manage'],
                 ],
             ],
         ],
         [
             'text' => 'User management',
             'icon' => 'fas fa-user-shield',
+            'permissions' => ['users.view', 'users.manage', 'roles.view', 'roles.manage'],
             'submenu' => [
                 [
                     'text' => 'All user',
                     'url' => 'users',
                     'icon' => 'far fa-circle',
                     'active' => ['users', 'users/*'],
+                    'permissions' => ['users.view', 'users.manage'],
                 ],
                 [
                     'text' => 'User roles',
                     'url' => 'user-roles',
                     'icon' => 'far fa-circle',
                     'active' => ['user-roles', 'user-roles/*'],
+                    'permissions' => ['roles.view', 'roles.manage'],
                 ],
             ],
         ],

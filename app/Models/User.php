@@ -102,6 +102,11 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
     public function savingsAccounts(): HasMany
     {
         return $this->hasMany(SavingsAccount::class);
@@ -130,5 +135,72 @@ class User extends Authenticatable
     public function smsMessages(): HasMany
     {
         return $this->hasMany(SmsMessage::class);
+    }
+
+    public function isAdminSideUser(): bool
+    {
+        return $this->user_type !== 'customer' && ! $this->branch_account;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->user_level === 'super_admin';
+    }
+
+    public function usesLegacyAdminAccess(): bool
+    {
+        return $this->isAdminSideUser() && ! $this->isSuperAdmin() && ! $this->role_id;
+    }
+
+    public function permissions(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return \App\Support\PermissionRegistry::all();
+        }
+
+        if ($this->usesLegacyAdminAccess()) {
+            return \App\Support\PermissionRegistry::all();
+        }
+
+        $permissions = $this->role?->permissions;
+
+        return is_array($permissions) ? array_values(array_unique($permissions)) : [];
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return in_array($permission, $this->permissions(), true);
+    }
+
+    public function hasAnyPermission(array $permissions): bool
+    {
+        if ($this->isSuperAdmin() || $this->usesLegacyAdminAccess()) {
+            return true;
+        }
+
+        foreach ($permissions as $permission) {
+            if ($this->hasPermission($permission)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function canAccessMenuItem(array $item): bool
+    {
+        $submenu = collect($item['submenu'] ?? []);
+
+        if ($submenu->isNotEmpty()) {
+            return $submenu->contains(fn (array $child) => $this->canAccessMenuItem($child));
+        }
+
+        $requiredPermissions = array_filter((array) ($item['permissions'] ?? ($item['permission'] ?? [])));
+
+        if ($requiredPermissions === []) {
+            return true;
+        }
+
+        return $this->hasAnyPermission($requiredPermissions);
     }
 }

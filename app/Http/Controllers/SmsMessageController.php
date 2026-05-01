@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 
 class SmsMessageController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:sms');
+    }
+
     public function index(Request $request): View
     {
         $messages = TableListing::paginate(

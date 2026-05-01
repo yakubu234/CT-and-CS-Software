@@ -19,15 +19,15 @@ return [
             'test_auto_detect' => true,
         ],
         'properties' => [
-            'creator' => 'Oreoluwapo CT&CS',
-            'lastModifiedBy' => 'Oreoluwapo CT&CS',
+            'creator' => 'Oreoluwapo CT&CU',
+            'lastModifiedBy' => 'Oreoluwapo CT&CU',
             'title' => '',
             'description' => '',
             'subject' => '',
             'keywords' => '',
             'category' => '',
             'manager' => '',
-            'company' => 'Oreoluwapo CT&CS',
+            'company' => 'Oreoluwapo CT&CU',
         ],
     ],
 

@@ -14,6 +14,7 @@ class DashboardController extends Controller
         protected ActiveBranchService $activeBranchService,
         protected DashboardService $dashboardService,
     ) {
+        $this->middleware('module:dashboard');
     }
 
     public function __invoke(Request $request): View|RedirectResponse

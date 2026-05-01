@@ -13,6 +13,12 @@ class BranchSwitchController extends Controller
     public function __construct(
         protected ActiveBranchService $activeBranchService,
     ) {
+        $this->middleware('module:branches')->only('index');
+        $this->middleware(function ($request, $next) {
+            abort_unless($request->user()?->hasAnyPermission(['branches.view', 'branches.manage']), 403);
+
+            return $next($request);
+        })->only('store');
     }
 
     public function index(Request $request): View

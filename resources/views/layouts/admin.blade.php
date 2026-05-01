@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Admin Panel') | Oreoluwapo CT&CS</title>
+    <title>@yield('title', 'Admin Panel') | Oreoluwapo CT&CU</title>
     <link rel="stylesheet" href="{{ asset('vendor/adminlte/plugins/fontawesome-free/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/adminlte/dist/css/adminlte.min.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
@@ -419,7 +419,7 @@
 
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <a href="{{ route('dashboard') }}" class="brand-link">
-            <img src="{{ asset('vendor/adminlte/dist/img/AdminLTELogo.png') }}" alt="Oreoluwapo CT&CS" class="brand-image img-circle elevation-3" style="opacity: .8">
+            <img src="{{ asset('vendor/adminlte/dist/img/AdminLTELogo.png') }}" alt="Oreoluwapo CT&CU" class="brand-image img-circle elevation-3" style="opacity: .8">
             <span class="brand-text font-weight-light">Oreoluwapo CT&amp;CS</span>
         </a>
 

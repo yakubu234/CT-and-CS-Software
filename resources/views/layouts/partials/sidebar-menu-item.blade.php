@@ -1,9 +1,18 @@
 @php
+    $viewer = auth()->user();
+
+    if ($viewer && ! $viewer->canAccessMenuItem($item)) {
+        return;
+    }
+
     $hasSubmenu = ! empty($item['submenu']);
+    $visibleSubmenu = $hasSubmenu
+        ? collect($item['submenu'])->filter(fn (array $child) => ! $viewer || $viewer->canAccessMenuItem($child))->values()->all()
+        : [];
     $patterns = (array) ($item['active'] ?? []);
     $isDirectActive = collect($patterns)->contains(fn ($pattern) => request()->is($pattern));
     $isChildActive = $hasSubmenu
-        ? collect($item['submenu'])->contains(function (array $child): bool {
+        ? collect($visibleSubmenu)->contains(function (array $child): bool {
             $childPatterns = (array) ($child['active'] ?? []);
             $childActive = collect($childPatterns)->contains(fn ($pattern) => request()->is($pattern));
 
@@ -41,7 +50,7 @@
 
         @if ($hasSubmenu)
             <ul class="nav nav-treeview">
-                @foreach ($item['submenu'] as $submenuItem)
+                @foreach ($visibleSubmenu as $submenuItem)
                     @include('layouts.partials.sidebar-menu-item', ['item' => $submenuItem])
                 @endforeach
             </ul>

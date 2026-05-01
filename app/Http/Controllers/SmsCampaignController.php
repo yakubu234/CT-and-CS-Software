@@ -18,6 +18,7 @@ class SmsCampaignController extends Controller
         protected ActiveBranchService $activeBranchService,
         protected SmsCampaignService $campaignService,
     ) {
+        $this->middleware('module:sms');
     }
 
     public function index(Request $request): View

@@ -12,6 +12,11 @@ use Illuminate\Http\Request;
 
 class LoanCustomFieldController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:loans');
+    }
+
     public function index(Request $request): View
     {
         $fields = TableListing::paginate(

@@ -14,6 +14,7 @@ class SmsSettingsController extends Controller
         protected SmsSettingsService $settings,
         protected SmsProviderManager $providerManager,
     ) {
+        $this->middleware('module:sms');
     }
 
     public function edit(): View

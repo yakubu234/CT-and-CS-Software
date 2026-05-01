@@ -212,7 +212,7 @@ class SmsCampaignService
             'statement_compact' => $statement['compact'],
             'statement_total_balance' => $statement['total'],
             'month_label' => now()->format('F Y'),
-            'society_name' => 'Oreoluwapo CT&CS',
+            'society_name' => 'Oreoluwapo CT&CU',
             'unsubscribe_code' => Str::upper(Str::random(6)),
         ];
     }

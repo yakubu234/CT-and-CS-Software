@@ -12,6 +12,11 @@ use Illuminate\Http\Request;
 
 class TransactionCategoryController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:transactions');
+    }
+
     public function index(Request $request): View
     {
         $categories = TableListing::paginate(

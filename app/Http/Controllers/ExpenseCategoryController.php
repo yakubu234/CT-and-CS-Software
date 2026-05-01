@@ -12,6 +12,11 @@ use Illuminate\Http\Request;
 
 class ExpenseCategoryController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:income-expenses');
+    }
+
     public function index(Request $request): View
     {
         $categories = TableListing::paginate(

@@ -66,7 +66,7 @@ class SmsAutomationService
                     'account_number' => $transaction->account?->account_number,
                     'account_type' => $transaction->account?->product?->type,
                     'current_balance' => number_format((float) data_get($transaction->transaction_details, 'balance_after', 0), 2),
-                    'society_name' => 'Oreoluwapo CT&CS',
+                    'society_name' => 'Oreoluwapo CT&CU',
                 ]),
                 $transaction,
                 'automation:' . $rule->id . ':transaction:' . $transaction->id
@@ -108,7 +108,7 @@ class SmsAutomationService
                     'loan_amount' => number_format((float) $detail->applied_amount, 2),
                     'release_date' => optional($detail->release_date)->format('d M Y'),
                     'due_date' => optional($detail->due_date)->format('d M Y'),
-                    'society_name' => 'Oreoluwapo CT&CS',
+                    'society_name' => 'Oreoluwapo CT&CU',
                 ]),
                 $detail,
                 'automation:' . $rule->id . ':loan:' . $detail->id
@@ -183,7 +183,7 @@ class SmsAutomationService
                     'member_no' => $user->detail?->member_no ?: $user->member_no,
                     'branch_name' => $user->branch?->name,
                     'birth_day' => optional($user->detail?->date_of_birth)->format('d M'),
-                    'society_name' => 'Oreoluwapo CT&CS',
+                    'society_name' => 'Oreoluwapo CT&CU',
                 ]),
                 $user,
                 $referenceKey
@@ -241,7 +241,7 @@ class SmsAutomationService
                     'statement_summary' => $statementSummary['full'],
                     'statement_compact' => $statementSummary['compact'],
                     'statement_total_balance' => $statementSummary['total'],
-                    'society_name' => 'Oreoluwapo CT&CS',
+                    'society_name' => 'Oreoluwapo CT&CU',
                 ]),
                 $user,
                 $referenceKey

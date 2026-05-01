@@ -12,6 +12,11 @@ use Illuminate\Http\Request;
 
 class MemberCustomFieldController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:members');
+    }
+
     public function index(Request $request): View
     {
         $fields = TableListing::paginate(

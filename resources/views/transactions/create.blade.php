@@ -649,6 +649,9 @@
                 `;
 
                 wrapper.appendChild(card);
+                if (typeof window.initializeSelect2 === 'function') {
+                    window.initializeSelect2(card);
+                }
                 bindEntryEvents(card);
                 refreshAccountOptions();
                 updateEntryPreview(card);
@@ -669,12 +672,22 @@
                         accountSelect.value = selectedValue;
                     }
 
+                    if (window.jQuery && window.jQuery(accountSelect).hasClass('select2-hidden-accessible')) {
+                        window.jQuery(accountSelect).trigger('change.select2');
+                    }
+
                     updateEntryPreview(entryCard);
                 });
                 updateSummary();
             };
 
             memberSelect.addEventListener('change', refreshAccountOptions);
+            memberSelect.addEventListener('input', refreshAccountOptions);
+
+            if (window.jQuery) {
+                window.jQuery(memberSelect).on('select2:select select2:clear', refreshAccountOptions);
+            }
+
             addEntryBtn.addEventListener('click', () => {
                 if (wrapper.querySelectorAll('.transaction-entry-card').length >= maxEntries) return;
                 renderEntry({ dr_cr: 'cr' });

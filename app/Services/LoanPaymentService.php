@@ -96,7 +96,7 @@ class LoanPaymentService
     public function suggestedInterest(Loan $loan, float $interestRate, ?string $paidAt = null, ?LoanPayment $excludePayment = null): array
     {
         $context = $this->repaymentContext($loan, $paidAt, $excludePayment);
-        $currentInterest = round($context['current_balance'] * ($interestRate / 100), 2);
+        $currentInterest = round($context['current_balance'] * $interestRate, 2);
         $totalSuggested = round($context['pending_carry_forward_amount'] + $currentInterest, 2);
 
         return [
@@ -420,6 +420,10 @@ class LoanPaymentService
         $principalApplied = $enteredPrincipal;
         $interestExpectedTotal = $interestMeta['total_interest_due'];
         $interestApplied = min($enteredInterest, $interestExpectedTotal);
+
+        if ($enteredInterest > 0 && $interestExpectedTotal <= 0) {
+            throw new RuntimeException('Interest to pay now can only be entered when an interest rate is set or there is unpaid carried-forward interest.');
+        }
 
         if ($enteredInterest > $interestExpectedTotal) {
             $principalApplied += round($enteredInterest - $interestExpectedTotal, 2);

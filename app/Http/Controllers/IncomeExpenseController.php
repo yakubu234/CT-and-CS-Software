@@ -21,6 +21,7 @@ class IncomeExpenseController extends Controller
         protected ActiveBranchService $activeBranchService,
         protected IncomeExpenseService $incomeExpenseService,
     ) {
+        $this->middleware('module:income-expenses');
     }
 
     public function index(Request $request): View|RedirectResponse

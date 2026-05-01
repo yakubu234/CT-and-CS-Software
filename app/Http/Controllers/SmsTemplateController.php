@@ -11,6 +11,11 @@ use Illuminate\Support\Str;
 
 class SmsTemplateController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:sms');
+    }
+
     public function index(Request $request): View
     {
         $templates = TableListing::paginate(

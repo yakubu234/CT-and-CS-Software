@@ -15,6 +15,7 @@ class SmsAutomationController extends Controller
     public function __construct(
         protected ActiveBranchService $activeBranchService,
     ) {
+        $this->middleware('module:sms');
     }
 
     public function index(Request $request): View

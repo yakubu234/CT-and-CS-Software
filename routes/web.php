@@ -21,6 +21,8 @@ use App\Http\Controllers\SmsSettingsController;
 use App\Http\Controllers\SmsTemplateController;
 use App\Http\Controllers\TransactionCategoryController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
@@ -145,10 +147,27 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/member-balance', [ReportController::class, 'memberBalance'])->name('reports.member-balance');
     Route::get('/reports/member-balance/export', [ReportController::class, 'exportMemberBalance'])->name('reports.member-balance.export');
     Route::get('/reports/loan-report', [ReportController::class, 'loanReport'])->name('reports.loan-report');
+    Route::get('/reports/loan-report/export', [ReportController::class, 'exportLoanReport'])->name('reports.loan-report.export');
     Route::get('/reports/loan-due-report', [ReportController::class, 'loanDueReport'])->name('reports.loan-due-report');
+    Route::get('/reports/loan-due-report/export', [ReportController::class, 'exportLoanDueReport'])->name('reports.loan-due-report.export');
     Route::get('/reports/soc-ledger-report', [ReportController::class, 'societyLedgerReport'])->name('reports.soc-ledger-report');
     Route::get('/reports/income-expense-report', [ReportController::class, 'incomeExpenseReport'])->name('reports.income-expense-report');
+    Route::get('/reports/income-expense-report/export', [ReportController::class, 'exportIncomeExpenseReport'])->name('reports.income-expense-report.export');
     Route::get('/reports/society-report', [ReportController::class, 'societyReport'])->name('reports.society-report');
+    Route::get('/reports/interest-report', [ReportController::class, 'interestReport'])->name('reports.interest-report');
+    Route::get('/reports/interest-report/export', [ReportController::class, 'exportInterestReport'])->name('reports.interest-report.export');
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::get('/user-roles', [RoleController::class, 'index'])->name('user-roles.index');
+    Route::get('/user-roles/create', [RoleController::class, 'create'])->name('user-roles.create');
+    Route::post('/user-roles', [RoleController::class, 'store'])->name('user-roles.store');
+    Route::get('/user-roles/{role}/edit', [RoleController::class, 'edit'])->name('user-roles.edit');
+    Route::put('/user-roles/{role}', [RoleController::class, 'update'])->name('user-roles.update');
+    Route::delete('/user-roles/{role}', [RoleController::class, 'destroy'])->name('user-roles.destroy');
 
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

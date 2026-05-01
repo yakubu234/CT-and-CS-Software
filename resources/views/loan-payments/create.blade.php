@@ -211,7 +211,7 @@
                     <div class="repayment-inline-note">
                         <i class="fas fa-circle-info"></i>
                         <div>
-                            Use the interest rate box for a quick percentage preview. The schedule notice below is guidance only and does not stop you from collecting interest on another date.
+                            Use the interest rate box for a quick interest preview. Enter the rate as a decimal, such as 0.01 for 1%. The schedule notice below is guidance only and does not stop you from collecting interest on another date.
                         </div>
                     </div>
 
@@ -245,8 +245,9 @@
                             @enderror
                         </div>
                         <div class="col-lg-3 mb-3">
-                            <label for="interest_rate">Interest Rate (%)</label>
+                            <label for="interest_rate">Interest Rate</label>
                             <input type="number" min="0" step="0.01" name="interest_rate" id="interest_rate" class="form-control @error('interest_rate') is-invalid @enderror" value="{{ old('interest_rate') }}">
+                            <small class="form-text text-muted">Enter the rate as a decimal, for example 0.01 for 1%.</small>
                             @error('interest_rate')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -254,6 +255,9 @@
                         <div class="col-lg-3 mb-3">
                             <label for="interest_paid">Interest to Pay Now</label>
                             <input type="number" min="0" step="0.01" name="interest_paid" id="interest_paid" class="form-control @error('interest_paid') is-invalid @enderror" value="{{ old('interest_paid') }}">
+                            <small class="form-text text-muted" id="interest-paid-helper">
+                                This field becomes available when you enter an interest rate or the loan has unpaid carried-forward interest.
+                            </small>
                             @error('interest_paid')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -335,6 +339,7 @@
             const projectedBalanceNode = document.getElementById('projected-balance');
             const interestBreakdownNode = document.getElementById('interest-breakdown');
             const dueCycleNoticeNode = document.getElementById('due-cycle-notice');
+            const interestPaidHelper = document.getElementById('interest-paid-helper');
             const carryForwardNoticeNode = document.getElementById('carry-forward-notice');
             const carryForwardListNode = document.getElementById('carry-forward-list');
             const carryForwardToggleWrap = document.getElementById('carry-forward-toggle-wrap');
@@ -349,6 +354,25 @@
             const currentLoan = () => loans[loanSelect.value] || null;
 
             const parseDate = (value) => value ? new Date(`${value}T00:00:00`) : null;
+
+            const syncInterestPaidAvailability = (loan, interestRate) => {
+                const hasCarryForward = Boolean(loan && Number(loan.carry_forward_total || 0) > 0);
+                const hasInterestRate = Number(interestRate || 0) > 0;
+                const canEnterInterest = hasCarryForward || hasInterestRate;
+
+                interestPaidInput.disabled = !canEnterInterest;
+
+                if (!canEnterInterest) {
+                    interestPaidInput.value = '';
+                    interestPaidHelper.textContent = 'Interest to pay now is disabled until you enter an interest rate or select a loan with unpaid carried-forward interest.';
+                } else if (hasCarryForward && !hasInterestRate) {
+                    interestPaidHelper.textContent = 'Interest to pay now is enabled because this loan has unpaid carried-forward interest.';
+                } else {
+                    interestPaidHelper.textContent = 'Interest to pay now is enabled for this repayment.';
+                }
+
+                return canEnterInterest;
+            };
 
             const isDueCycle = (loan, paidAt) => {
                 const releaseDate = parseDate(loan.release_date);
@@ -396,7 +420,8 @@
                 const paidAt = paidAtInput.value;
                 const repaymentAmount = Number(repaymentInput.value || 0);
                 const interestRate = Number(interestRateInput.value || 0);
-                const interestPaid = Number(interestPaidInput.value || 0);
+                const canEnterInterest = syncInterestPaidAvailability(loan, interestRate);
+                const interestPaid = canEnterInterest ? Number(interestPaidInput.value || 0) : 0;
 
                 if (!loan) {
                     amountOwedNode.textContent = formatMoney(0);
@@ -410,7 +435,7 @@
                 }
 
                 const cycle = isDueCycle(loan, paidAt);
-                const currentInterestDue = loan.balance * (interestRate / 100);
+                const currentInterestDue = loan.balance * interestRate;
                 const suggestedInterest = loan.carry_forward_total + currentInterestDue;
                 const appliedInterest = Math.min(interestPaid, suggestedInterest);
                 const excessInterest = Math.max(interestPaid - suggestedInterest, 0);
@@ -424,7 +449,7 @@
                 interestBreakdownNode.innerHTML = `
                     <strong>Interest breakdown:</strong>
                     Current balance ${formatMoney(loan.balance)}
-                    × rate ${interestRate.toFixed(2)}%
+                    × rate ${interestRate.toFixed(4)}
                     = ${formatMoney(currentInterestDue)}
                     ${loan.carry_forward_total > 0 ? `<br>Carried-forward interest: ${formatMoney(loan.carry_forward_total)}` : ''}
                     <br><strong>Total suggested interest:</strong> ${formatMoney(suggestedInterest)}.

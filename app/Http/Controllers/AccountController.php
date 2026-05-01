@@ -16,6 +16,7 @@ class AccountController extends Controller
     public function __construct(
         protected ActiveBranchService $activeBranchService,
     ) {
+        $this->middleware('module:accounts');
     }
 
     public function index(Request $request): View|RedirectResponse

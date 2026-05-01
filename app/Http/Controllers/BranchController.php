@@ -6,6 +6,7 @@ use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Branch;
 use App\Models\Designation;
+use App\Services\BranchFinanceSummaryService;
 use App\Services\BranchService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
@@ -15,8 +16,10 @@ use Illuminate\Http\Request;
 class BranchController extends Controller
 {
     public function __construct(
+        protected BranchFinanceSummaryService $branchFinanceSummaryService,
         protected BranchService $branchService,
     ) {
+        $this->middleware('module:branches');
     }
 
     public function index(Request $request): View
@@ -61,6 +64,7 @@ class BranchController extends Controller
     {
         return view('branches.show', [
             'branch' => $branch->load(['branchUser.savingsAccounts', 'excos', 'formerExcos']),
+            'financeSummary' => $this->branchFinanceSummaryService->buildMonthlySummary($branch),
         ]);
     }
 

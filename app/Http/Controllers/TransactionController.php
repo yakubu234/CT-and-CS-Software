@@ -21,6 +21,7 @@ class TransactionController extends Controller
         protected ActiveBranchService $activeBranchService,
         protected TransactionService $transactionService,
     ) {
+        $this->middleware('module:transactions');
     }
 
     public function index(Request $request): View|RedirectResponse

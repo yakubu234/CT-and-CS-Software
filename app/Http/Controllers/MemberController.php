@@ -22,6 +22,7 @@ class MemberController extends Controller
         protected ActiveBranchService $activeBranchService,
         protected MemberService $memberService,
     ) {
+        $this->middleware('module:members');
     }
 
     public function index(Request $request): View|RedirectResponse

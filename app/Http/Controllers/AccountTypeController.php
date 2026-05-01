@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\DB;
 
 class AccountTypeController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('module:accounts');
+    }
+
     public function index(Request $request): View
     {
         $products = TableListing::paginate(
