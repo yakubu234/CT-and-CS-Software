@@ -12,7 +12,7 @@
 <body class="hold-transition login-page">
 <div class="login-box">
     <div class="login-logo">
-        <a href="#"><b>Oreoluwapo CT&amp;CS</b> Admin</a>
+        <a href="#"><b>Oreoluwapo CT &amp; CU</b> Admin</a>
     </div>
 
     <div class="card card-outline card-primary">
@@ -74,7 +74,7 @@
             </form>
 
             <div class="alert alert-light border mt-4 mb-0">
-                <strong>Welcome:</strong> use your staff account to continue into the Oreoluwapo CT&amp;CS operations panel.
+                <strong>Welcome:</strong> use your staff account to continue into the Oreoluwapo CT &amp; CU operations panel.
             </div>
         </div>
     </div>
