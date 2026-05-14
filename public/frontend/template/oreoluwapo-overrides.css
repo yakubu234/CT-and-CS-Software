@@ -1,0 +1,616 @@
+body {
+    color: #5e6676;
+}
+
+.temkuri-header-top {
+    background: #09092d;
+}
+
+.top-address p span,
+.top-address p a,
+.top-right-menu ul.social-icons li a,
+.top-welcomet p span,
+.top-welcomet p a,
+.top-welcome p span,
+.top-welcome p a,
+.top-welcome p {
+    font-size: 14px;
+}
+
+.temkuri_nav_area {
+    box-shadow: 0 18px 40px rgba(10, 16, 64, 0.08);
+}
+
+.temkuri-main-menu .logo a img,
+.temkuri-main-menu .logo img {
+    width: 88px;
+    max-width: 88px;
+    height: 88px;
+    object-fit: contain;
+}
+
+.mobile_menu_logo img {
+    width: 72px;
+    max-width: 72px;
+    height: 72px;
+    object-fit: contain;
+}
+
+.footer-middle .temkuri-description-area > a img,
+.temkuri-description-area > a img {
+    width: 120px;
+    max-width: 120px;
+    height: 120px;
+    object-fit: contain;
+}
+
+.temkuri_menu > ul > li > a {
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.temkuri_menu > ul > li.current > a,
+.temkuri_menu > ul > li > a:hover,
+.temkuri_nav_area.prefix .temkuri_menu > ul > li > a:hover,
+.temkuri_menu ul .sub-menu li:hover > a,
+.temkuri_menu ul .sub-menu .sub-menu li:hover > a {
+    color: #d5a117;
+}
+
+a.dtbtn,
+.witr_btn,
+.slick-dots li.slick-active button,
+.mean-container .mean-bar,
+.mean-container .mean-nav,
+.top-right-menu .social-icons li a:hover,
+.top-right-menu .social-icons li a i:hover,
+.top-welcome p a:hover,
+.defaultsearch button,
+.progress-bar {
+    background: #d5a117;
+}
+
+a.dtbtn:hover,
+.witr_btn:hover,
+.defaultsearch button:hover,
+.swiper-button-prev:hover,
+.swiper-button-next:hover {
+    background: #09092d;
+}
+
+.witr_swiper_content h2 span,
+.witr_swiper_content h3 span,
+.witr_section_title_inner h2,
+.witr_feature_btn2 a,
+.witr_number_pslide h4,
+.witr_pslide3 .witr_pslide_custom a span,
+.witr_single_counter .witr_counter_number_inn h3,
+.witr_single_counter .witr_counter_number_inn span,
+.witr_blog_con span i,
+.busi_singleBlog:hover h2 a,
+.footer-middle .widget ul li a:hover,
+.footer-sociala-icon i,
+.copy-right-text a,
+.footer-menu ul li a:hover {
+    color: #d5a117;
+}
+
+.witr_swiper_area .swiper-pagination-progressbar .swiper-pagination-progressbar-fill,
+.witr_swiper_area .swiper-scrollbar-drag {
+    background: #d5a117;
+}
+
+.txbdslider::before {
+    background: rgba(4, 7, 35, 0.5);
+}
+
+.txbdsinner {
+    width: 78%;
+}
+
+.witr_swiper_content h2,
+.witr_swiper_content h3 {
+    font-size: 68px;
+    line-height: 1.05;
+}
+
+.witr_swiper_content p {
+    color: #ffffff;
+    max-width: 620px;
+}
+
+.witr_swiper_content .witr_btn.active2 {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.witr_swiper_content .witr_btn.active2:hover {
+    border-color: #09092d;
+}
+
+.temkuri_features_area {
+    margin-top: -70px;
+    position: relative;
+    z-index: 5;
+}
+
+.features_bg {
+    background: #ffffff;
+    box-shadow: 0 22px 55px rgba(10, 16, 64, 0.12);
+    border-radius: 12px;
+}
+
+.em-service2.sleft.all_color_service {
+    background: transparent;
+}
+
+.oreo-section {
+    padding: 100px 0;
+}
+
+.oreo-surface {
+    background: #f5f7fb;
+}
+
+.oreo-about-image,
+.oreo-dark-card,
+.oreo-founder-card,
+.oreo-news-card,
+.oreo-contact-panel,
+.oreo-core-card {
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.oreo-about-image img,
+.oreo-core-card img,
+.oreo-founder-card img,
+.oreo-news-card img {
+    width: 100%;
+    display: block;
+}
+
+.oreo-dark-card {
+    height: 100%;
+    padding: 44px 38px;
+    color: #ffffff;
+    background: linear-gradient(rgba(9, 9, 45, 0.92), rgba(9, 9, 45, 0.92)),
+        url('../images/background/bg-image-9.jpg') center/cover no-repeat;
+    box-shadow: 0 20px 45px rgba(9, 9, 45, 0.22);
+}
+
+.oreo-dark-card h3,
+.oreo-dark-card h4,
+.oreo-counter-card h3,
+.oreo-counter-card h4 {
+    color: #ffffff;
+}
+
+.oreo-dark-card p,
+.oreo-dark-card li {
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.oreo-core-card {
+    background: #ffffff;
+    padding: 28px;
+    box-shadow: 0 18px 45px rgba(10, 16, 64, 0.08);
+}
+
+.oreo-mission-copy {
+    padding-right: 30px;
+}
+
+.oreo-founders {
+    margin-top: 45px;
+}
+
+.oreo-founder-card {
+    background: #ffffff;
+    box-shadow: 0 16px 35px rgba(10, 16, 64, 0.08);
+    margin-bottom: 30px;
+}
+
+.oreo-founder-card img {
+    height: 340px;
+    object-fit: cover;
+}
+
+.oreo-founder-content {
+    padding: 26px 24px 28px;
+}
+
+.oreo-founder-content h4 {
+    margin-bottom: 8px;
+}
+
+.oreo-founder-role {
+    color: #d5a117;
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+.oreo-counter-wrap {
+    background: linear-gradient(rgba(9, 9, 45, 0.88), rgba(9, 9, 45, 0.88)),
+        url('../images/background/IMG_1709-Background.jpeg') center/cover no-repeat;
+}
+
+.oreo-counter-card {
+    padding: 28px 22px;
+    text-align: center;
+}
+
+.oreo-counter-card img {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 18px;
+}
+
+.oreo-counter-card h3 {
+    font-size: 56px;
+    margin-bottom: 10px;
+}
+
+.oreo-counter-card h4 {
+    font-size: 24px;
+}
+
+.oreo-news-card {
+    background: #ffffff;
+    box-shadow: 0 16px 35px rgba(10, 16, 64, 0.08);
+    height: 100%;
+}
+
+.oreo-news-card img {
+    height: 220px;
+    object-fit: cover;
+}
+
+.oreo-news-content {
+    padding: 24px;
+}
+
+.oreo-news-meta {
+    color: #8a8ea0;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.oreo-news-content h4 {
+    font-size: 26px;
+    line-height: 1.25;
+}
+
+.oreo-contact-panel {
+    background: linear-gradient(rgba(7, 17, 77, 0.88), rgba(7, 17, 77, 0.88)),
+        url('../images/banner-contactus.jpeg') center/cover no-repeat;
+    padding: 48px 42px;
+}
+
+.oreo-contact-panel h3,
+.oreo-contact-panel p,
+.oreo-contact-panel li,
+.oreo-contact-panel a {
+    color: #ffffff;
+}
+
+.oreo-why-card ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.oreo-why-card li {
+    margin-bottom: 10px;
+}
+
+.oreo-contact-list {
+    list-style: none;
+    margin: 25px 0 0;
+    padding: 0;
+}
+
+.oreo-contact-list li {
+    margin-bottom: 14px;
+}
+
+.footer-middle {
+    background: #09092d;
+}
+
+.footer-bottom {
+    background: #060621;
+}
+
+.copy-right-text p,
+.footer-menu ul li a,
+.footer-middle p,
+.footer-middle a {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.widget-title,
+.footer-middle h2 {
+    color: #ffffff;
+}
+
+.social-icons a,
+.footer-sociala-icon i {
+    transition: 0.3s;
+}
+
+.social-icons a:hover {
+    color: #d5a117;
+}
+
+.oreo-page-hero {
+    padding: 150px 0 95px;
+    background: linear-gradient(rgba(9, 9, 45, 0.86), rgba(9, 9, 45, 0.86)),
+        url('../images/slider/IMG_1711.jpeg') center/cover no-repeat;
+}
+
+.oreo-page-hero--article {
+    background-image: linear-gradient(rgba(9, 9, 45, 0.86), rgba(9, 9, 45, 0.86)),
+        url('../images/slider/IMG_1709.jpeg');
+}
+
+.oreo-page-hero--about {
+    background-image: linear-gradient(rgba(9, 9, 45, 0.82), rgba(9, 9, 45, 0.82)),
+        url('../images/background/IMG_1709-Background.jpeg');
+}
+
+.oreo-page-hero--history {
+    background-image: linear-gradient(rgba(9, 9, 45, 0.82), rgba(9, 9, 45, 0.82)),
+        url('../images/background/IMG_1711-Background.jpeg');
+}
+
+.oreo-page-hero-copy {
+    max-width: 720px;
+    margin: 18px auto 0;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.oreo-blog-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 18px;
+}
+
+.oreo-blog-search {
+    display: flex;
+    width: min(100%, 440px);
+    background: #fff;
+    border-radius: 999px;
+    box-shadow: 0 16px 35px rgba(10, 16, 64, 0.08);
+    overflow: hidden;
+}
+
+.oreo-blog-search input {
+    flex: 1;
+    border: 0;
+    padding: 14px 18px;
+    min-width: 0;
+}
+
+.oreo-blog-search button {
+    border: 0;
+    padding: 0 22px;
+    background: #d5a117;
+    color: #fff;
+    font-weight: 700;
+}
+
+.oreo-blog-card p {
+    margin: 10px 0 14px;
+}
+
+.oreo-blog-card h4 a,
+.oreo-news-card h4 a {
+    color: inherit;
+}
+
+.oreo-read-more {
+    color: #d5a117;
+    font-weight: 700;
+}
+
+.oreo-empty-state,
+.oreo-sidebar-card,
+.oreo-article-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 18px 45px rgba(10, 16, 64, 0.08);
+}
+
+.oreo-empty-state {
+    padding: 36px 28px;
+    text-align: center;
+}
+
+.oreo-article-card {
+    overflow: hidden;
+}
+
+.oreo-article-image {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    display: block;
+}
+
+.oreo-article-excerpt {
+    padding: 28px 30px 0;
+    font-size: 22px;
+    line-height: 1.55;
+    color: #1a2140;
+    font-weight: 600;
+}
+
+.oreo-article-body {
+    padding: 28px 30px 34px;
+    line-height: 1.9;
+    color: #4b5567;
+    white-space: normal;
+}
+
+.oreo-article-body--plain {
+    padding: 0;
+}
+
+.oreo-article-body--plain p:last-child {
+    margin-bottom: 0;
+}
+
+.oreo-article-image--about {
+    max-height: 360px;
+}
+
+.oreo-sidebar-card {
+    padding: 28px 24px;
+}
+
+.oreo-sidebar-card h4 {
+    margin-bottom: 18px;
+}
+
+.oreo-sidebar-post {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+    align-items: center;
+}
+
+.oreo-sidebar-post img {
+    width: 88px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.oreo-sidebar-post strong {
+    display: block;
+    color: #1a2140;
+    line-height: 1.35;
+}
+
+.oreo-sidebar-post span {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.oreo-about-wide {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 18px 45px rgba(10, 16, 64, 0.08);
+    padding: 34px;
+}
+
+.oreo-about-team-photo {
+    margin: 28px 0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.oreo-about-team-photo img {
+    width: 100%;
+    display: block;
+}
+
+.oreo-history-panel {
+    margin-top: 34px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 18px 45px rgba(10, 16, 64, 0.08);
+    padding: 34px;
+}
+
+@media (max-width: 991px) {
+    .txbdsinner {
+        width: 90%;
+        height: 680px;
+    }
+
+    .witr_swiper_content h2,
+    .witr_swiper_content h3 {
+        font-size: 44px;
+    }
+
+    .oreo-mission-copy {
+        padding-right: 0;
+        margin-bottom: 40px;
+    }
+
+    .oreo-contact-panel {
+        margin-top: 35px;
+    }
+
+    .oreo-page-hero {
+        padding: 130px 0 80px;
+    }
+
+    .oreo-about-wide {
+        padding: 26px;
+    }
+
+    .oreo-history-panel {
+        padding: 26px;
+    }
+}
+
+@media (max-width: 767px) {
+    .top-address p span,
+    .top-address p a {
+        display: block;
+        margin: 0 0 8px;
+    }
+
+    .txbdsinner {
+        height: 560px;
+    }
+
+    .witr_swiper_content h2,
+    .witr_swiper_content h3 {
+        font-size: 34px;
+    }
+
+    .witr_swiper_content p,
+    .text-left .witr_swiper_content p,
+    .text-right .witr_swiper_content p {
+        width: 100%;
+    }
+
+    .oreo-counter-card h3 {
+        font-size: 42px;
+    }
+
+    .oreo-section {
+        padding: 75px 0;
+    }
+
+    .oreo-blog-toolbar {
+        justify-content: stretch;
+    }
+
+    .oreo-blog-search {
+        width: 100%;
+    }
+
+    .oreo-page-hero {
+        padding: 120px 0 72px;
+    }
+
+    .oreo-article-excerpt,
+    .oreo-article-body,
+    .oreo-sidebar-card {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .oreo-about-wide {
+        padding: 20px;
+    }
+
+    .oreo-history-panel {
+        padding: 20px;
+    }
+}

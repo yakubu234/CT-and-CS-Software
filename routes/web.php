@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountTypeController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\DashboardController;
@@ -19,13 +20,19 @@ use App\Http\Controllers\SmsCampaignController;
 use App\Http\Controllers\SmsMessageController;
 use App\Http\Controllers\SmsSettingsController;
 use App\Http\Controllers\SmsTemplateController;
+use App\Http\Controllers\PublicBlogController;
+use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\TransactionCategoryController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login');
+Route::get('/', [PublicSiteController::class, 'home'])->name('home');
+Route::get('/about-us', [PublicSiteController::class, 'about'])->name('about');
+Route::get('/our-history', [PublicSiteController::class, 'history'])->name('history');
+Route::get('/blogs', [PublicBlogController::class, 'index'])->name('blogs.index');
+Route::get('/blogs/{blogPost:slug}', [PublicBlogController::class, 'show'])->name('blogs.show');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -95,6 +102,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::post('/members/{member}/documents', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
+
+    Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+    Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
+    Route::post('/blog', [BlogController::class, 'store'])->name('blog.store');
+    Route::get('/blog/{blogPost}/edit', [BlogController::class, 'edit'])->name('blog.edit');
+    Route::put('/blog/{blogPost}', [BlogController::class, 'update'])->name('blog.update');
+    Route::delete('/blog/{blogPost}', [BlogController::class, 'destroy'])->name('blog.destroy');
 
     Route::get('/bulk-sms/settings', [SmsSettingsController::class, 'edit'])->name('bulk-sms.settings.edit');
     Route::put('/bulk-sms/settings', [SmsSettingsController::class, 'update'])->name('bulk-sms.settings.update');

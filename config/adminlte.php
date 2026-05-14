@@ -444,6 +444,7 @@ return [
             'url' => 'blog',
             'icon' => 'fas fa-blog',
             'active' => ['blog', 'blog/*'],
+            'permissions' => ['blog.view', 'blog.manage'],
         ],
         [
             'text' => 'Bulk sms',

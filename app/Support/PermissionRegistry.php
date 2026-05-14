@@ -23,6 +23,10 @@ class PermissionRegistry
                 'members.view' => 'View members and member custom fields',
                 'members.manage' => 'Create, edit, archive members and custom fields',
             ],
+            'Blog' => [
+                'blog.view' => 'View blog posts in the admin panel',
+                'blog.manage' => 'Create, edit, publish, and delete blog posts',
+            ],
             'Loans' => [
                 'loans.view' => 'View loans and loan custom fields',
                 'loans.manage' => 'Create, approve, edit, and delete loans',
