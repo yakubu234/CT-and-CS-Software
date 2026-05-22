@@ -168,7 +168,7 @@
             <i class="{{ $submitIcon }} mr-1"></i>
             {{ $submitLabel }}
         </button>
-        <a href="{{ route('branches.index') }}" class="btn btn-link">Back to branches</a>
+        <x-browser-back-button :fallback="route('branches.index')" label="Back to branches" class="btn btn-link" />
     </div>
 </div>
 

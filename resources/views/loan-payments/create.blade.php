@@ -256,7 +256,7 @@
                             <label for="interest_paid">Interest to Pay Now</label>
                             <input type="number" min="0" step="0.01" name="interest_paid" id="interest_paid" class="form-control @error('interest_paid') is-invalid @enderror" value="{{ old('interest_paid') }}">
                             <small class="form-text text-muted" id="interest-paid-helper">
-                                This field becomes available when you enter an interest rate or the loan has unpaid carried-forward interest.
+                                You can enter interest here at any time. The interest rate and carry-forward details below are only a guide.
                             </small>
                             @error('interest_paid')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -358,20 +358,20 @@
             const syncInterestPaidAvailability = (loan, interestRate) => {
                 const hasCarryForward = Boolean(loan && Number(loan.carry_forward_total || 0) > 0);
                 const hasInterestRate = Number(interestRate || 0) > 0;
-                const canEnterInterest = hasCarryForward || hasInterestRate;
 
-                interestPaidInput.disabled = !canEnterInterest;
+                interestPaidInput.disabled = false;
 
-                if (!canEnterInterest) {
-                    interestPaidInput.value = '';
-                    interestPaidHelper.textContent = 'Interest to pay now is disabled until you enter an interest rate or select a loan with unpaid carried-forward interest.';
-                } else if (hasCarryForward && !hasInterestRate) {
-                    interestPaidHelper.textContent = 'Interest to pay now is enabled because this loan has unpaid carried-forward interest.';
+                if (!loan) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. Select a loan if you want to see the suggested interest guide.';
+                } else if (hasCarryForward && hasInterestRate) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. This loan also has a live suggested interest and carried-forward interest guide.';
+                } else if (hasCarryForward) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. This loan has carried-forward interest waiting to be settled.';
+                } else if (hasInterestRate) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. The amount below is being guided by the rate you entered.';
                 } else {
-                    interestPaidHelper.textContent = 'Interest to pay now is enabled for this repayment.';
+                    interestPaidHelper.textContent = 'You can enter interest here at any time, even without an interest rate or carry-forward interest.';
                 }
-
-                return canEnterInterest;
             };
 
             const isDueCycle = (loan, paidAt) => {
@@ -420,8 +420,8 @@
                 const paidAt = paidAtInput.value;
                 const repaymentAmount = Number(repaymentInput.value || 0);
                 const interestRate = Number(interestRateInput.value || 0);
-                const canEnterInterest = syncInterestPaidAvailability(loan, interestRate);
-                const interestPaid = canEnterInterest ? Number(interestPaidInput.value || 0) : 0;
+                syncInterestPaidAvailability(loan, interestRate);
+                const interestPaid = Number(interestPaidInput.value || 0);
 
                 if (!loan) {
                     amountOwedNode.textContent = formatMoney(0);

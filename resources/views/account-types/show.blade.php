@@ -54,7 +54,7 @@
                     <i class="fas fa-edit mr-1"></i>
                     Edit Account Type
                 </a>
-                <a href="{{ route('account-types.index') }}" class="btn btn-light btn-sm">Back</a>
+                <x-browser-back-button :fallback="route('account-types.index')" class="btn btn-light btn-sm" />
             </div>
         </div>
     </div>

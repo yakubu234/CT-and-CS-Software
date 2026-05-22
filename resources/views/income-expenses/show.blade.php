@@ -91,10 +91,7 @@
 @section('content')
     <div class="income-expense-detail-shell">
         <div class="d-flex justify-content-between align-items-center flex-wrap">
-            <a href="{{ route('income-expenses.index') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left mr-1"></i>
-                Back to Entries
-            </a>
+            <x-browser-back-button :fallback="route('income-expenses.index')" label="Back to Entries" class="btn btn-outline-secondary" />
             <div class="d-flex mt-2 mt-md-0">
                 <a href="{{ route('income-expenses.edit', $incomeExpense) }}" class="btn btn-primary mr-2">
                     <i class="fas fa-pen mr-1"></i>

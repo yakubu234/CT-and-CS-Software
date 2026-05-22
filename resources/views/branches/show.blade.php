@@ -231,7 +231,7 @@
                 <i class="fas fa-edit mr-1"></i>
                 Edit branch
             </a>
-            <a href="{{ route('branches.index') }}" class="btn btn-light">Back</a>
+            <x-browser-back-button :fallback="route('branches.index')" class="btn btn-light" />
         </div>
     </div>
 

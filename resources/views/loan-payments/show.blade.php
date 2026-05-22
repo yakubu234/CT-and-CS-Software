@@ -13,7 +13,7 @@
         <div class="card-header">
             <h3 class="card-title">Repayment Overview</h3>
             <div class="card-tools">
-                <a href="{{ route('loan-payments.index') }}" class="btn btn-sm btn-outline-secondary">Back to Repayments</a>
+                <x-browser-back-button :fallback="route('loan-payments.index')" label="Back to Repayments" />
             </div>
         </div>
         <div class="card-body">

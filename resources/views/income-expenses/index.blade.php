@@ -108,7 +108,6 @@
                 <table class="table table-bordered table-hover align-middle">
                     <thead class="thead-light">
                     <tr>
-                        <th>Date Entered</th>
                         <th>Date on Entry</th>
                         <th>Category</th>
                         <th class="income-expense-related-column">Type</th>
@@ -122,10 +121,6 @@
                     <tbody>
                     @forelse ($records as $record)
                         <tr>
-                            <td>
-                                <div>{{ optional($record->created_at)->format('D, d M Y') ?: 'N/A' }}</div>
-                                <div class="income-expense-meta">{{ optional($record->created_at)->format('h:i A') ?: '' }}</div>
-                            </td>
                             <td>
                                 <div>{{ optional($record->trans_date)->format('D, d M Y') ?: 'N/A' }}</div>
                                 <div class="income-expense-meta">{{ optional($record->trans_date)->format('h:i A') ?: '12:00 AM' }}</div>
@@ -170,7 +165,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">No income or expense entries found for this branch yet.</td>
+                            <td colspan="8" class="text-center text-muted py-4">No income or expense entries found for this branch yet.</td>
                         </tr>
                     @endforelse
                     </tbody>

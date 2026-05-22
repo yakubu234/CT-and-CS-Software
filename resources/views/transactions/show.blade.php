@@ -340,7 +340,7 @@
                 <p>Review the full transaction record, account impact, and audit history.</p>
             </div>
             <div class="d-flex flex-wrap">
-                <a href="{{ route('transactions.index') }}" class="btn btn-light btn-sm mr-2 mb-2">Back</a>
+                <x-browser-back-button :fallback="route('transactions.index')" class="btn btn-light btn-sm mr-2 mb-2" />
                 <a href="{{ route('transactions.edit', $transaction) }}" class="btn btn-primary btn-sm mr-2 mb-2">Edit</a>
                 <button
                     type="submit"

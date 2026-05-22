@@ -113,15 +113,16 @@ class LoanDetail extends Model
 
     public function totalRepaymentMade(): float
     {
-        $paymentsTotal = (float) $this->payments()->sum('repayment_amount');
-        $storedTotal = (float) ($this->amount_repayed ?? 0);
+        $paymentsTotal = (float) $this->payments()
+            ->whereNull('deleted_at')
+            ->sum('repayment_amount');
 
-        return round(max($paymentsTotal, $storedTotal), 2);
+        return round($paymentsTotal, 2);
     }
 
     public function hasRepayments(): bool
     {
-        return $this->payments()->exists() || (float) ($this->amount_repayed ?? 0) > 0;
+        return $this->payments()->whereNull('deleted_at')->exists() || (float) ($this->amount_repayed ?? 0) > 0;
     }
 
     public function canBeDeleted(): bool
@@ -130,7 +131,9 @@ class LoanDetail extends Model
             return true;
         }
 
-        return $this->decision_status === self::STATUS_APPROVED && ! $this->hasRepayments();
+        return $this->decision_status === self::STATUS_APPROVED
+            && ! $this->payments()->exists()
+            && round((float) ($this->amount_repayed ?? 0), 2) <= 0;
     }
 
     public function canBeEdited(): bool

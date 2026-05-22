@@ -18,7 +18,7 @@
         <div class="card-header">
             <h3 class="card-title">Edit Loan Request</h3>
             <div class="card-tools">
-                <a href="{{ route('loans.requests.show', $loanDetail) }}" class="btn btn-sm btn-outline-secondary">Back</a>
+                <x-browser-back-button :fallback="route('loans.requests.show', $loanDetail)" />
             </div>
         </div>
 
@@ -255,7 +255,7 @@
 
             <div class="card-footer">
                 <button type="submit" class="btn btn-primary">Update Loan Request</button>
-                <a href="{{ route('loans.requests.show', $loanDetail) }}" class="btn btn-outline-secondary">Cancel</a>
+                <x-browser-back-button :fallback="route('loans.requests.show', $loanDetail)" label="Cancel" class="btn btn-outline-secondary" />
             </div>
         </form>
     </div>

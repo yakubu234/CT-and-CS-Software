@@ -116,7 +116,6 @@
                 <table class="table table-bordered table-hover align-middle">
                     <thead class="thead-light">
                     <tr>
-                        <th>Date Entered</th>
                         <th>Date on Trans.</th>
                         <th>Member</th>
                         <th>Member No</th>
@@ -132,10 +131,6 @@
                     <tbody>
                     @forelse ($transactions as $transaction)
                         <tr>
-                            <td>
-                                <div>{{ optional($transaction->created_at)->format('D, d M Y') ?: 'N/A' }}</div>
-                                <div class="transaction-meta">{{ optional($transaction->created_at)->format('h:i A') ?: '' }}</div>
-                            </td>
                             <td>
                                 <div>{{ optional($transaction->trans_date)->format('D, d M Y') ?: 'N/A' }}</div>
                                 <div class="transaction-meta">{{ optional($transaction->trans_date)->format('h:i A') ?: '12:00 AM' }}</div>
@@ -202,7 +197,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="text-center text-muted py-4">No transactions found for this branch yet.</td>
+                            <td colspan="10" class="text-center text-muted py-4">No transactions found for this branch yet.</td>
                         </tr>
                     @endforelse
                     </tbody>

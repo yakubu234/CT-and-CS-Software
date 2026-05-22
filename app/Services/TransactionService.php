@@ -14,23 +14,22 @@ use RuntimeException;
 
 class TransactionService
 {
+    public function __construct(
+        protected BalanceSyncService $balanceSyncService,
+    ) {
+    }
+
     public function createBatch(Branch $branch, User $actor, User $member, string $transactionDate, array $entries): Collection
     {
         return DB::transaction(function () use ($branch, $actor, $member, $transactionDate, $entries): Collection {
             $batchId = (string) Str::uuid();
             $transactions = new Collection();
+            $accountsToSync = [];
 
             foreach ($entries as $entry) {
                 $account = $this->resolveAccountForMember($member, (int) $entry['savings_account_id']);
                 $amount = $this->normalizeAmount($entry['amount']);
                 $drCr = strtolower($entry['dr_cr']);
-
-                $balanceBefore = (float) $account->balance;
-                $balanceAfter = $this->calculateBalanceAfter($balanceBefore, $drCr, $amount);
-
-                if ($balanceAfter < 0) {
-                    throw new RuntimeException("{$account->account_number} cannot go below zero.");
-                }
 
                 $transaction = Transaction::create([
                     'user_id' => $member->id,
@@ -57,8 +56,8 @@ class TransactionService
                         'member_no' => $member->detail?->member_no ?: $member->member_no,
                         'account_number' => $account->account_number,
                         'account_type' => $account->product?->type,
-                        'balance_before' => $balanceBefore,
-                        'balance_after' => $balanceAfter,
+                        'balance_before' => null,
+                        'balance_after' => null,
                     ],
                     'tracking_id' => 'regular',
                     'detail_id' => null,
@@ -68,18 +67,21 @@ class TransactionService
                     'batch_id' => $batchId,
                 ]);
 
-                $account->forceFill([
-                    'balance' => $balanceAfter,
-                    'updated_user_id' => $actor->id,
-                ])->save();
-
                 $this->createBranchMirrorTransaction($branch, $actor, $transaction, $account, $batchId);
+                $accountsToSync[$account->id] = $account;
 
                 $transactions->push($transaction->fresh(['account.product', 'user.detail', 'creator']));
                 DB::afterCommit(function () use ($transaction): void {
                     app(SmsAutomationService::class)->handleTransaction($transaction->fresh(['user.detail', 'account.product']));
                 });
             }
+
+            foreach ($accountsToSync as $account) {
+                $account->updated_user_id = $actor->id;
+                $this->balanceSyncService->syncSavingsAccount($account);
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch);
 
             return $transactions;
         });
@@ -107,24 +109,6 @@ class TransactionService
             $newDate = $payload['trans_date'];
             $newDescription = $payload['description'] ?: $this->displayType($newAccount);
 
-            $revertedOriginalBalance = $this->calculateRevertedBalance((float) $originalAccount->balance, strtolower($transaction->dr_cr), (float) $transaction->amount);
-
-            if ($revertedOriginalBalance < 0) {
-                throw new RuntimeException("Updating this transaction would make {$originalAccount->account_number} go below zero.");
-            }
-
-            $originalAccount->forceFill([
-                'balance' => $revertedOriginalBalance,
-                'updated_user_id' => $actor->id,
-            ])->save();
-
-            $newBalanceBefore = (float) $newAccount->balance;
-            $newBalanceAfter = $this->calculateBalanceAfter($newBalanceBefore, $newDrCr, $newAmount);
-
-            if ($newBalanceAfter < 0) {
-                throw new RuntimeException("{$newAccount->account_number} cannot go below zero.");
-            }
-
             $transaction->update([
                 'trans_date' => $newDate,
                 'savings_account_id' => $newAccount->id,
@@ -137,15 +121,10 @@ class TransactionService
                     'member_no' => $member->detail?->member_no ?: $member->member_no,
                     'account_number' => $newAccount->account_number,
                     'account_type' => $newAccount->product?->type,
-                    'balance_before' => $newBalanceBefore,
-                    'balance_after' => $newBalanceAfter,
+                    'balance_before' => null,
+                    'balance_after' => null,
                 ],
             ]);
-
-            $newAccount->forceFill([
-                'balance' => $newBalanceAfter,
-                'updated_user_id' => $actor->id,
-            ])->save();
 
             foreach ($transaction->mirrors as $mirror) {
                 $mirror->update([
@@ -168,6 +147,16 @@ class TransactionService
                 ]);
             }
 
+            $originalAccount->updated_user_id = $actor->id;
+            $this->balanceSyncService->syncSavingsAccount($originalAccount);
+
+            if (! $newAccount->is($originalAccount)) {
+                $newAccount->updated_user_id = $actor->id;
+                $this->balanceSyncService->syncSavingsAccount($newAccount);
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch);
+
             return $transaction->fresh(['account.product', 'user.detail', 'creator', 'updater', 'mirrors']);
         });
     }
@@ -185,20 +174,12 @@ class TransactionService
                 throw new RuntimeException('This transaction is missing its linked account.');
             }
 
-            $revertedBalance = $this->calculateRevertedBalance(
-                (float) $transaction->account->balance,
-                strtolower($transaction->dr_cr),
-                (float) $transaction->amount
-            );
+            $account = $transaction->account;
+            $branch = Branch::query()->find($transaction->branch_id);
 
-            if ($revertedBalance < 0) {
-                throw new RuntimeException('Deleting this transaction would make the account balance invalid.');
+            if (! $branch) {
+                throw new RuntimeException('The linked branch for this transaction could not be found.');
             }
-
-            $transaction->account->forceFill([
-                'balance' => $revertedBalance,
-                'updated_user_id' => $actor->id,
-            ])->save();
 
             foreach ($transaction->mirrors as $mirror) {
                 $mirror->forceFill([
@@ -213,6 +194,10 @@ class TransactionService
             ])->save();
 
             $transaction->delete();
+
+            $account->updated_user_id = $actor->id;
+            $this->balanceSyncService->syncSavingsAccount($account);
+            $this->balanceSyncService->syncBranchLedger($branch);
         });
     }
 
@@ -284,20 +269,6 @@ class TransactionService
     protected function normalizeAmount(mixed $amount): float
     {
         return round((float) $amount, 2);
-    }
-
-    protected function calculateBalanceAfter(float $balanceBefore, string $drCr, float $amount): float
-    {
-        return $drCr === 'cr'
-            ? round($balanceBefore + $amount, 2)
-            : round($balanceBefore - $amount, 2);
-    }
-
-    protected function calculateRevertedBalance(float $currentBalance, string $drCr, float $amount): float
-    {
-        return $drCr === 'cr'
-            ? round($currentBalance - $amount, 2)
-            : round($currentBalance + $amount, 2);
     }
 
     protected function displayType(SavingsAccount $account): string

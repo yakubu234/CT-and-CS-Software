@@ -561,6 +561,35 @@
             initializeSelect2(document);
             initializeResponsiveTables(document);
 
+            $(document).on('click', '[data-browser-back=\"true\"]', function (event) {
+                const fallbackUrl = this.getAttribute('data-fallback-url') || this.getAttribute('href') || '{{ route('dashboard') }}';
+                const referrer = document.referrer;
+
+                if (!referrer) {
+                    return;
+                }
+
+                try {
+                    const referrerUrl = new URL(referrer, window.location.origin);
+
+                    if (referrerUrl.origin !== window.location.origin) {
+                        return;
+                    }
+
+                    if (referrerUrl.href === window.location.href) {
+                        event.preventDefault();
+                        window.location.href = fallbackUrl;
+                        return;
+                    }
+
+                    event.preventDefault();
+                    window.history.back();
+                } catch (error) {
+                    event.preventDefault();
+                    window.location.href = fallbackUrl;
+                }
+            });
+
             $(document).on('focus click', 'input[type="date"]', function () {
                 if (typeof this.showPicker === 'function') {
                     this.showPicker();

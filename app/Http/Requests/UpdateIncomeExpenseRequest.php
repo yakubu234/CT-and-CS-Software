@@ -4,9 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
-use App\Services\ActiveBranchService;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Validator;
 
 class UpdateIncomeExpenseRequest extends FormRequest
@@ -53,40 +51,6 @@ class UpdateIncomeExpenseRequest extends FormRequest
                     return;
                 }
 
-                $branch = app(ActiveBranchService::class)->ensureActiveBranch($this->user());
-
-                if (! $branch) {
-                    return;
-                }
-
-                $category = TransactionCategory::query()->find($categoryId);
-                $amount = round((float) $this->input('amount', 0), 2);
-
-                if (! $category || $amount <= 0) {
-                    return;
-                }
-
-                $balanceBefore = round(
-                    (float) Transaction::query()
-                        ->where('branch_id', $branch->id)
-                        ->where('is_branch', true)
-                        ->whereNull('deleted_at')
-                        ->whereKeyNot($transaction->id)
-                        ->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
-                    2
-                );
-
-                $drCr = strtolower((string) $category->related_to);
-                $balanceAfter = $drCr === 'cr'
-                    ? round($balanceBefore + $amount, 2)
-                    : round($balanceBefore - $amount, 2);
-
-                if ($balanceAfter < 0) {
-                    $validator->errors()->add(
-                        'amount',
-                        "This {$category->name} entry would make the society balance go below zero."
-                    );
-                }
             },
         ];
     }

@@ -17,7 +17,7 @@
         <div class="card-header">
             <h3 class="card-title">Loan Request Review</h3>
             <div class="card-tools">
-                <a href="{{ route('loans.pending') }}" class="btn btn-sm btn-outline-secondary">Back</a>
+                <x-browser-back-button :fallback="route('loans.pending')" />
             </div>
         </div>
         <div class="card-body">

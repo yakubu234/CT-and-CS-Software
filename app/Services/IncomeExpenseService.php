@@ -13,6 +13,11 @@ use RuntimeException;
 
 class IncomeExpenseService
 {
+    public function __construct(
+        protected BalanceSyncService $balanceSyncService,
+    ) {
+    }
+
     public function createBatch(Branch $branch, User $actor, string $transactionDate, array $entries): Collection
     {
         return DB::transaction(function () use ($branch, $actor, $transactionDate, $entries): Collection {
@@ -24,19 +29,12 @@ class IncomeExpenseService
 
             $batchId = (string) Str::uuid();
             $records = new Collection();
-            $branchBalance = $this->branchLedgerBalance($branch);
 
             foreach ($entries as $entry) {
                 $category = $this->resolveActiveExpenseCategory((int) $entry['transaction_category_id']);
                 $amount = $this->normalizeAmount($entry['amount']);
                 $description = $entry['description'] ?: $category->name;
                 $drCr = strtolower($category->related_to);
-                $balanceBefore = $branchBalance;
-                $balanceAfter = $this->calculateBalanceAfter($balanceBefore, $drCr, $amount);
-
-                if ($balanceAfter < 0) {
-                    throw new RuntimeException("This {$category->name} entry would make the society balance go below zero.");
-                }
 
                 $records->push(Transaction::create([
                     'user_id' => $branchUserId,
@@ -65,8 +63,8 @@ class IncomeExpenseService
                         'related_to' => $drCr,
                         'scope' => 'income-expense',
                         'branch_name' => $branch->name,
-                        'balance_before' => $balanceBefore,
-                        'balance_after' => $balanceAfter,
+                        'balance_before' => null,
+                        'balance_after' => null,
                     ],
                     'tracking_id' => 'expenses',
                     'detail_id' => (string) $category->id,
@@ -75,9 +73,9 @@ class IncomeExpenseService
                     'loan_repayment_id' => null,
                     'batch_id' => $batchId,
                 ])->fresh(['creator', 'updater']));
-
-                $branchBalance = $balanceAfter;
             }
+
+            $this->balanceSyncService->syncBranchLedger($branch);
 
             return $records;
         });
@@ -96,14 +94,8 @@ class IncomeExpenseService
             $transDate = $payload['trans_date'];
             $description = $payload['description'] ?: $category->name;
             $drCr = strtolower($category->related_to);
-            $balanceBefore = $this->branchLedgerBalance($branch);
-            $balanceAfter = $this->calculateBalanceAfter($balanceBefore, $drCr, $amount);
 
-            if ($balanceAfter < 0) {
-                throw new RuntimeException("This {$category->name} entry would make the society balance go below zero.");
-            }
-
-            return Transaction::create([
+            $record = Transaction::create([
                 'user_id' => $branchUserId,
                 'trans_date' => $transDate,
                 'savings_account_id' => null,
@@ -130,8 +122,8 @@ class IncomeExpenseService
                     'related_to' => $drCr,
                     'scope' => 'income-expense',
                     'branch_name' => $branch->name,
-                    'balance_before' => $balanceBefore,
-                    'balance_after' => $balanceAfter,
+                    'balance_before' => null,
+                    'balance_after' => null,
                 ],
                 'tracking_id' => 'expenses',
                 'detail_id' => (string) $category->id,
@@ -139,7 +131,11 @@ class IncomeExpenseService
                 'loan_details_id' => null,
                 'loan_repayment_id' => null,
                 'batch_id' => (string) Str::uuid(),
-            ])->fresh(['creator', 'updater']);
+            ]);
+
+            $this->balanceSyncService->syncBranchLedger($branch);
+
+            return $record->fresh(['creator', 'updater']);
         });
     }
 
@@ -154,12 +150,6 @@ class IncomeExpenseService
 
             $amount = $this->normalizeAmount($payload['amount']);
             $drCr = strtolower($category->related_to);
-            $balanceBefore = $this->branchLedgerBalance($branch, $transaction->id);
-            $balanceAfter = $this->calculateBalanceAfter($balanceBefore, $drCr, $amount);
-
-            if ($balanceAfter < 0) {
-                throw new RuntimeException("Updating this {$category->name} entry would make the society balance go below zero.");
-            }
 
             $transaction->update([
                 'user_id' => $branchUserId,
@@ -176,13 +166,15 @@ class IncomeExpenseService
                     'related_to' => $drCr,
                     'scope' => 'income-expense',
                     'branch_name' => $branch->name,
-                    'balance_before' => $balanceBefore,
-                    'balance_after' => $balanceAfter,
+                    'balance_before' => null,
+                    'balance_after' => null,
                 ],
                 'tracking_id' => 'expenses',
                 'detail_id' => (string) $category->id,
                 'is_branch' => 1,
             ]);
+
+            $this->balanceSyncService->syncBranchLedger($branch);
 
             return $transaction->fresh(['creator', 'updater']);
         });
@@ -197,47 +189,19 @@ class IncomeExpenseService
                 throw new RuntimeException('The linked branch for this income or expense entry could not be found.');
             }
 
-            $balanceWithoutTransaction = $this->branchLedgerBalance($branch, $transaction->id);
-
-            if ($balanceWithoutTransaction < 0) {
-                throw new RuntimeException('Deleting this entry would make the society balance invalid.');
-            }
-
             $transaction->forceFill([
                 'updated_user_id' => $actor->id,
             ])->save();
 
             $transaction->delete();
+
+            $this->balanceSyncService->syncBranchLedger($branch);
         });
     }
 
     protected function normalizeAmount(mixed $amount): float
     {
         return round((float) $amount, 2);
-    }
-
-    protected function calculateBalanceAfter(float $balanceBefore, string $drCr, float $amount): float
-    {
-        return $drCr === 'cr'
-            ? round($balanceBefore + $amount, 2)
-            : round($balanceBefore - $amount, 2);
-    }
-
-    protected function branchLedgerBalance(Branch $branch, ?int $excludeTransactionId = null): float
-    {
-        $query = Transaction::query()
-            ->where('branch_id', $branch->id)
-            ->where('is_branch', true)
-            ->whereNull('deleted_at');
-
-        if ($excludeTransactionId !== null) {
-            $query->whereKeyNot($excludeTransactionId);
-        }
-
-        return round(
-            (float) $query->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
-            2
-        );
     }
 
     protected function resolveActiveExpenseCategory(int $categoryId): TransactionCategory

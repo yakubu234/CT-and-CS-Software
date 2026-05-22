@@ -550,11 +550,19 @@
             };
 
             const bindEntryEvents = (entryCard) => {
-                entryCard.querySelector('.entry-account').addEventListener('change', () => {
+                const accountSelect = entryCard.querySelector('.entry-account');
+
+                const handleAccountChange = () => {
                     refreshAccountOptions();
                     updateEntryPreview(entryCard);
                     updateSummary();
-                });
+                };
+
+                accountSelect.addEventListener('change', handleAccountChange);
+
+                if (window.jQuery) {
+                    window.jQuery(accountSelect).on('select2:select select2:clear', handleAccountChange);
+                }
 
                 entryCard.querySelector('.entry-drcr').addEventListener('change', () => {
                     updateEntryPreview(entryCard);

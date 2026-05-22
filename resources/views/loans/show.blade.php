@@ -3,14 +3,56 @@
 @section('title', 'Loan Details')
 @section('page_title', 'Loan Details')
 
+@push('styles')
+    <style>
+        .loan-history-action-icons {
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .loan-history-action-icon {
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid #dbe5f0;
+            background: #fff;
+            text-decoration: none;
+            font-size: 0.78rem;
+            transition: all 0.15s ease;
+        }
+
+        .loan-history-action-icon:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .loan-history-action-icon.view {
+            color: #2563eb;
+        }
+
+        .loan-history-action-icon.edit {
+            color: #0891b2;
+        }
+
+        .loan-history-action-icon.delete {
+            color: #dc2626;
+            cursor: pointer;
+        }
+    </style>
+@endpush
+
 @section('content')
     <div class="card card-outline card-primary mb-4">
         <div class="card-header">
             <h3 class="card-title">Loan Overview</h3>
             <div class="card-tools">
-                <a href="{{ route('loans.index') }}" class="btn btn-sm btn-outline-secondary">
-                    Return to All Loans
-                </a>
+                <x-browser-back-button :fallback="route('loans.index')" label="Return to All Loans" />
             </div>
         </div>
         <div class="card-body">
@@ -76,16 +118,22 @@
                                 </span>
                             </td>
                             <td>
-                                <div class="d-flex flex-wrap">
-                                    <a href="{{ route('loans.requests.show', $detail) }}" class="btn btn-sm btn-outline-info mr-2 mb-1">View</a>
+                                <div class="loan-history-action-icons">
+                                    <a href="{{ route('loans.requests.show', $detail) }}" class="loan-history-action-icon view" title="View loan history" aria-label="View loan history">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
                                     @if ($detail->canBeEdited())
-                                        <a href="{{ route('loans.requests.edit', $detail) }}" class="btn btn-sm btn-outline-primary mr-2 mb-1">Edit</a>
+                                        <a href="{{ route('loans.requests.edit', $detail) }}" class="loan-history-action-icon edit" title="Edit loan history" aria-label="Edit loan history">
+                                            <i class="fas fa-pen"></i>
+                                        </a>
                                     @endif
                                     @if ($detail->canBeDeleted())
-                                        <form action="{{ route('loans.requests.destroy', $detail) }}" method="POST" class="mb-1">
+                                        <form action="{{ route('loans.requests.destroy', $detail) }}" method="POST" class="d-inline">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this loan request?')">Delete</button>
+                                            <button type="submit" class="loan-history-action-icon delete" title="Delete loan history" aria-label="Delete loan history" onclick="return confirm('Delete this loan request?')">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
                                         </form>
                                     @endif
                                 </div>

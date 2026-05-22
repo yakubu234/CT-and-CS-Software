@@ -9,6 +9,7 @@ use App\Models\LoanPayment;
 use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -190,6 +191,7 @@ class LoanPaymentService
             $payment->save();
 
             $this->markPriorCarryForwardsAsCalculated($prepared['pending_carry_forwards']);
+            $this->refreshLoanPaymentSnapshots($loan->fresh());
             $this->loanService->syncLoanAggregate($loan->fresh());
 
             return $payment->fresh([
@@ -290,6 +292,7 @@ class LoanPaymentService
             $payment->save();
 
             $this->markPriorCarryForwardsAsCalculated($prepared['pending_carry_forwards']);
+            $this->refreshLoanPaymentSnapshots($loan->fresh());
             $this->loanService->syncLoanAggregate($loan->fresh());
 
             return $payment->fresh([
@@ -343,6 +346,7 @@ class LoanPaymentService
             $payment->update(['user_id' => $actor->id]);
             $payment->delete();
 
+            $this->refreshLoanPaymentSnapshots($loan->fresh());
             $this->loanService->syncLoanAggregate($loan->fresh());
         });
     }
@@ -420,10 +424,6 @@ class LoanPaymentService
         $principalApplied = $enteredPrincipal;
         $interestExpectedTotal = $interestMeta['total_interest_due'];
         $interestApplied = min($enteredInterest, $interestExpectedTotal);
-
-        if ($enteredInterest > 0 && $interestExpectedTotal <= 0) {
-            throw new RuntimeException('Interest to pay now can only be entered when an interest rate is set or there is unpaid carried-forward interest.');
-        }
 
         if ($enteredInterest > $interestExpectedTotal) {
             $principalApplied += round($enteredInterest - $interestExpectedTotal, 2);
@@ -640,5 +640,106 @@ class LoanPaymentService
             (float) $query->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
             2
         );
+    }
+
+    protected function refreshLoanPaymentSnapshots(Loan $loan): void
+    {
+        $loan->load([
+            'details' => function ($query): void {
+                $query->where('decision_status', LoanDetail::STATUS_APPROVED)
+                    ->orderBy('release_date')
+                    ->orderBy('id');
+            },
+            'payments' => function ($query): void {
+                $query->whereNull('deleted_at')
+                    ->orderBy('paid_at')
+                    ->orderBy('id');
+            },
+        ]);
+
+        $events = collect();
+
+        foreach ($loan->details as $detail) {
+            $events->push([
+                'type' => 'detail',
+                'sort' => 0,
+                'id' => (int) $detail->id,
+                'date' => $this->eventDate($detail->release_date, $detail->approved_at, $detail->created_at),
+                'amount' => round((float) $detail->applied_amount, 2),
+            ]);
+        }
+
+        foreach ($loan->payments as $payment) {
+            $events->push([
+                'type' => 'payment',
+                'sort' => 1,
+                'id' => (int) $payment->id,
+                'date' => $this->eventDate($payment->paid_at, $payment->created_at),
+                'amount' => round((float) ($payment->repayment_amount ?? 0), 2),
+                'payment' => $payment,
+            ]);
+        }
+
+        $events = $events->sort(function (array $left, array $right): int {
+            $dateComparison = $left['date']->timestamp <=> $right['date']->timestamp;
+
+            if ($dateComparison !== 0) {
+                return $dateComparison;
+            }
+
+            $sortComparison = $left['sort'] <=> $right['sort'];
+
+            if ($sortComparison !== 0) {
+                return $sortComparison;
+            }
+
+            return $left['id'] <=> $right['id'];
+        })->values();
+
+        $runningBalance = 0.0;
+
+        foreach ($events as $event) {
+            if ($event['type'] === 'detail') {
+                $runningBalance = round($runningBalance + $event['amount'], 2);
+
+                continue;
+            }
+
+            /** @var LoanPayment $payment */
+            $payment = $event['payment'];
+            $balanceBefore = round(max($runningBalance, 0), 2);
+            $balanceAfter = round(max($balanceBefore - $event['amount'], 0), 2);
+
+            if (
+                round((float) ($payment->total_outstanding ?? 0), 2) !== $balanceBefore
+                || round((float) ($payment->balance ?? 0), 2) !== $balanceAfter
+            ) {
+                $payment->update([
+                    'total_outstanding' => $balanceBefore,
+                    'balance' => $balanceAfter,
+                ]);
+            }
+
+            $runningBalance = $balanceAfter;
+        }
+    }
+
+    protected function eventDate(
+        CarbonInterface|string|null $primary,
+        CarbonInterface|string|null $secondary = null,
+        CarbonInterface|string|null $fallback = null
+    ): Carbon
+    {
+        foreach ([$primary, $secondary, $fallback] as $value) {
+            if ($value instanceof CarbonInterface) {
+                return Carbon::instance($value)->startOfDay();
+            }
+
+            if (is_string($value) && trim($value) !== '') {
+                return Carbon::parse($value)->startOfDay();
+            }
+        }
+
+        return now()->startOfDay();
     }
 }

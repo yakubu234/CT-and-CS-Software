@@ -163,7 +163,7 @@
                 <div>
                     <h3 class="card-title mb-0">Repayment Details</h3>
                 </div>
-                <a href="{{ route('loan-payments.show', $repayment) }}" class="btn btn-sm btn-outline-secondary">Back</a>
+                <x-browser-back-button :fallback="route('loan-payments.show', $repayment)" />
             </div>
             <form action="{{ route('loan-payments.update', $repayment) }}" method="POST" id="loan-repayment-edit-form">
                 @csrf
@@ -211,7 +211,7 @@
                         <label for="interest_paid">Interest to Pay Now</label>
                         <input type="number" min="0" step="0.01" name="interest_paid" id="interest_paid" class="form-control @error('interest_paid') is-invalid @enderror" value="{{ old('interest_paid', number_format((float) ($repayment->interest_paid ?? 0), 2, '.', '')) }}">
                         <small class="form-text text-muted" id="interest-paid-helper">
-                            This field becomes available when you enter an interest rate or the loan has unpaid carried-forward interest.
+                            You can enter interest here at any time. The interest rate and carry-forward details below are only a guide.
                         </small>
                         @error('interest_paid')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -264,7 +264,7 @@
                 </div>
 
                 <div class="loan-repayment-edit-header">
-                    <a href="{{ route('loan-payments.show', $repayment) }}" class="btn btn-light">Cancel</a>
+                    <x-browser-back-button :fallback="route('loan-payments.show', $repayment)" label="Cancel" class="btn btn-light" />
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save mr-1"></i>
                         Update Repayment
@@ -305,20 +305,18 @@
             const syncInterestPaidAvailability = (interestRate) => {
                 const hasCarryForward = Number(loan.carry_forward_total || 0) > 0;
                 const hasInterestRate = Number(interestRate || 0) > 0;
-                const canEnterInterest = hasCarryForward || hasInterestRate;
 
-                interestPaidInput.disabled = !canEnterInterest;
+                interestPaidInput.disabled = false;
 
-                if (!canEnterInterest) {
-                    interestPaidInput.value = '';
-                    interestPaidHelper.textContent = 'Interest to pay now is disabled until you enter an interest rate or there is unpaid carried-forward interest.';
-                } else if (hasCarryForward && !hasInterestRate) {
-                    interestPaidHelper.textContent = 'Interest to pay now is enabled because this loan has unpaid carried-forward interest.';
+                if (hasCarryForward && hasInterestRate) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. This loan also has a live suggested interest and carried-forward interest guide.';
+                } else if (hasCarryForward) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. This loan has carried-forward interest waiting to be settled.';
+                } else if (hasInterestRate) {
+                    interestPaidHelper.textContent = 'You can enter interest here at any time. The amount below is being guided by the rate you entered.';
                 } else {
-                    interestPaidHelper.textContent = 'Interest to pay now is enabled for this repayment.';
+                    interestPaidHelper.textContent = 'You can enter interest here at any time, even without an interest rate or carry-forward interest.';
                 }
-
-                return canEnterInterest;
             };
 
             const isDueCycle = (paidAt) => {
@@ -366,8 +364,8 @@
                 const paidAt = paidAtInput.value;
                 const repaymentAmount = Number(repaymentInput.value || 0);
                 const interestRate = Number(interestRateInput.value || 0);
-                const canEnterInterest = syncInterestPaidAvailability(interestRate);
-                const interestPaid = canEnterInterest ? Number(interestPaidInput.value || 0) : 0;
+                syncInterestPaidAvailability(interestRate);
+                const interestPaid = Number(interestPaidInput.value || 0);
                 const cycle = isDueCycle(paidAt);
                 const currentInterestDue = loan.balance * interestRate;
                 const suggestedInterest = loan.carry_forward_total + currentInterestDue;

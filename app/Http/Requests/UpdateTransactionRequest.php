@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\SavingsAccount;
 use App\Models\Transaction;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -60,45 +59,6 @@ class UpdateTransactionRequest extends FormRequest
                     return;
                 }
 
-                $originalAccount = $transaction->account()->first();
-                $newAccount = SavingsAccount::query()->find($accountId);
-
-                if (! $originalAccount || ! $newAccount) {
-                    return;
-                }
-
-                $originalRevertedBalance = strtolower((string) $transaction->dr_cr) === 'cr'
-                    ? round((float) $originalAccount->balance - (float) $transaction->amount, 2)
-                    : round((float) $originalAccount->balance + (float) $transaction->amount, 2);
-
-                if ($originalRevertedBalance < 0) {
-                    $validator->errors()->add(
-                        'amount',
-                        "Updating this transaction would make {$originalAccount->account_number} go below zero."
-                    );
-                }
-
-                $newBalanceBefore = $newAccount->is($originalAccount)
-                    ? $originalRevertedBalance
-                    : round((float) $newAccount->balance, 2);
-
-                $amount = round((float) $this->input('amount', 0), 2);
-                $drCr = strtolower((string) $this->input('dr_cr', ''));
-
-                if ($amount <= 0 || ! in_array($drCr, ['cr', 'dr'], true)) {
-                    return;
-                }
-
-                $newBalanceAfter = $drCr === 'cr'
-                    ? round($newBalanceBefore + $amount, 2)
-                    : round($newBalanceBefore - $amount, 2);
-
-                if ($newBalanceAfter < 0) {
-                    $validator->errors()->add(
-                        'amount',
-                        "This update would make {$newAccount->account_number} go below zero."
-                    );
-                }
             },
         ];
     }
