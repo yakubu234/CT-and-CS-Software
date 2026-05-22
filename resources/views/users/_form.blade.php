@@ -143,7 +143,7 @@
 @endpush
 
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-12">
         <div class="card card-outline card-primary">
             <div class="card-header">
                 <h3 class="card-title mb-0">Staff Details</h3>
@@ -203,12 +203,8 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-4">
-        <div class="card card-outline card-primary">
-            <div class="card-header">
+            <div class="card-header border-top">
                 <h3 class="card-title mb-0">Access Setup</h3>
             </div>
             <div class="card-body">
