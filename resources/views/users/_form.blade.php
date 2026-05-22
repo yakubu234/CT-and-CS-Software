@@ -49,7 +49,8 @@
 
         .branch-access-list {
             display: grid;
-            gap: 0.6rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
             max-height: 18rem;
             overflow-y: auto;
             overflow-x: hidden;
@@ -131,6 +132,10 @@
         }
 
         @media (max-width: 767.98px) {
+            .branch-access-list {
+                grid-template-columns: 1fr;
+            }
+
             .branch-access-toolbar {
                 padding: 0.85rem;
             }
