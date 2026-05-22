@@ -2,13 +2,12 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Designation;
-use App\Support\PermissionRegistry;
+use App\Models\Role;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
-class StoreRoleRequest extends FormRequest
+class StoreDesignationRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -21,19 +20,18 @@ class StoreRoleRequest extends FormRequest
             'name' => [
                 'required',
                 'string',
-                'max:50',
-                Rule::unique('roles', 'name'),
+                'max:191',
+                Rule::unique('designations', 'name'),
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     $slug = Str::slug((string) $value);
 
-                    if ($slug !== '' && Designation::query()->where('slug', $slug)->exists()) {
-                        $fail('That name is already reserved for an exco role/designation.');
+                    if ($slug !== '' && Role::query()->adminAccess()->where('slug', $slug)->exists()) {
+                        $fail('That name is already reserved for an admin access role.');
                     }
                 },
             ],
-            'description' => ['nullable', 'string'],
-            'permissions' => ['required', 'array', 'min:1'],
-            'permissions.*' => ['string', Rule::in(PermissionRegistry::all())],
+            'status' => ['required', 'boolean'],
+            'sort_order' => ['required', 'integer', 'min:1'],
         ];
     }
 }

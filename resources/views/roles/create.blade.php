@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Create Role')
-@section('page_title', 'Create Role')
+@section('title', 'Create Admin Role')
+@section('page_title', 'Create Admin Role')
 
 @section('content')
     <form method="POST" action="{{ route('user-roles.store') }}">

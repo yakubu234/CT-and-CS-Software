@@ -7,8 +7,8 @@
     <div class="card card-outline card-primary">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
             <div>
-                <h3 class="card-title mb-0">Staff Users</h3>
-                <small class="text-muted d-block mt-1">Manage admin-side accounts and assign permission roles.</small>
+                <h3 class="card-title mb-0">Admin Users</h3>
+                <small class="text-muted d-block mt-1">Manage administrator accounts and assign admin roles.</small>
             </div>
             <a href="{{ route('users.create') }}" class="btn btn-primary mt-2 mt-md-0">
                 <i class="fas fa-user-plus mr-1"></i>

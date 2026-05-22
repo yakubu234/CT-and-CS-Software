@@ -4,7 +4,7 @@
     <div class="col-lg-4">
         <div class="card card-outline card-primary">
             <div class="card-header">
-                <h3 class="card-title mb-0">Role Details</h3>
+                <h3 class="card-title mb-0">Admin Role Details</h3>
             </div>
             <div class="card-body">
                 <div class="form-group">
@@ -65,7 +65,7 @@
                 @enderror
             </div>
             <div class="card-footer d-flex justify-content-between flex-wrap">
-                <a href="{{ route('user-roles.index') }}" class="btn btn-light">Cancel</a>
+                <x-browser-back-button :fallback="route('user-roles.index')" label="Cancel" class="btn btn-light" />
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save mr-1"></i>
                     Save Role

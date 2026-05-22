@@ -7,6 +7,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\IncomeExpenseController;
 use App\Http\Controllers\LoanController;
@@ -182,6 +183,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/user-roles/{role}/edit', [RoleController::class, 'edit'])->name('user-roles.edit');
     Route::put('/user-roles/{role}', [RoleController::class, 'update'])->name('user-roles.update');
     Route::delete('/user-roles/{role}', [RoleController::class, 'destroy'])->name('user-roles.destroy');
+    Route::get('/exco-roles', [DesignationController::class, 'index'])->name('exco-roles.index');
+    Route::get('/exco-roles/create', [DesignationController::class, 'create'])->name('exco-roles.create');
+    Route::post('/exco-roles', [DesignationController::class, 'store'])->name('exco-roles.store');
+    Route::get('/exco-roles/{designation}/edit', [DesignationController::class, 'edit'])->name('exco-roles.edit');
+    Route::put('/exco-roles/{designation}', [DesignationController::class, 'update'])->name('exco-roles.update');
+    Route::delete('/exco-roles/{designation}', [DesignationController::class, 'destroy'])->name('exco-roles.destroy');
 
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

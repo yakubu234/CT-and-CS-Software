@@ -571,17 +571,24 @@ return [
             'permissions' => ['users.view', 'users.manage', 'roles.view', 'roles.manage'],
             'submenu' => [
                 [
-                    'text' => 'All user',
+                    'text' => 'Admin users',
                     'url' => 'users',
                     'icon' => 'far fa-circle',
                     'active' => ['users', 'users/*'],
                     'permissions' => ['users.view', 'users.manage'],
                 ],
                 [
-                    'text' => 'User roles',
+                    'text' => 'Admin roles',
                     'url' => 'user-roles',
                     'icon' => 'far fa-circle',
                     'active' => ['user-roles', 'user-roles/*'],
+                    'permissions' => ['roles.view', 'roles.manage'],
+                ],
+                [
+                    'text' => 'Exco roles',
+                    'url' => 'exco-roles',
+                    'icon' => 'far fa-circle',
+                    'active' => ['exco-roles', 'exco-roles/*'],
                     'permissions' => ['roles.view', 'roles.manage'],
                 ],
             ],

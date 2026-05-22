@@ -28,6 +28,8 @@ class UserController extends Controller
                     ->with(['role', 'branch'])
                     ->where('user_type', '!=', 'customer')
                     ->where('branch_account', false)
+                    ->where('society_exco', false)
+                    ->where('former_exco', false)
                     ->latest(),
                 $request->string('search')->toString(),
                 ['name', 'last_name', 'email', 'member_no', 'designation']
@@ -44,7 +46,7 @@ class UserController extends Controller
     {
         return view('users.create', [
             'user' => new User(),
-            'roles' => Role::query()->orderBy('name')->get(),
+            'roles' => Role::query()->adminAccess()->orderBy('name')->get(),
             'branches' => Branch::query()->whereNull('deleted_at')->where('status', 1)->orderBy('name')->get(),
             'assignedBranchIds' => [],
         ]);
@@ -82,11 +84,11 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
-        abort_unless($user->user_type !== 'customer' && ! $user->branch_account, 404);
+        abort_unless($user->user_type !== 'customer' && ! $user->branch_account && ! $user->society_exco && ! $user->former_exco, 404);
 
         return view('users.edit', [
             'user' => $user->load(['role', 'branch']),
-            'roles' => Role::query()->orderBy('name')->get(),
+            'roles' => Role::query()->adminAccess()->orderBy('name')->get(),
             'branches' => Branch::query()->whereNull('deleted_at')->where('status', 1)->orderBy('name')->get(),
             'assignedBranchIds' => $this->assignedBranchIds($user),
         ]);
@@ -94,7 +96,7 @@ class UserController extends Controller
 
     public function update(UpdateStaffUserRequest $request, User $user): RedirectResponse
     {
-        abort_unless($user->user_type !== 'customer' && ! $user->branch_account, 404);
+        abort_unless($user->user_type !== 'customer' && ! $user->branch_account && ! $user->society_exco && ! $user->former_exco, 404);
 
         $validated = $request->validated();
         $assignedBranchIds = $this->normalizeAssignedBranches($validated['branch_id'], $validated['assigned_branch_ids'] ?? []);
@@ -127,7 +129,7 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
-        abort_unless($user->user_type !== 'customer' && ! $user->branch_account, 404);
+        abort_unless($user->user_type !== 'customer' && ! $user->branch_account && ! $user->society_exco && ! $user->former_exco, 404);
 
         if ($user->isSuperAdmin()) {
             return back()->withErrors(['user' => 'Super admin accounts cannot be deleted here.']);

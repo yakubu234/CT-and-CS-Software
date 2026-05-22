@@ -12,16 +12,26 @@ class DesignationSeeder extends Seeder
     {
         $designations = [
             'President',
+            'Vice President',
             'Vice President 1',
             'Vice President 2',
             'Secretary',
+            'Secretrary',
+            'Assistant Secretary',
             'Treasurer',
             'Financial Secretary',
             'Auditor',
+            'PRO',
             'Public Relations Officer',
             'Welfare Officer',
             'Provost',
             'Legal Adviser',
+            'Committee 1',
+            'Committee 2',
+            'Committee 3',
+            'Chief Whip',
+            'Staff',
+            'Member',
         ];
 
         foreach ($designations as $index => $designation) {

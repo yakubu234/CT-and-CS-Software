@@ -22,7 +22,7 @@ class RoleController extends Controller
     public function index(Request $request): View
     {
         $roles = TableListing::paginate(
-            TableListing::applySearch(Role::query()->latest(), $request->string('search')->toString(), ['name', 'description', 'slug']),
+            TableListing::applySearch(Role::query()->adminAccess()->latest(), $request->string('search')->toString(), ['name', 'description', 'slug']),
             $request
         );
 
@@ -57,6 +57,8 @@ class RoleController extends Controller
 
     public function edit(Role $role): View
     {
+        abort_unless($role->isAdminAccessRole(), 404);
+
         return view('roles.edit', [
             'role' => $role,
             'permissionGroups' => PermissionRegistry::definitions(),
@@ -65,6 +67,8 @@ class RoleController extends Controller
 
     public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
+        abort_unless($role->isAdminAccessRole(), 404);
+
         $role->update([
             'name' => $request->validated('name'),
             'slug' => $role->slug ?: $this->uniqueSlug($request->validated('name'), $role->id),
@@ -79,6 +83,8 @@ class RoleController extends Controller
 
     public function destroy(Role $role): RedirectResponse
     {
+        abort_unless($role->isAdminAccessRole(), 404);
+
         if ($role->is_system) {
             return back()->withErrors(['role' => 'System roles cannot be deleted.']);
         }
