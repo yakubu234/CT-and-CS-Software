@@ -423,11 +423,8 @@ class LoanPaymentService
         $enteredInterest = round((float) ($payload['interest_paid'] ?? 0), 2);
         $principalApplied = $enteredPrincipal;
         $interestExpectedTotal = $interestMeta['total_interest_due'];
-        $interestApplied = min($enteredInterest, $interestExpectedTotal);
-
-        if ($enteredInterest > $interestExpectedTotal) {
-            $principalApplied += round($enteredInterest - $interestExpectedTotal, 2);
-        }
+        $interestCovered = min($enteredInterest, $interestExpectedTotal);
+        $interestApplied = $enteredInterest;
 
         if ($principalApplied <= 0 && $interestApplied <= 0) {
             throw new RuntimeException('Enter a repayment amount, an interest payment, or both.');
@@ -437,7 +434,7 @@ class LoanPaymentService
             throw new RuntimeException('The repayment amount cannot be greater than the current amount owed on this loan.');
         }
 
-        $interestRemaining = round(max($interestExpectedTotal - $interestApplied, 0), 2);
+        $interestRemaining = round(max($interestExpectedTotal - $interestCovered, 0), 2);
         $carryForwardFlag = $interestRemaining > 0
             ? ((bool) ($payload['carry_forward_remaining'] ?? false) ? 1 : 0)
             : 0;

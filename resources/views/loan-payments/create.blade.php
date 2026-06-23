@@ -439,7 +439,7 @@
                 const suggestedInterest = loan.carry_forward_total + currentInterestDue;
                 const appliedInterest = Math.min(interestPaid, suggestedInterest);
                 const excessInterest = Math.max(interestPaid - suggestedInterest, 0);
-                const projectedBalance = Math.max(loan.balance - (repaymentAmount + excessInterest), 0);
+                const projectedBalance = Math.max(loan.balance - repaymentAmount, 0);
                 const remainingInterest = Math.max(suggestedInterest - appliedInterest, 0);
 
                 amountOwedNode.textContent = formatMoney(loan.balance);
@@ -453,7 +453,7 @@
                     = ${formatMoney(currentInterestDue)}
                     ${loan.carry_forward_total > 0 ? `<br>Carried-forward interest: ${formatMoney(loan.carry_forward_total)}` : ''}
                     <br><strong>Total suggested interest:</strong> ${formatMoney(suggestedInterest)}.
-                    ${excessInterest > 0 ? `<br>Excess interest entry ${formatMoney(excessInterest)} will be returned to principal repayment.` : ''}
+                    ${excessInterest > 0 ? `<br>Extra interest entered ${formatMoney(excessInterest)} will be recorded as interest and will not reduce the loan principal.` : ''}
                 `;
 
                 dueCycleNoticeNode.textContent = cycle.label;
