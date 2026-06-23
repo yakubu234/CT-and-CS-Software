@@ -156,7 +156,7 @@
     <div class="col-md-6">
         <div class="form-group">
             <label for="designation_display">Designation</label>
-            <input type="text" id="designation_display" class="form-control" value="Member / User" readonly>
+            <input type="text" id="designation_display" class="form-control" value="{{ $member->designation ?? 'Member / User' }}" readonly>
         </div>
     </div>
 

@@ -104,7 +104,7 @@ class MemberService
                     'members/signatures',
                     $member->signature
                 ),
-                'designation' => 'Member',
+                'designation' => $member->designation ?: 'Member',
             ]);
 
             $detail = $member->detail ?: new UserDetail([

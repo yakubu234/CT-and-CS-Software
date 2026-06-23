@@ -58,17 +58,15 @@
                             </td>
                             <td>
                                 <a href="{{ route('members.show', $member) }}" class="btn btn-sm btn-outline-info">View</a>
-                                @if (! $member->society_exco && ! $member->former_exco)
-                                    <a href="{{ route('members.edit', $member) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                                    <a href="{{ route('members.show', $member) }}#documents" class="btn btn-sm btn-outline-secondary">Add Document</a>
-                                    <form action="{{ route('members.destroy', $member) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Archive this member?')">
-                                            Delete
-                                        </button>
-                                    </form>
-                                @endif
+                                <a href="{{ route('members.edit', $member) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <a href="{{ route('members.show', $member) }}#documents" class="btn btn-sm btn-outline-secondary">Add Document</a>
+                                <form action="{{ route('members.destroy', $member) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Archive this member?')">
+                                        Delete
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty

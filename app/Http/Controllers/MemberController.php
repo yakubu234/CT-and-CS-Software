@@ -122,12 +122,6 @@ class MemberController extends Controller
             404
         );
 
-        if ($member->society_exco || $member->former_exco) {
-            return redirect()
-                ->route('members.show', $member)
-                ->withErrors(['member' => 'Exco records should be updated from the branch exco management screen.']);
-        }
-
         $member->load(['detail', 'documents']);
 
         return view('members.edit', [
@@ -149,12 +143,6 @@ class MemberController extends Controller
             404
         );
 
-        if ($member->society_exco || $member->former_exco) {
-            return redirect()
-                ->route('members.show', $member)
-                ->withErrors(['member' => 'Exco records should be updated from the branch exco management screen.']);
-        }
-
         $member = $this->memberService->update($member, $request->validated(), $branch);
 
         return redirect()
@@ -172,12 +160,6 @@ class MemberController extends Controller
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
-
-        if ($member->society_exco || $member->former_exco) {
-            return redirect()
-                ->route('members.show', $member)
-                ->withErrors(['member' => 'Exco records should be removed from the branch exco management screen.']);
-        }
 
         $memberName = $member->name;
         $this->memberService->delete($member);

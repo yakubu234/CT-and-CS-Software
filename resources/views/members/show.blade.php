@@ -28,11 +28,7 @@
                         <li class="list-group-item"><b>Designation</b> <span class="float-right">{{ $member->designation ?: 'Member' }}</span></li>
                     </ul>
 
-                    @if (! $member->society_exco && ! $member->former_exco)
-                        <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
-                    @else
-                        <a href="{{ route('branches.edit', $member->branch_id) }}" class="btn btn-primary btn-block">Manage Exco In Branch</a>
-                    @endif
+                    <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
                     <a href="#documents" class="btn btn-outline-secondary btn-block">Add Document</a>
                 </div>
             </div>
