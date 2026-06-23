@@ -42,7 +42,7 @@
                             <input
                                 type="text"
                                 class="form-control"
-                                value="{{ ($borrower?->detail?->member_no ?: $borrower?->member_no ?: 'N/A') . ' ' . ($borrower?->name ?: 'N/A') }}"
+                                value="{{ ($borrower?->display_member_no ?: 'N/A') . ' ' . ($borrower?->name ?: 'N/A') }}"
                                 disabled
                             >
                         </div>

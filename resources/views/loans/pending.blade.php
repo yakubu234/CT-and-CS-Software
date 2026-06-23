@@ -37,7 +37,7 @@
                         <tr>
                             <td>
                                 <div class="font-weight-bold">{{ $loanRequest->borrower?->name ?: 'N/A' }}</div>
-                                <div class="text-muted small">{{ $loanRequest->borrower?->detail?->member_no ?: $loanRequest->borrower?->member_no ?: 'N/A' }}</div>
+                                <div class="text-muted small">{{ $loanRequest->borrower?->display_member_no ?: 'N/A' }}</div>
                             </td>
                             <td>{{ $loanRequest->loan?->loan_id ?: 'N/A' }}</td>
                             <td>{{ optional($loanRequest->release_date)->format('d M Y') ?: 'N/A' }}</td>

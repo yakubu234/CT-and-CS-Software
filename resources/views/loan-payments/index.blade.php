@@ -98,7 +98,7 @@
                             <td>{{ $repayment->loan?->loan_id ?: 'N/A' }}</td>
                             <td>
                                 <div class="font-weight-bold">{{ $repayment->loan?->borrower?->name ?: 'N/A' }}</div>
-                                <div class="text-muted small">{{ $repayment->loan?->borrower?->detail?->member_no ?: $repayment->loan?->borrower?->member_no ?: 'N/A' }}</div>
+                                <div class="text-muted small">{{ $repayment->loan?->borrower?->display_member_no ?: 'N/A' }}</div>
                             </td>
                             <td>
                                 <div class="loan-payment-money">&#8358;{{ number_format((float) ($repayment->total_outstanding ?? 0), 2) }}</div>

@@ -29,13 +29,9 @@ class UpdateBranchRequest extends FormRequest
             'address' => ['required', 'string'],
             'photo' => ['nullable', 'image', 'max:4096'],
             'signature' => ['nullable', 'image', 'max:4096'],
-            'excos' => ['required', 'array', 'min:1'],
-            'excos.*.user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'excos.*.first_name' => ['required', 'string', 'max:191'],
-            'excos.*.last_name' => ['required', 'string', 'max:191'],
-            'excos.*.phone' => ['required', 'string', 'max:191'],
+            'excos' => ['nullable', 'array'],
+            'excos.*.member_id' => ['required', 'integer', 'distinct', 'exists:users,id'],
             'excos.*.designation_id' => ['required', 'exists:designations,id'],
-            'excos.*.image' => ['nullable', 'image', 'max:4096'],
         ];
     }
 }

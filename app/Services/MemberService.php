@@ -7,6 +7,7 @@ use App\Models\CustomField;
 use App\Models\MemberDocument;
 use App\Models\User;
 use App\Models\UserDetail;
+use App\Support\MemberNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,16 @@ class MemberService
         $nextNumber = ((int) $branch->number_count) + 1;
 
         return $this->formatMemberNumber($branch, $nextNumber);
+    }
+
+    public function memberNumberPreview(?User $member, Branch $branch): string
+    {
+        $existingNumber = $this->normalizeExistingMemberNumber(
+            $member?->detail?->member_no ?: $member?->member_no,
+            $branch
+        );
+
+        return $existingNumber ?: $this->nextMemberNumber($branch);
     }
 
     public function create(array $data, Branch $branch): User
@@ -98,7 +109,7 @@ class MemberService
 
             $detail = $member->detail ?: new UserDetail([
                 'user_id' => $member->id,
-                'member_no' => $member->member_no ?: $this->reserveNextMemberNumber($branch),
+                'member_no' => $member->member_no,
             ]);
 
             $detail->fill([
@@ -116,10 +127,12 @@ class MemberService
                     $detail->custom_fields ?? []
                 ),
             ]);
+            $canonicalMemberNumber = $this->resolveMemberNumber($member, $detail, $branch);
+            $detail->member_no = $canonicalMemberNumber;
             $detail->save();
 
-            if (! $member->member_no && $detail->member_no) {
-                $member->update(['member_no' => $detail->member_no]);
+            if ($member->member_no !== $canonicalMemberNumber) {
+                $member->update(['member_no' => $canonicalMemberNumber]);
             }
 
             $this->syncDocuments($member, $data, true);
@@ -252,10 +265,52 @@ class MemberService
         return $this->formatMemberNumber($branch, (int) $branch->number_count);
     }
 
+    protected function resolveMemberNumber(User $member, UserDetail $detail, Branch $branch): string
+    {
+        $existingNumber = $this->normalizeExistingMemberNumber(
+            $detail->member_no ?: $member->member_no,
+            $branch
+        );
+
+        if ($existingNumber) {
+            $this->syncBranchCounterFromMemberNumber($branch, $existingNumber);
+
+            return $existingNumber;
+        }
+
+        return $this->reserveNextMemberNumber($branch);
+    }
+
+    protected function normalizeExistingMemberNumber(?string $memberNumber, Branch $branch): ?string
+    {
+        return MemberNumber::normalize($memberNumber, $branch);
+    }
+
+    protected function syncBranchCounterFromMemberNumber(Branch $branch, string $memberNumber): void
+    {
+        $number = MemberNumber::extractNumber($memberNumber);
+
+        if ($number === null) {
+            return;
+        }
+
+        $currentCount = (int) ($branch->number_count ?? 0);
+
+        if ($number <= $currentCount) {
+            return;
+        }
+
+        DB::table('branches')
+            ->where('id', $branch->id)
+            ->update([
+                'number_count' => str_pad((string) $number, 4, '0', STR_PAD_LEFT),
+            ]);
+
+        $branch->refresh();
+    }
+
     protected function formatMemberNumber(Branch $branch, int $number): string
     {
-        $prefix = $branch->prefix ?: ('BRANCH_' . $branch->id);
-
-        return $prefix . '_' . str_pad((string) $number, 4, '0', STR_PAD_LEFT);
+        return MemberNumber::format($number, $branch);
     }
 }

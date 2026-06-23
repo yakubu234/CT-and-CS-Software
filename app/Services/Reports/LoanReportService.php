@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Loan;
 use App\Models\LoanDetail;
 use App\Models\User;
+use App\Support\MemberNumber;
 use App\Support\TableListing;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,7 +53,7 @@ class LoanReportService
             ->orderBy('loans.loan_id');
 
         $summary = $this->aggregateSummary((clone $loansQuery)->reorder());
-        $loans = $loansQuery->get()->map(fn ($loan) => $this->formatLoanRow($loan))->values();
+        $loans = $loansQuery->get()->map(fn ($loan) => $this->formatLoanRow($loan, $branch))->values();
 
         return [
             'branch' => $branch,
@@ -344,7 +345,7 @@ class LoanReportService
         ];
     }
 
-    protected function formatLoanRow(object $loan): array
+    protected function formatLoanRow(object $loan, Branch $branch): array
     {
         $originalAmount = round((float) ($loan->original_amount ?? 0), 2);
         $totalDisbursed = round((float) ($loan->total_disbursed_amount ?? 0), 2);
@@ -355,7 +356,7 @@ class LoanReportService
         return [
             'loan_id' => $loan->loan_id,
             'borrower_name' => $loan->borrower_name ?: 'Unnamed Member',
-            'member_no' => $loan->member_no ?: 'N/A',
+            'member_no' => MemberNumber::normalize($loan->member_no, $branch) ?: 'N/A',
             'first_release_date' => $loan->first_release_date,
             'due_date' => $loan->due_date,
             'original_amount' => $originalAmount,

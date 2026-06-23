@@ -9,7 +9,7 @@
             $member->id => [
                 'id' => $member->id,
                 'name' => $member->name,
-                'member_no' => $member->detail?->member_no ?: $member->member_no,
+                'member_no' => $member->display_member_no,
                 'accounts' => $member->savingsAccounts->map(function ($account) {
                     return [
                         'id' => $account->id,
@@ -347,7 +347,7 @@
                                 <option value="">Choose member</option>
                                 @foreach ($members as $member)
                                     <option value="{{ $member->id }}" @selected((string) old('member_id') === (string) $member->id)>
-                                        {{ $member->detail?->member_no ?: $member->member_no ?: 'N/A' }} {{ $member->name }}
+                                        {{ $member->display_member_no ?: 'N/A' }} {{ $member->name }}
                                     </option>
                                 @endforeach
                             </select>

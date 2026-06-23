@@ -31,7 +31,7 @@
                         <tr>
                             <td>
                                 <div class="font-weight-semibold">{{ $message->recipient_name ?: $message->user?->name ?: 'N/A' }}</div>
-                                <small class="text-muted">{{ $message->user?->detail?->member_no ?: $message->user?->member_no ?: 'N/A' }}</small>
+                                <small class="text-muted">{{ $message->user?->display_member_no ?: 'N/A' }}</small>
                             </td>
                             <td>{{ $message->phone ?: 'N/A' }}</td>
                             <td>{{ $message->campaign?->name ?: $message->automationRule?->name ?: 'System' }}</td>

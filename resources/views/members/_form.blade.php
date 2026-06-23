@@ -2,6 +2,7 @@
     $member = $member ?? null;
     $detail = $member->detail ?? null;
     $storedCustomFields = collect(old('custom_fields', $detail?->custom_fields ?? []));
+    $memberNumberPreview = old('member_number_preview', $memberNumberPreview ?? $member?->display_member_no ?? $detail?->member_no ?? $member->member_no ?? $nextMemberNumber ?? '');
 @endphp
 
 @once
@@ -49,7 +50,7 @@
         </div>
         <div class="text-md-right">
             <div><strong>Current Counter:</strong> {{ str_pad((string) ((int) ($branch->number_count ?? 0)), 4, '0', STR_PAD_LEFT) }}</div>
-            <div><strong>Next Member Number:</strong> {{ old('member_number_preview', $detail?->member_no ?? $member->member_no ?? $nextMemberNumber ?? '') }}</div>
+            <div><strong>Member Number Preview:</strong> {{ $memberNumberPreview }}</div>
         </div>
     </div>
 </div>
@@ -80,7 +81,7 @@
     <div class="col-md-6">
         <div class="form-group">
             <label for="member_number_preview">Member Number</label>
-            <input type="text" id="member_number_preview" class="form-control" value="{{ old('member_number_preview', $detail?->member_no ?? $member->member_no ?? $nextMemberNumber ?? '') }}" readonly>
+            <input type="text" id="member_number_preview" class="form-control" value="{{ $memberNumberPreview }}" readonly>
         </div>
     </div>
 

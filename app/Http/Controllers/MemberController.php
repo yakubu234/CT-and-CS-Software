@@ -38,12 +38,12 @@ class MemberController extends Controller
             TableListing::applySearch(
                 User::query()
                     ->with(['detail'])
-                    ->where('user_type', 'customer')
                     ->where('branch_account', false)
+                    ->whereNull('deleted_at')
                     ->where('branch_id', (string) $branch->id)
                     ->latest(),
                 $request->string('search')->toString(),
-                ['name', 'last_name', 'email', 'member_no']
+                ['name', 'last_name', 'email', 'member_no', 'designation']
             ),
             $request
         );
@@ -66,6 +66,7 @@ class MemberController extends Controller
         return view('members.create', [
             'branch' => $branch,
             'nextMemberNumber' => $this->memberService->nextMemberNumber($branch),
+            'memberNumberPreview' => $this->memberService->memberNumberPreview(null, $branch),
             'designations' => Designation::query()->where('status', 1)->orderBy('sort_order')->orderBy('name')->get(),
             'customFields' => CustomField::query()->forUsers()->active()->orderBy('order')->orderBy('field_name')->get(),
         ]);
@@ -94,8 +95,7 @@ class MemberController extends Controller
         }
 
         abort_unless(
-            $member->user_type === 'customer'
-            && ! $member->branch_account
+            ! $member->branch_account
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
@@ -117,17 +117,23 @@ class MemberController extends Controller
         }
 
         abort_unless(
-            $member->user_type === 'customer'
-            && ! $member->branch_account
+            ! $member->branch_account
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
+
+        if ($member->society_exco || $member->former_exco) {
+            return redirect()
+                ->route('members.show', $member)
+                ->withErrors(['member' => 'Exco records should be updated from the branch exco management screen.']);
+        }
 
         $member->load(['detail', 'documents']);
 
         return view('members.edit', [
             'branch' => $branch,
             'member' => $member,
+            'memberNumberPreview' => $this->memberService->memberNumberPreview($member, $branch),
             'customFields' => CustomField::query()->forUsers()->active()->orderBy('order')->orderBy('field_name')->get(),
         ]);
     }
@@ -138,11 +144,16 @@ class MemberController extends Controller
 
         abort_unless($branch, 422, 'Please select a branch before updating a member.');
         abort_unless(
-            $member->user_type === 'customer'
-            && ! $member->branch_account
+            ! $member->branch_account
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
+
+        if ($member->society_exco || $member->former_exco) {
+            return redirect()
+                ->route('members.show', $member)
+                ->withErrors(['member' => 'Exco records should be updated from the branch exco management screen.']);
+        }
 
         $member = $this->memberService->update($member, $request->validated(), $branch);
 
@@ -157,11 +168,16 @@ class MemberController extends Controller
 
         abort_unless(
             $branch
-            && $member->user_type === 'customer'
             && ! $member->branch_account
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
+
+        if ($member->society_exco || $member->former_exco) {
+            return redirect()
+                ->route('members.show', $member)
+                ->withErrors(['member' => 'Exco records should be removed from the branch exco management screen.']);
+        }
 
         $memberName = $member->name;
         $this->memberService->delete($member);
@@ -177,7 +193,6 @@ class MemberController extends Controller
 
         abort_unless(
             $branch
-            && $member->user_type === 'customer'
             && ! $member->branch_account
             && (string) $member->branch_id === (string) $branch->id,
             404

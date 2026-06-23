@@ -43,7 +43,7 @@
                         <tr>
                             <td>
                                 <div class="font-weight-bold">{{ $loan->borrower?->name ?: 'N/A' }}</div>
-                                <div class="text-muted small">{{ $loan->borrower?->detail?->member_no ?: $loan->borrower?->member_no ?: 'N/A' }}</div>
+                                <div class="text-muted small">{{ $loan->borrower?->display_member_no ?: 'N/A' }}</div>
                             </td>
                             <td>{{ $loan->loan_id }}</td>
                             <td class="text-info font-weight-bold">&#8358;{{ number_format((float) ($loan->balanace ?? 0), 2) }}</td>

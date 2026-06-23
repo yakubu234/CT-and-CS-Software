@@ -23,8 +23,8 @@
                 'id' => $loan->id,
                 'loan_id' => $loan->loan_id,
                 'borrower_name' => $loan->borrower?->name,
-                'member_no' => $loan->borrower?->detail?->member_no ?: $loan->borrower?->member_no,
-                'label' => $loan->loan_id . ' (' . ($loan->borrower?->detail?->member_no ?: $loan->borrower?->member_no ?: 'N/A') . ' - ' . ($loan->borrower?->name ?: 'N/A') . ')',
+                'member_no' => $loan->borrower?->display_member_no,
+                'label' => $loan->loan_id . ' (' . ($loan->borrower?->display_member_no ?: 'N/A') . ' - ' . ($loan->borrower?->name ?: 'N/A') . ')',
                 'balance' => (float) ($loan->balanace ?? 0),
                 'release_date' => optional($detail?->release_date)->format('Y-m-d'),
                 'interest_week_interval' => $detail?->interest_week_interval,
@@ -222,7 +222,7 @@
                                 <option value="">Choose loan</option>
                                 @foreach ($loans as $loan)
                                     <option value="{{ $loan->id }}" @selected((string) old('loan_id') === (string) $loan->id)>
-                                        {{ $loan->loan_id }} ({{ $loan->borrower?->detail?->member_no ?: $loan->borrower?->member_no ?: 'N/A' }} - {{ $loan->borrower?->name ?: 'N/A' }})
+                                        {{ $loan->loan_id }} ({{ $loan->borrower?->display_member_no ?: 'N/A' }} - {{ $loan->borrower?->name ?: 'N/A' }})
                                     </option>
                                 @endforeach
                             </select>

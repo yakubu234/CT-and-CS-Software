@@ -6,6 +6,7 @@ use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Models\Branch;
 use App\Models\Designation;
+use App\Models\User;
 use App\Services\BranchFinanceSummaryService;
 use App\Services\BranchService;
 use App\Support\TableListing;
@@ -57,6 +58,7 @@ class BranchController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(),
+            'branchMembers' => collect(),
         ]);
     }
 
@@ -76,6 +78,14 @@ class BranchController extends Controller
                 ->where('status', 1)
                 ->orderBy('sort_order')
                 ->orderBy('name')
+                ->get(),
+            'branchMembers' => User::query()
+                ->with('detail')
+                ->where('branch_id', (string) $branch->id)
+                ->where('branch_account', false)
+                ->whereNull('deleted_at')
+                ->orderBy('name')
+                ->orderBy('last_name')
                 ->get(),
         ]);
     }

@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Models\Branch;
 use App\Models\User;
+use App\Support\MemberNumber;
 use App\Support\TableListing;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -57,7 +58,7 @@ class MemberBalanceReportService
 
                 return [
                     'member_name' => $member->display_name ?: 'Unnamed Member',
-                    'member_no' => $member->member_no ?: 'N/A',
+                    'member_no' => MemberNumber::normalize($member->member_no, $branch) ?: 'N/A',
                     'loan_opening' => $loanOpening,
                     'loan_current' => $loanCurrent,
                     'shares_opening' => $sharesOpening,

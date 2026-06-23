@@ -60,7 +60,7 @@
             </div>
             <div class="col-md-4 mb-2 mb-md-0">
                 <div class="text-muted small">Member No</div>
-                <div class="font-weight-bold">{{ $member?->detail?->member_no ?: $member?->member_no ?: 'N/A' }}</div>
+                <div class="font-weight-bold">{{ $member?->display_member_no ?: 'N/A' }}</div>
             </div>
             <div class="col-md-4">
                 <div class="text-muted small">Current Account</div>

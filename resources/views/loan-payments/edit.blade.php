@@ -183,7 +183,7 @@
                 <div class="row loan-repayment-edit-grid">
                     <div class="col-lg-6 mb-3">
                         <label>Loan</label>
-                        <input type="text" class="form-control" value="{{ $loan->loan_id }} ({{ $loan->borrower?->detail?->member_no ?: $loan->borrower?->member_no ?: 'N/A' }} - {{ $loan->borrower?->name ?: 'N/A' }})" disabled>
+                        <input type="text" class="form-control" value="{{ $loan->loan_id }} ({{ $loan->borrower?->display_member_no ?: 'N/A' }} - {{ $loan->borrower?->name ?: 'N/A' }})" disabled>
                     </div>
                     <div class="col-lg-6 mb-3">
                         <label for="paid_at">Transaction Date</label>

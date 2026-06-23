@@ -60,7 +60,7 @@
                 <div class="col-md-3">
                     <div class="small text-muted">Borrower</div>
                     <div class="font-weight-bold">{{ $loan->borrower?->name ?: 'N/A' }}</div>
-                    <div class="text-muted small">{{ $loan->borrower?->detail?->member_no ?: $loan->borrower?->member_no ?: 'N/A' }}</div>
+                    <div class="text-muted small">{{ $loan->borrower?->display_member_no ?: 'N/A' }}</div>
                 </div>
                 <div class="col-md-3">
                     <div class="small text-muted">Loan ID</div>

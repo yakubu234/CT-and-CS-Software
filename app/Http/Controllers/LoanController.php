@@ -176,9 +176,9 @@ class LoanController extends Controller
                 return [
                     'id' => $borrower->id,
                     'name' => $borrower->name,
-                    'member_no' => $borrower->detail?->member_no ?: $borrower->member_no,
+                    'member_no' => $borrower->display_member_no,
                     'outstanding' => $outstanding,
-                    'label' => trim(($borrower->detail?->member_no ?: $borrower->member_no ?: 'N/A') . ' ' . $borrower->name),
+                    'label' => trim(($borrower->display_member_no ?: 'N/A') . ' ' . $borrower->name),
                 ];
             })
             ->values();

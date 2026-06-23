@@ -5,20 +5,16 @@
 
 @php
     $storageUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::url($path) : null;
-    $existingExcos = $branch->excos->map(function ($exco) use ($designations, $storageUrl) {
+    $existingExcos = $branch->excos->map(function ($exco) use ($designations) {
         return [
-            'user_id' => $exco->id,
-            'first_name' => $exco->getRawOriginal('name'),
-            'last_name' => $exco->last_name,
-            'phone' => '',
+            'member_id' => $exco->id,
             'designation_id' => $designations->firstWhere('name', $exco->designation)?->id,
-            'image_url' => $storageUrl($exco->profile_picture),
         ];
     })->values()->all();
 
-    $excos = old('excos', $existingExcos ?: [
-        ['user_id' => '', 'first_name' => '', 'last_name' => '', 'phone' => '', 'designation_id' => '', 'image_url' => null],
-    ]);
+    $excos = old('excos', $existingExcos ?: ($branchMembers->isNotEmpty() ? [
+        ['member_id' => '', 'designation_id' => ''],
+    ] : []));
 @endphp
 
 @section('content')
@@ -55,6 +51,7 @@
                     ],
                     'excos' => $excos,
                     'designations' => $designations,
+                    'branchMembers' => $branchMembers,
                     'submitLabel' => 'Update branch',
                     'submitIcon' => 'fas fa-save',
                 ])
@@ -68,6 +65,7 @@
                 </div>
                 <div class="card-body">
                     <ul class="pl-3 mb-0">
+                        <li>Only existing branch members can be selected as excos.</li>
                         <li>Removed excos stay in the system as users.</li>
                         <li>Their former designation is preserved.</li>
                         <li>Their exco start and end dates stay on record.</li>

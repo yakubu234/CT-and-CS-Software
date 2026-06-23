@@ -74,7 +74,7 @@
                                 <div class="inactive-account-holder">{{ $account->user?->name ?: 'N/A' }}</div>
                                 <div class="inactive-account-meta">{{ $account->user?->email ?: 'No email' }}</div>
                             </td>
-                            <td>{{ $account->user?->detail?->member_no ?: $account->user?->member_no ?: 'N/A' }}</td>
+                            <td>{{ $account->user?->display_member_no ?: 'N/A' }}</td>
                             <td>
                                 <form action="{{ route('accounts.reactivate', $account) }}" method="POST" class="mb-0">
                                     @csrf

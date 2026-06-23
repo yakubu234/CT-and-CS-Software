@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\MemberNumber;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -90,6 +91,17 @@ class User extends Authenticatable
     protected function name(): Attribute
     {
         return Attribute::get(fn ($value): string => trim(($value ?? '') . ' ' . ($this->last_name ?? '')) ?: ($this->email ?: 'Staff User'));
+    }
+
+    protected function displayMemberNo(): Attribute
+    {
+        return Attribute::get(function (): ?string {
+            return MemberNumber::normalize(
+                $this->detail?->member_no ?: $this->member_no,
+                $this->relationLoaded('branch') ? $this->branch : null,
+                $this->branch_id
+            );
+        });
     }
 
     public function bookings(): HasMany

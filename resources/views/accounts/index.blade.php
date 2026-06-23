@@ -99,7 +99,7 @@
                                 <div class="text-muted small">{{ $user->email }}</div>
                             </td>
                             <td>
-                                <div class="account-member-id">{{ $user->detail?->member_no ?: $user->member_no ?: 'N/A' }}</div>
+                                <div class="account-member-id">{{ $user->display_member_no ?: 'N/A' }}</div>
                             </td>
 
                             @foreach ($accountTypes as $accountType)

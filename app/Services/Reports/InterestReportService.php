@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\Branch;
 use App\Models\LoanDetail;
 use App\Models\User;
+use App\Support\MemberNumber;
 use App\Support\TableListing;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -56,7 +57,7 @@ class InterestReportService
             ->orderBy('users.id');
 
         $summary = $this->aggregateSummary((clone $membersQuery)->reorder());
-        $members = $membersQuery->get()->map(fn ($member) => $this->formatMemberSummaryRow($member))->values();
+        $members = $membersQuery->get()->map(fn ($member) => $this->formatMemberSummaryRow($member, $branch))->values();
 
         return [
             'branch' => $branch,
@@ -459,11 +460,11 @@ class InterestReportService
             });
     }
 
-    protected function formatMemberSummaryRow(object $member): array
+    protected function formatMemberSummaryRow(object $member, Branch $branch): array
     {
         return [
             'id' => (int) $member->id,
-            'member_no' => $member->member_no ?: ('MEMBER-' . $member->id),
+            'member_no' => MemberNumber::normalize($member->member_no, $branch) ?: ('MEMBER-' . $member->id),
             'member_name' => $member->member_name ?: 'Unnamed Member',
             'interest_brought_forward' => round((float) ($member->interest_brought_forward ?? 0), 2),
             'interest_current' => round((float) ($member->interest_current ?? 0), 2),

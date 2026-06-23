@@ -80,7 +80,7 @@ class SmsCampaignService
                 'scheduled_for' => $campaign->scheduled_at,
                 'reference_key' => 'campaign:' . $campaign->id . ':' . $recipient->id,
                 'meta' => [
-                    'member_no' => $recipient->detail?->member_no ?: $recipient->member_no,
+                    'member_no' => $recipient->display_member_no,
                 ],
             ]);
         }
@@ -202,7 +202,7 @@ class SmsCampaignService
 
         return [
             'member_name' => $user->name,
-            'member_no' => $user->detail?->member_no ?: $user->member_no,
+            'member_no' => $user->display_member_no,
             'first_name' => $user->getRawOriginal('name'),
             'last_name' => $user->last_name,
             'branch_name' => $branch?->name ?: $user->branch?->name,

@@ -197,7 +197,7 @@
                                 <option value="">All members</option>
                                 @foreach ($memberOptions as $memberOption)
                                     <option value="{{ $memberOption->id }}" @selected((string) $filters['member_id'] === (string) $memberOption->id)>
-                                        {{ $memberOption->member_code ?: 'N/A' }} - {{ $memberOption->display_name }}
+                                        {{ \App\Support\MemberNumber::normalize($memberOption->member_code, $branch) ?: 'N/A' }} - {{ $memberOption->display_name }}
                                     </option>
                                 @endforeach
                             </select>
@@ -311,7 +311,7 @@
                             <tbody>
                             @forelse ($members as $member)
                                 <tr>
-                                    <td class="font-weight-bold">{{ $member->member_no ?: 'N/A' }}</td>
+                                    <td class="font-weight-bold">{{ \App\Support\MemberNumber::normalize($member->member_no, $branch) ?: 'N/A' }}</td>
                                     <td>{{ $member->member_name ?: 'Unnamed Member' }}</td>
                                     <td><span class="interest-report-money is-neutral">&#8358;{{ number_format((float) ($member->interest_brought_forward ?? 0), 2) }}</span></td>
                                     <td><span class="interest-report-money is-positive">&#8358;{{ number_format((float) ($member->interest_current ?? 0), 2) }}</span></td>

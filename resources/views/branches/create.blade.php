@@ -4,9 +4,9 @@
 @section('page_title', 'Create Branch')
 
 @php
-    $excos = old('excos', [
-        ['user_id' => '', 'first_name' => '', 'last_name' => '', 'phone' => '', 'designation_id' => '', 'image_url' => null],
-    ]);
+    $excos = old('excos', $branchMembers->isNotEmpty() ? [
+        ['member_id' => '', 'designation_id' => ''],
+    ] : []);
 @endphp
 
 @section('content')
@@ -30,6 +30,7 @@
                     'branchFormData' => [],
                     'excos' => $excos,
                     'designations' => $designations,
+                    'branchMembers' => $branchMembers,
                     'submitLabel' => 'Save branch',
                     'submitIcon' => 'fas fa-save',
                 ])
@@ -46,8 +47,8 @@
                         <li>A branch record</li>
                         <li>A branch-account user with `branch_account = 1`</li>
                         <li>One default branch savings account</li>
-                        <li>One user record per exco</li>
-                        <li>Designation links for future exco updates</li>
+                        <li>Excos can be assigned after members are registered under the branch</li>
+                        <li>Selected existing members are promoted into exco roles</li>
                     </ul>
                 </div>
             </div>

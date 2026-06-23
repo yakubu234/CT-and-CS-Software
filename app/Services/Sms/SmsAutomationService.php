@@ -58,7 +58,7 @@ class SmsAutomationService
                 $this->phoneNormalizer->normalize($user->detail?->mobile),
                 $this->renderer->render($rule->template?->body ?? '', [
                     'member_name' => $user->name,
-                    'member_no' => $user->detail?->member_no ?: $user->member_no,
+                    'member_no' => $user->display_member_no,
                     'branch_name' => $user->branch?->name,
                     'amount' => number_format((float) $transaction->amount, 2),
                     'transaction_date' => optional($transaction->trans_date)->format('d M Y'),
@@ -102,7 +102,7 @@ class SmsAutomationService
                 $this->phoneNormalizer->normalize($borrower->detail?->mobile),
                 $this->renderer->render($rule->template?->body ?? '', [
                     'member_name' => $borrower->name,
-                    'member_no' => $borrower->detail?->member_no ?: $borrower->member_no,
+                    'member_no' => $borrower->display_member_no,
                     'branch_name' => $borrower->branch?->name,
                     'loan_id' => $detail->loan?->loan_id,
                     'loan_amount' => number_format((float) $detail->applied_amount, 2),
@@ -180,7 +180,7 @@ class SmsAutomationService
                 $this->phoneNormalizer->normalize($user->detail?->mobile),
                 $this->renderer->render($rule->template?->body ?? '', [
                     'member_name' => $user->name,
-                    'member_no' => $user->detail?->member_no ?: $user->member_no,
+                    'member_no' => $user->display_member_no,
                     'branch_name' => $user->branch?->name,
                     'birth_day' => optional($user->detail?->date_of_birth)->format('d M'),
                     'society_name' => 'Oreoluwapo CT&CU',
@@ -235,7 +235,7 @@ class SmsAutomationService
                 $this->phoneNormalizer->normalize($user->detail?->mobile),
                 $this->renderer->render($rule->template?->body ?? '', [
                     'member_name' => $user->name,
-                    'member_no' => $user->detail?->member_no ?: $user->member_no,
+                    'member_no' => $user->display_member_no,
                     'branch_name' => $user->branch?->name,
                     'month_label' => $now->format('F Y'),
                     'statement_summary' => $statementSummary['full'],

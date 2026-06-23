@@ -136,7 +136,7 @@
                                 <div class="transaction-meta">{{ optional($transaction->trans_date)->format('h:i A') ?: '12:00 AM' }}</div>
                             </td>
                             <td>{{ $transaction->user?->name ?: 'N/A' }}</td>
-                            <td>{{ $transaction->user?->detail?->member_no ?: $transaction->user?->member_no ?: 'N/A' }}</td>
+                            <td>{{ $transaction->user?->display_member_no ?: 'N/A' }}</td>
                             <td>{{ $transaction->account?->account_number ?: ($transaction->transaction_details['account_number'] ?? 'N/A') }}</td>
                             <td class="transaction-amount-column">
                                 <div class="transaction-amount {{ strtolower($transaction->dr_cr) === 'cr' ? 'text-info' : 'text-danger' }}">

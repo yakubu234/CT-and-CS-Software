@@ -21,7 +21,7 @@
                 <div class="col-md-3">
                     <div class="small text-muted">Borrower</div>
                     <div class="font-weight-bold">{{ $borrower?->name ?: 'N/A' }}</div>
-                    <div class="text-muted small">{{ $borrower?->detail?->member_no ?: $borrower?->member_no ?: 'N/A' }}</div>
+                    <div class="text-muted small">{{ $borrower?->display_member_no ?: 'N/A' }}</div>
                 </div>
                 <div class="col-md-3">
                     <div class="small text-muted">Loan ID</div>

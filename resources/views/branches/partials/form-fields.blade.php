@@ -2,6 +2,7 @@
     $branchFormData = $branchFormData ?? [];
     $submitLabel = $submitLabel ?? 'Save branch';
     $submitIcon = $submitIcon ?? 'fas fa-save';
+    $branchMembers = $branchMembers ?? collect();
 @endphp
 
 <div class="card card-outline card-primary">
@@ -101,15 +102,21 @@
 <div class="card card-outline card-success">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h3 class="card-title mb-0">Step 3: Excos</h3>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="add-exco">
+        <button type="button" class="btn btn-sm btn-outline-primary" id="add-exco" @disabled($branchMembers->isEmpty())>
             <i class="fas fa-plus mr-1"></i>
             Add another exco
         </button>
     </div>
     <div class="card-body">
         <div class="alert alert-light border">
-            Excos are stored as users. If an exco is removed during editing, the user record stays in the system and is marked as a former exco.
+            Excos are selected from existing branch members only. If an exco is removed during editing, the user record stays in the system and is marked as a former exco.
         </div>
+
+        @if ($branchMembers->isEmpty())
+            <div class="alert alert-warning">
+                No eligible branch members are available yet. Save the branch first, register members under it, then return here to assign excos.
+            </div>
+        @endif
 
         <div id="exco-list">
             @foreach ($excos as $index => $exco)
@@ -121,22 +128,19 @@
                         </button>
                     </div>
 
-                    <input type="hidden" name="excos[{{ $index }}][user_id]" value="{{ $exco['user_id'] ?? '' }}">
-
                     <div class="form-row">
-                        <div class="form-group col-md-3">
-                            <label>First name</label>
-                            <input type="text" name="excos[{{ $index }}][first_name]" value="{{ $exco['first_name'] ?? '' }}" class="form-control" required>
+                        <div class="form-group col-md-7">
+                            <label>Member</label>
+                            <select name="excos[{{ $index }}][member_id]" class="form-control exco-member-select" @disabled($branchMembers->isEmpty()) required>
+                                <option value="">Select branch member</option>
+                                @foreach ($branchMembers as $member)
+                                    <option value="{{ $member->id }}" @selected((string) ($exco['member_id'] ?? '') === (string) $member->id)>
+                                        {{ $member->display_member_no ?: 'N/A' }} - {{ $member->name }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
-                        <div class="form-group col-md-3">
-                            <label>Last name</label>
-                            <input type="text" name="excos[{{ $index }}][last_name]" value="{{ $exco['last_name'] ?? '' }}" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-3">
-                            <label>Phone</label>
-                            <input type="text" name="excos[{{ $index }}][phone]" value="{{ $exco['phone'] ?? '' }}" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-3">
+                        <div class="form-group col-md-5">
                             <label>Designation</label>
                             <select name="excos[{{ $index }}][designation_id]" class="form-control" required>
                                 <option value="">Select designation</option>
@@ -146,18 +150,6 @@
                                     </option>
                                 @endforeach
                             </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group mb-0">
-                        <label>Exco image</label>
-                        <div class="custom-file">
-                            <input type="file" name="excos[{{ $index }}][image]" class="custom-file-input" accept="image/*" data-preview-target="exco-image-preview-{{ $index }}">
-                            <label class="custom-file-label">Choose exco image</label>
-                        </div>
-                        <div class="mt-3 {{ !($exco['image_url'] ?? null) ? 'd-none' : '' }}" id="exco-image-preview-{{ $index }}-wrapper">
-                            <div class="small text-muted mb-2">Selected exco image preview</div>
-                            <img id="exco-image-preview-{{ $index }}" src="{{ $exco['image_url'] ?? '' }}" alt="Exco image preview" class="img-thumbnail" style="max-height: 180px; width: auto;">
                         </div>
                     </div>
                 </div>
@@ -183,6 +175,10 @@
             }
 
             const designationOptions = @json($designations->map(fn ($designation) => ['id' => $designation->id, 'name' => $designation->name])->values());
+            const memberOptions = @json($branchMembers->map(fn ($member) => [
+                'id' => $member->id,
+                'label' => ($member->display_member_no ?: 'N/A') . ' - ' . $member->name,
+            ])->values());
 
             function buildDesignationOptions() {
                 let options = '<option value="">Select designation</option>';
@@ -192,6 +188,53 @@
                 });
 
                 return options;
+            }
+
+            function buildMemberOptions() {
+                let options = '<option value="">Select branch member</option>';
+
+                memberOptions.forEach(function (member) {
+                    options += `<option value="${member.id}">${member.label}</option>`;
+                });
+
+                return options;
+            }
+
+            function syncMemberSelections() {
+                const selects = Array.from(excoList.querySelectorAll('.exco-member-select'));
+                const selectedValues = selects
+                    .map(function (select) {
+                        return select.value;
+                    })
+                    .filter(function (value) {
+                        return value !== '';
+                    });
+
+                selects.forEach(function (select) {
+                    const currentValue = select.value;
+                    const excludedValues = selectedValues.filter(function (value) {
+                        return value !== currentValue;
+                    });
+
+                    let options = '<option value="">Select branch member</option>';
+
+                    memberOptions.forEach(function (member) {
+                        const memberId = String(member.id);
+
+                        if (excludedValues.includes(memberId)) {
+                            return;
+                        }
+
+                        const selected = currentValue === memberId ? ' selected' : '';
+                        options += `<option value="${memberId}"${selected}>${member.label}</option>`;
+                    });
+
+                    select.innerHTML = options;
+
+                    if (select.classList.contains('select2-hidden-accessible')) {
+                        $(select).trigger('change.select2');
+                    }
+                });
             }
 
             function refreshExcoState() {
@@ -209,60 +252,17 @@
 
                         field.setAttribute('name', name.replace(/excos\[\d+]/, `excos[${index}]`));
                     });
-
-                    const imageInput = item.querySelector('.custom-file-input');
-                    const previewImage = item.querySelector('img[id^="exco-image-preview"]');
-                    const previewWrapper = item.querySelector('div[id^="exco-image-preview"][id$="-wrapper"]');
-
-                    if (imageInput && previewImage && previewWrapper) {
-                        const previewId = `exco-image-preview-${index}`;
-                        imageInput.setAttribute('data-preview-target', previewId);
-                        previewImage.id = previewId;
-                        previewWrapper.id = `${previewId}-wrapper`;
-                    }
                 });
 
                 excoList.querySelectorAll('.remove-exco').forEach(function (button) {
                     button.disabled = items.length === 1;
                 });
-            }
 
-            function wireFileLabels(scope) {
-                scope.querySelectorAll('.custom-file-input').forEach(function (input) {
-                    if (input.dataset.previewBound === 'true') {
-                        return;
-                    }
+                syncMemberSelections();
 
-                    input.dataset.previewBound = 'true';
-                    input.addEventListener('change', function () {
-                        const label = this.nextElementSibling;
-                        const fileName = this.files.length ? this.files[0].name : 'Choose file';
-                        const previewTarget = this.getAttribute('data-preview-target');
-                        const previewImage = previewTarget ? document.getElementById(previewTarget) : null;
-                        const previewWrapper = previewTarget ? document.getElementById(`${previewTarget}-wrapper`) : null;
-
-                        if (label) {
-                            label.textContent = fileName;
-                        }
-
-                        if (!previewImage || !previewWrapper) {
-                            return;
-                        }
-
-                        if (!this.files.length || !this.files[0].type.startsWith('image/')) {
-                            previewImage.src = '';
-                            previewWrapper.classList.add('d-none');
-                            return;
-                        }
-
-                        const objectUrl = URL.createObjectURL(this.files[0]);
-                        previewImage.src = objectUrl;
-                        previewWrapper.classList.remove('d-none');
-                        previewImage.onload = function () {
-                            URL.revokeObjectURL(objectUrl);
-                        };
-                    });
-                });
+                if (typeof window.initializeSelect2 === 'function') {
+                    window.initializeSelect2(excoList);
+                }
             }
 
             addButton.addEventListener('click', function () {
@@ -273,42 +273,23 @@
                         <h5 class="mb-0">Exco #<span class="exco-number"></span></h5>
                         <button type="button" class="btn btn-sm btn-outline-danger remove-exco">Remove</button>
                     </div>
-                    <input type="hidden" name="excos[0][user_id]" value="">
                     <div class="form-row">
-                        <div class="form-group col-md-3">
-                            <label>First name</label>
-                            <input type="text" name="excos[0][first_name]" class="form-control" required>
+                        <div class="form-group col-md-7">
+                            <label>Member</label>
+                            <select name="excos[0][member_id]" class="form-control exco-member-select" ${memberOptions.length === 0 ? 'disabled' : ''} required>
+                                ${buildMemberOptions()}
+                            </select>
                         </div>
-                        <div class="form-group col-md-3">
-                            <label>Last name</label>
-                            <input type="text" name="excos[0][last_name]" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-3">
-                            <label>Phone</label>
-                            <input type="text" name="excos[0][phone]" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-3">
+                        <div class="form-group col-md-5">
                             <label>Designation</label>
                             <select name="excos[0][designation_id]" class="form-control" required>
                                 ${buildDesignationOptions()}
                             </select>
                         </div>
                     </div>
-                    <div class="form-group mb-0">
-                        <label>Exco image</label>
-                        <div class="custom-file">
-                            <input type="file" name="excos[0][image]" class="custom-file-input" accept="image/*" data-preview-target="exco-image-preview-new">
-                            <label class="custom-file-label">Choose exco image</label>
-                        </div>
-                        <div class="mt-3 d-none" id="exco-image-preview-new-wrapper">
-                            <div class="small text-muted mb-2">Selected exco image preview</div>
-                            <img id="exco-image-preview-new" src="" alt="Exco image preview" class="img-thumbnail" style="max-height: 180px; width: auto;">
-                        </div>
-                    </div>
                 `;
 
                 excoList.appendChild(wrapper);
-                wireFileLabels(wrapper);
                 refreshExcoState();
             });
 
@@ -323,7 +304,14 @@
                 refreshExcoState();
             });
 
-            wireFileLabels(document);
+            excoList.addEventListener('change', function (event) {
+                if (!event.target.classList.contains('exco-member-select')) {
+                    return;
+                }
+
+                syncMemberSelections();
+            });
+
             refreshExcoState();
         })();
     </script>

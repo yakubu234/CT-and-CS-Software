@@ -29,12 +29,9 @@ class StoreBranchRequest extends FormRequest
             'address' => ['required', 'string'],
             'photo' => ['nullable', 'image', 'max:4096'],
             'signature' => ['nullable', 'image', 'max:4096'],
-            'excos' => ['required', 'array', 'min:1'],
-            'excos.*.first_name' => ['required', 'string', 'max:191'],
-            'excos.*.last_name' => ['required', 'string', 'max:191'],
-            'excos.*.phone' => ['required', 'string', 'max:191'],
+            'excos' => ['nullable', 'array'],
+            'excos.*.member_id' => ['required', 'integer', 'distinct', 'exists:users,id'],
             'excos.*.designation_id' => ['required', 'exists:designations,id'],
-            'excos.*.image' => ['nullable', 'image', 'max:4096'],
         ];
     }
 
@@ -51,11 +48,8 @@ class StoreBranchRequest extends FormRequest
             'branch_meeting_days' => 'branch meeting days',
             'photo' => 'branch logo',
             'signature' => 'branch signature',
-            'excos.*.first_name' => 'exco first name',
-            'excos.*.last_name' => 'exco last name',
-            'excos.*.phone' => 'exco phone',
+            'excos.*.member_id' => 'exco member',
             'excos.*.designation_id' => 'exco designation',
-            'excos.*.image' => 'exco image',
         ];
     }
 }

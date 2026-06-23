@@ -218,7 +218,7 @@
                                         value="{{ $memberOption->id }}"
                                         @selected((string) $filters['member_id'] === (string) $memberOption->id)
                                     >
-                                        {{ $memberOption->member_code ?: 'N/A' }} - {{ $memberOption->display_name }}
+                                        {{ \App\Support\MemberNumber::normalize($memberOption->member_code, $branch) ?: 'N/A' }} - {{ $memberOption->display_name }}
                                     </option>
                                 @endforeach
                             </select>
@@ -333,7 +333,7 @@
                                 <div class="member-meta">{{ $member->email ?: 'No email supplied' }}</div>
                             </td>
                             <td>
-                                <span class="font-weight-bold">{{ $member->member_no ?: 'N/A' }}</span>
+                                <span class="font-weight-bold">{{ \App\Support\MemberNumber::normalize($member->member_no, $branch) ?: 'N/A' }}</span>
                             </td>
                             @foreach ([
                                 ['opening' => $loanOpening, 'current' => $loanCurrent, 'invert' => true],

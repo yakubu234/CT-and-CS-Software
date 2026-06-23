@@ -101,7 +101,7 @@ class BranchService
                 'name' => $data['branch_name'],
                 'prefix' => $data['branch_prefix'],
                 'id_prefix' => $data['loan_prefix'],
-                'number_count' => 1,
+                'number_count' => 0,
                 'loan_count' => 1,
                 'registration_number' => $data['registration_number'] ?: null,
                 'year_of_registration' => $data['year_of_registration'] ?: null,
@@ -144,38 +144,7 @@ class BranchService
 
             $this->createBranchSavingsAccount($branch, $branchUser);
 
-            foreach ($data['excos'] as $index => $excoData) {
-                $designation = Designation::query()->findOrFail($excoData['designation_id']);
-
-                $excoUser = User::create([
-                    'name' => $excoData['first_name'],
-                    'last_name' => $excoData['last_name'],
-                    'email' => $this->makeSystemEmail(
-                        $excoData['first_name'] . '-' . $excoData['last_name'] . '-' . $excoData['phone'] . '-' . $index,
-                        'exco'
-                    ),
-                    'password' => Hash::make(Str::password(24)),
-                    'user_type' => 'staff',
-                    'role_id' => null,
-                    'branch_id' => (string) $branch->id,
-                    'status' => 1,
-                    'profile_picture' => $this->storeOptionalFile($excoData['image'] ?? null, 'branches/excos'),
-                    'society_role' => $designation->name,
-                    'society_exco' => true,
-                    'date_added_as_exco' => now(),
-                    'former_exco' => false,
-                    'date_removed_as_exco' => null,
-                    'user_level' => null,
-                    'branch_account' => false,
-                    'is_verified' => true,
-                    'signature' => null,
-                    'member_no' => null,
-                    'designation' => $designation->name,
-                    'former_designation' => null,
-                ]);
-
-                $this->createMemberAccounts($excoUser, $excoUser->name);
-            }
+            $this->syncBranchExcos($branch, $data['excos'] ?? []);
 
             return $branch->load(['branchUser', 'excos']);
         });
@@ -205,84 +174,7 @@ class BranchService
                 ]);
             }
 
-            $existingExcos = $branch->excos()->get()->keyBy('id');
-            $submittedExcoIds = [];
-
-            foreach ($data['excos'] as $index => $excoData) {
-                $designation = Designation::query()->findOrFail($excoData['designation_id']);
-                $userId = isset($excoData['user_id']) && $excoData['user_id'] !== '' ? (int) $excoData['user_id'] : null;
-
-                if ($userId && $existingExcos->has($userId)) {
-                    $existingExco = $existingExcos->get($userId);
-                    $submittedExcoIds[] = $existingExco->id;
-
-                    $existingExco->update([
-                        'name' => $excoData['first_name'],
-                        'last_name' => $excoData['last_name'],
-                        'branch_id' => (string) $branch->id,
-                        'profile_picture' => $this->storeOptionalFile(
-                            $excoData['image'] ?? null,
-                            'branches/excos',
-                            $existingExco->profile_picture
-                        ),
-                        'society_role' => $designation->name,
-                        'society_exco' => true,
-                        'date_added_as_exco' => $existingExco->date_added_as_exco ?? now(),
-                        'former_exco' => false,
-                        'date_removed_as_exco' => null,
-                        'designation' => $designation->name,
-                    ]);
-
-                    $this->createMemberAccounts($existingExco, $existingExco->name);
-
-                    continue;
-                }
-
-                $newExco = User::create([
-                    'name' => $excoData['first_name'],
-                    'last_name' => $excoData['last_name'],
-                    'email' => $this->makeSystemEmail(
-                        $excoData['first_name'] . '-' . $excoData['last_name'] . '-' . $excoData['phone'] . '-' . $index,
-                        'exco'
-                    ),
-                    'password' => Hash::make(Str::password(24)),
-                    'user_type' => 'staff',
-                    'role_id' => null,
-                    'branch_id' => (string) $branch->id,
-                    'status' => 1,
-                    'profile_picture' => $this->storeOptionalFile($excoData['image'] ?? null, 'branches/excos'),
-                    'society_role' => $designation->name,
-                    'society_exco' => true,
-                    'date_added_as_exco' => now(),
-                    'former_exco' => false,
-                    'date_removed_as_exco' => null,
-                    'user_level' => null,
-                    'branch_account' => false,
-                    'is_verified' => true,
-                    'signature' => null,
-                    'member_no' => null,
-                    'designation' => $designation->name,
-                    'former_designation' => null,
-                ]);
-
-                $this->createMemberAccounts($newExco, $newExco->name);
-                $submittedExcoIds[] = $newExco->id;
-            }
-
-            $removedExcos = $existingExcos->reject(
-                fn (User $user): bool => in_array($user->id, $submittedExcoIds, true)
-            );
-
-            foreach ($removedExcos as $removedExco) {
-                $removedExco->update([
-                    'society_role' => null,
-                    'society_exco' => false,
-                    'former_exco' => true,
-                    'date_removed_as_exco' => now(),
-                    'designation' => null,
-                    'former_designation' => $removedExco->designation ?: $removedExco->society_role,
-                ]);
-            }
+            $this->syncBranchExcos($branch, $data['excos'] ?? []);
 
             return $branch->fresh()->load(['branchUser', 'excos']);
         });
@@ -400,5 +292,61 @@ class BranchService
         }
 
         return $file->store($path, 'public');
+    }
+
+    protected function syncBranchExcos(Branch $branch, array $excos): void
+    {
+        $existingExcos = $branch->excos()->get()->keyBy('id');
+        $submittedExcoIds = [];
+
+        foreach ($excos as $excoData) {
+            $designation = Designation::query()->findOrFail($excoData['designation_id']);
+            $member = $this->resolveExcoMember($branch, (int) $excoData['member_id']);
+
+            $member->update([
+                'branch_id' => (string) $branch->id,
+                'society_role' => $designation->name,
+                'society_exco' => true,
+                'date_added_as_exco' => $member->date_added_as_exco ?? now(),
+                'former_exco' => false,
+                'date_removed_as_exco' => null,
+                'designation' => $designation->name,
+                'former_designation' => null,
+            ]);
+
+            $this->createMemberAccounts($member, $member->name);
+            $submittedExcoIds[] = $member->id;
+        }
+
+        $removedExcos = $existingExcos->reject(
+            fn (User $user): bool => in_array($user->id, $submittedExcoIds, true)
+        );
+
+        foreach ($removedExcos as $removedExco) {
+            $removedExco->update([
+                'society_role' => null,
+                'society_exco' => false,
+                'former_exco' => true,
+                'date_removed_as_exco' => now(),
+                'designation' => null,
+                'former_designation' => $removedExco->designation ?: $removedExco->society_role,
+            ]);
+        }
+    }
+
+    protected function resolveExcoMember(Branch $branch, int $memberId): User
+    {
+        $member = User::query()
+            ->where('id', $memberId)
+            ->where('branch_id', (string) $branch->id)
+            ->where('branch_account', false)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (! $member) {
+            throw new RuntimeException('One of the selected exco members is invalid for this branch.');
+        }
+
+        return $member;
     }
 }

@@ -178,7 +178,7 @@
                                 <option value="">All members</option>
                                 @foreach ($memberOptions as $memberOption)
                                     <option value="{{ $memberOption->id }}" @selected((string) $filters['member_id'] === (string) $memberOption->id)>
-                                        {{ $memberOption->member_code ?: 'N/A' }} - {{ $memberOption->display_name }}
+                                        {{ \App\Support\MemberNumber::normalize($memberOption->member_code, $branch) ?: 'N/A' }} - {{ $memberOption->display_name }}
                                     </option>
                                 @endforeach
                             </select>
@@ -272,7 +272,7 @@
                             <td>{{ $branch->name }}</td>
                             <td>
                                 <div class="loan-due-member">{{ $loan->borrower_name ?: 'Unnamed Member' }}</div>
-                                <div class="loan-due-member-meta">{{ $loan->member_no ?: 'N/A' }}</div>
+                                <div class="loan-due-member-meta">{{ \App\Support\MemberNumber::normalize($loan->member_no, $branch) ?: 'N/A' }}</div>
                             </td>
                             <td>{{ $loan->member_phone ?: 'N/A' }}</td>
                             <td>{{ $loan->approval_date ? \Carbon\Carbon::parse($loan->approval_date)->format('d M Y') : 'N/A' }}</td>

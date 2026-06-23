@@ -19,7 +19,7 @@
                     </div>
 
                     <h3 class="profile-username text-center">{{ $member->name }}</h3>
-                    <p class="text-muted text-center">{{ $member->detail?->member_no ?: $member->member_no ?: 'N/A' }}</p>
+                    <p class="text-muted text-center">{{ $member->display_member_no ?: 'N/A' }}</p>
 
                     <ul class="list-group list-group-unbordered mb-3">
                         <li class="list-group-item"><b>Email</b> <span class="float-right">{{ $member->email }}</span></li>
@@ -28,7 +28,11 @@
                         <li class="list-group-item"><b>Designation</b> <span class="float-right">{{ $member->designation ?: 'Member' }}</span></li>
                     </ul>
 
-                    <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
+                    @if (! $member->society_exco && ! $member->former_exco)
+                        <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
+                    @else
+                        <a href="{{ route('branches.edit', $member->branch_id) }}" class="btn btn-primary btn-block">Manage Exco In Branch</a>
+                    @endif
                     <a href="#documents" class="btn btn-outline-secondary btn-block">Add Document</a>
                 </div>
             </div>

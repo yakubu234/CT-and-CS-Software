@@ -59,7 +59,7 @@
                             <select name="member_ids[]" id="member_ids" class="form-control select2" multiple data-placeholder="Choose members">
                                 @foreach ($members as $member)
                                     <option value="{{ $member->id }}" @selected(collect(old('member_ids', []))->contains($member->id))>
-                                        {{ $member->detail?->member_no ?: $member->member_no ?: 'N/A' }} - {{ $member->name }} ({{ $member->branch?->name ?: 'No branch' }})
+                                        {{ $member->display_member_no ?: 'N/A' }} - {{ $member->name }} ({{ $member->branch?->name ?: 'No branch' }})
                                     </option>
                                 @endforeach
                             </select>
