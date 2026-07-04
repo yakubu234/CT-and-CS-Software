@@ -328,6 +328,17 @@
 @endpush
 
 @section('content')
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <h5 class="mb-2"><i class="icon fas fa-ban"></i> The transaction could not be deleted.</h5>
+            <ul class="mb-0 pl-3">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @php
         $details = $transaction->transaction_details ?? [];
         $balanceAfter = $details['balance_after'] ?? $transaction->account?->balance;
