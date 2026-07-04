@@ -92,6 +92,36 @@ class BalanceSyncServiceTest extends TestCase
         $service->syncBranchTransactionCollection(new Collection([$expense]), 'Main Branch');
     }
 
+    public function test_member_balance_error_explains_the_available_balance_and_shortfall(): void
+    {
+        $service = new BalanceSyncService();
+
+        $debit = Mockery::mock(Transaction::class)->makePartial();
+        $debit->forceFill([
+            'id' => 60,
+            'trans_date' => Carbon::parse('2026-07-04'),
+            'dr_cr' => 'dr',
+            'amount' => 5000,
+            'type' => 'Savings',
+            'transaction_details' => [],
+        ]);
+        $debit->exists = true;
+        $debit->shouldReceive('update')->never();
+
+        $this->expectExceptionMessage(
+            'Insufficient balance for Savings account SAV10728 on 2026-07-04. '
+            . 'When transactions are applied in date order, the available balance is ₦3,000.00, '
+            . 'but the attempted debit is ₦5,000.00, leaving a shortfall of ₦2,000.00. '
+            . 'Reduce the debit amount or credit the account before posting this transaction.'
+        );
+
+        $service->syncAccountTransactionCollection(
+            new Collection([$debit]),
+            3000,
+            'SAV10728'
+        );
+    }
+
     protected function mockTransaction(
         int $id,
         string $date,

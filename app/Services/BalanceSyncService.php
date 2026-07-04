@@ -51,7 +51,16 @@ class BalanceSyncService
             $transactionAmount = number_format((float) $transaction->amount, 2);
 
             if ($balanceAfter < 0) {
-                throw new RuntimeException("{$accountLabel} cannot go below zero on {$transactionDate} while replaying {$transactionType} ({$transaction->dr_cr} {$transactionAmount}).");
+                $availableBalance = number_format($balanceBefore, 2);
+                $shortfall = number_format(abs($balanceAfter), 2);
+                $direction = strtolower((string) $transaction->dr_cr) === 'dr' ? 'debit' : 'credit';
+
+                throw new RuntimeException(
+                    "Insufficient balance for {$transactionType} account {$accountLabel} on {$transactionDate}. "
+                    . "When transactions are applied in date order, the available balance is ₦{$availableBalance}, "
+                    . "but the attempted {$direction} is ₦{$transactionAmount}, leaving a shortfall of ₦{$shortfall}. "
+                    . 'Reduce the debit amount or credit the account before posting this transaction.'
+                );
             }
 
             $this->updateTransactionSnapshot($transaction, $balanceBefore, $balanceAfter);
