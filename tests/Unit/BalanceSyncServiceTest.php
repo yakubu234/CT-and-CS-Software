@@ -82,12 +82,19 @@ class BalanceSyncServiceTest extends TestCase
             'trans_date' => Carbon::parse('2026-03-01'),
             'dr_cr' => 'dr',
             'amount' => 25,
+            'type' => 'Office Rent',
+            'tracking_id' => 'expenses',
             'transaction_details' => [],
         ]);
         $expense->exists = true;
         $expense->shouldReceive('update')->never();
 
-        $this->expectExceptionMessage('cannot go below zero');
+        $this->expectExceptionMessage(
+            'Insufficient branch balance for Main Branch on 2026-03-01. '
+            . 'When branch transactions are applied in date order, the available balance is ₦0.00, '
+            . 'but the attempted expense "Office Rent" is ₦25.00, leaving a shortfall of ₦25.00. '
+            . 'Reduce the expense amount or record sufficient income before posting this expense.'
+        );
 
         $service->syncBranchTransactionCollection(new Collection([$expense]), 'Main Branch');
     }

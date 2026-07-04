@@ -95,7 +95,23 @@ class BalanceSyncService
             $transactionAmount = number_format((float) $transaction->amount, 2);
 
             if ($balanceAfter < 0) {
-                throw new RuntimeException("{$branchLabel} balance cannot go below zero on {$transactionDate} while replaying {$transactionType} ({$transaction->dr_cr} {$transactionAmount}).");
+                $availableBalance = number_format($balanceBefore, 2);
+                $shortfall = number_format(abs($balanceAfter), 2);
+                $isExpense = $transaction->tracking_id === 'expenses'
+                    && strtolower((string) $transaction->dr_cr) === 'dr';
+                $attemptedEntry = $isExpense
+                    ? "expense \"{$transactionType}\""
+                    : "debit for \"{$transactionType}\"";
+                $correctiveAction = $isExpense
+                    ? 'Reduce the expense amount or record sufficient income before posting this expense.'
+                    : 'Reduce the debit amount or credit the branch before posting this transaction.';
+
+                throw new RuntimeException(
+                    "Insufficient branch balance for {$branchLabel} on {$transactionDate}. "
+                    . "When branch transactions are applied in date order, the available balance is ₦{$availableBalance}, "
+                    . "but the attempted {$attemptedEntry} is ₦{$transactionAmount}, leaving a shortfall of ₦{$shortfall}. "
+                    . $correctiveAction
+                );
             }
 
             $this->updateTransactionSnapshot($transaction, $balanceBefore, $balanceAfter);
