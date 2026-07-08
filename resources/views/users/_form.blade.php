@@ -184,8 +184,8 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="designation">Designation</label>
-                            <input type="text" name="designation" id="designation" class="form-control @error('designation') is-invalid @enderror" value="{{ old('designation', $user->designation) }}" placeholder="Optional admin title">
+                            <label for="designation">Job Title</label>
+                            <input type="text" name="designation" id="designation" class="form-control @error('designation') is-invalid @enderror" value="{{ old('designation', $user->designation) }}" placeholder="Optional job title">
                             @error('designation')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -194,16 +194,33 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="password">Password {{ $user->exists ? '(Leave blank to keep current password)' : '' }}</label>
-                            <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror" {{ $user->exists ? '' : 'required' }}>
+                            <div class="input-group">
+                                <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror" {{ $user->exists ? '' : 'required' }}>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-secondary toggle-password-visibility" data-target="password" aria-label="Show password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
                             @error('password')
-                                <div class="invalid-feedback">{{ $message }}</div>
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
                             @enderror
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="password_confirmation">Confirm Password</label>
-                            <input type="password" name="password_confirmation" id="password_confirmation" class="form-control">
+                            <label for="password_confirmation">Confirm Password {{ $user->exists ? '(Required only when changing password)' : '' }}</label>
+                            <div class="input-group">
+                                <input type="password" name="password_confirmation" id="password_confirmation" class="form-control @error('password_confirmation') is-invalid @enderror" {{ $user->exists ? '' : 'required' }}>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-secondary toggle-password-visibility" data-target="password_confirmation" aria-label="Show confirm password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            @error('password_confirmation')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
                 </div>
@@ -214,7 +231,7 @@
             </div>
             <div class="card-body">
                 <div class="form-group">
-                    <label for="role_id">Role</label>
+                    <label for="role_id">Role <span class="text-danger">*</span></label>
                     <select name="role_id" id="role_id" class="form-control select2 @error('role_id') is-invalid @enderror" required>
                         <option value="">Select admin role</option>
                         @foreach ($roles as $roleOption)
@@ -345,6 +362,24 @@
             const clearExtrasButton = document.getElementById('clear-extra-branches');
             const branchItems = Array.from(document.querySelectorAll('[data-branch-item]'));
             const branchCheckboxes = Array.from(document.querySelectorAll('[data-branch-checkbox]'));
+            const passwordToggleButtons = Array.from(document.querySelectorAll('.toggle-password-visibility'));
+
+            passwordToggleButtons.forEach((button) => {
+                button.addEventListener('click', function () {
+                    const input = document.getElementById(button.dataset.target || '');
+                    const icon = button.querySelector('i');
+
+                    if (! input || ! icon) {
+                        return;
+                    }
+
+                    const shouldShow = input.type === 'password';
+                    input.type = shouldShow ? 'text' : 'password';
+                    icon.classList.toggle('fa-eye', ! shouldShow);
+                    icon.classList.toggle('fa-eye-slash', shouldShow);
+                    button.setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+                });
+            });
 
             if (!primaryBranchSelect || !allowedBranchesSearch || !allowedBranchesList || !emptyState || !summaryNode || !selectAllButton || !clearExtrasButton || branchItems.length === 0) {
                 return;

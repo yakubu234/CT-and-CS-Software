@@ -92,12 +92,8 @@ class MemberBalanceReportService
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
             ->where('users.branch_id', $branch->id)
             ->where('users.branch_account', false)
+            ->where('users.user_type', 'customer')
             ->whereNull('users.deleted_at')
-            ->where(function (Builder $query): void {
-                $query->where('users.user_type', 'customer')
-                    ->orWhere('users.society_exco', true)
-                    ->orWhere('users.former_exco', true);
-            })
             ->orderBy('users.name')
             ->orderBy('users.last_name')
             ->get([
@@ -128,12 +124,8 @@ class MemberBalanceReportService
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
             ->where('users.branch_id', $branch->id)
             ->where('users.branch_account', false)
+            ->where('users.user_type', 'customer')
             ->whereNull('users.deleted_at')
-            ->where(function (Builder $builder): void {
-                $builder->where('users.user_type', 'customer')
-                    ->orWhere('users.society_exco', true)
-                    ->orWhere('users.former_exco', true);
-            })
             ->select([
                 'users.id',
                 'users.name',

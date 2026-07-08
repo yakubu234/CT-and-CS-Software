@@ -39,6 +39,11 @@ class TransactionController extends Controller
             ->where('tracking_id', 'regular')
             ->where('is_branch', false)
             ->whereNull('deleted_at')
+            ->whereHas('user', function (Builder $query): void {
+                $query->where('user_type', 'customer')
+                    ->where('branch_account', false)
+                    ->whereNull('deleted_at');
+            })
             ->latest('trans_date')
             ->latest('id');
 
@@ -101,6 +106,7 @@ class TransactionController extends Controller
             ->where('id', $request->integer('member_id'))
             ->where('branch_id', (string) $branch->id)
             ->where('branch_account', false)
+            ->where('user_type', 'customer')
             ->whereNull('deleted_at')
             ->firstOrFail();
 
@@ -237,12 +243,8 @@ class TransactionController extends Controller
             ])
             ->where('branch_id', (string) $branchId)
             ->where('branch_account', false)
+            ->where('user_type', 'customer')
             ->whereNull('deleted_at')
-            ->where(function (Builder $query): void {
-                $query->where('user_type', 'customer')
-                    ->orWhere('society_exco', true)
-                    ->orWhere('former_exco', true);
-            })
             ->orderBy('name')
             ->get();
     }

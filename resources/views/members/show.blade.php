@@ -94,6 +94,59 @@
                 </div>
             </div>
 
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Loans</h3>
+                    @if ($member->loans->isNotEmpty())
+                        <span class="badge badge-info">{{ $member->loans->count() }} loan record{{ $member->loans->count() === 1 ? '' : 's' }}</span>
+                    @endif
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead>
+                            <tr>
+                                <th>Loan ID</th>
+                                <th>Loan Amount</th>
+                                <th>Total Paid</th>
+                                <th>Outstanding Balance</th>
+                                <th>Status</th>
+                                <th style="width: 120px;">Action</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @forelse ($member->loans as $loan)
+                                @php
+                                    $loanAmount = (float) ($loan->amount_due ?? $loan->applied_amount ?? 0);
+                                    $outstanding = (float) ($loan->balanace ?? 0);
+                                @endphp
+                                <tr>
+                                    <td>{{ $loan->loan_id }}</td>
+                                    <td>&#8358;{{ number_format($loanAmount, 2) }}</td>
+                                    <td>&#8358;{{ number_format((float) ($loan->total_paid ?? 0), 2) }}</td>
+                                    <td class="font-weight-bold {{ $outstanding > 0 ? 'text-danger' : 'text-success' }}">
+                                        &#8358;{{ number_format($outstanding, 2) }}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ $outstanding > 0 ? 'success' : 'secondary' }}">
+                                            {{ $outstanding > 0 ? 'Active' : 'Closed' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('loans.show', $loan) }}" class="btn btn-sm btn-outline-info">View Loan</a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">No loan record found for this member.</td>
+                                </tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="card" id="documents">
                 <div class="card-header"><h3 class="card-title">Documents</h3></div>
                 <div class="card-body">

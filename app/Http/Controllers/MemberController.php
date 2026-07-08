@@ -39,6 +39,7 @@ class MemberController extends Controller
                 User::query()
                     ->with(['detail'])
                     ->where('branch_account', false)
+                    ->where('user_type', 'customer')
                     ->whereNull('deleted_at')
                     ->where('branch_id', (string) $branch->id)
                     ->latest(),
@@ -96,11 +97,20 @@ class MemberController extends Controller
 
         abort_unless(
             ! $member->branch_account
+            && $member->user_type === 'customer'
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
 
-        $member->load(['detail', 'documents', 'savingsAccounts.product']);
+        $member->load([
+            'detail',
+            'documents',
+            'savingsAccounts.product',
+            'loans' => function ($query) use ($branch): void {
+                $query->where('branch_id', $branch->id)
+                    ->latest('id');
+            },
+        ]);
 
         return view('members.show', [
             'member' => $member,
@@ -118,6 +128,7 @@ class MemberController extends Controller
 
         abort_unless(
             ! $member->branch_account
+            && $member->user_type === 'customer'
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
@@ -139,6 +150,7 @@ class MemberController extends Controller
         abort_unless($branch, 422, 'Please select a branch before updating a member.');
         abort_unless(
             ! $member->branch_account
+            && $member->user_type === 'customer'
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
@@ -157,6 +169,7 @@ class MemberController extends Controller
         abort_unless(
             $branch
             && ! $member->branch_account
+            && $member->user_type === 'customer'
             && (string) $member->branch_id === (string) $branch->id,
             404
         );
@@ -176,6 +189,7 @@ class MemberController extends Controller
         abort_unless(
             $branch
             && ! $member->branch_account
+            && $member->user_type === 'customer'
             && (string) $member->branch_id === (string) $branch->id,
             404
         );

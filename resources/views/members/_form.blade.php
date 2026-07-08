@@ -1,6 +1,8 @@
 @php
     $member = $member ?? null;
     $detail = $member->detail ?? null;
+    $memberFirstName = $member?->getRawOriginal('name') ?? '';
+    $memberLastName = $member?->getRawOriginal('last_name') ?? '';
     $storedCustomFields = collect(old('custom_fields', $detail?->custom_fields ?? []));
     $memberNumberPreview = old('member_number_preview', $memberNumberPreview ?? $member?->display_member_no ?? $detail?->member_no ?? $member->member_no ?? $nextMemberNumber ?? '');
 @endphp
@@ -62,7 +64,7 @@
                 First Name
                 <span class="field-label-meta required">Required</span>
             </label>
-            <input type="text" name="first_name" id="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name', $member->name ?? '') }}" required>
+            <input type="text" name="first_name" id="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name', $memberFirstName) }}" required>
             @error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
     </div>
@@ -73,7 +75,7 @@
                 Last Name
                 <span class="field-label-meta required">Required</span>
             </label>
-            <input type="text" name="last_name" id="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name', $member->last_name ?? '') }}" required>
+            <input type="text" name="last_name" id="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name', $memberLastName) }}" required>
             @error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
     </div>

@@ -297,10 +297,8 @@
                         <strong class="text-success">{!! $money($dashboard['cash_this_month']['credits']) !!}</strong>
                     </div>
                     <div class="cash-chip">
-                        <span>Month Net</span>
-                        <strong class="{{ $dashboard['cash_this_month']['net'] < 0 ? 'text-danger' : 'text-primary' }}">
-                            {!! $money($dashboard['cash_this_month']['net']) !!}
-                        </strong>
+                        <span>Month Outflow</span>
+                        <strong class="text-danger">{!! $money($dashboard['cash_this_month']['debits']) !!}</strong>
                     </div>
                 </div>
             </div>

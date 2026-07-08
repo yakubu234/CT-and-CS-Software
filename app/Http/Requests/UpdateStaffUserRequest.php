@@ -40,4 +40,12 @@ class UpdateStaffUserRequest extends FormRequest
             'designation' => ['nullable', 'string', 'max:191'],
         ];
     }
+
+    public function attributes(): array
+    {
+        return [
+            'designation' => 'job title',
+            'password_confirmation' => 'confirm password',
+        ];
+    }
 }

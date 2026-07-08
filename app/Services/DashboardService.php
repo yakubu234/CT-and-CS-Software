@@ -22,23 +22,15 @@ class DashboardService
         $memberBase = User::query()
             ->where('branch_id', (string) $branch->id)
             ->where('branch_account', false)
-            ->whereNull('deleted_at')
-            ->where(function ($query): void {
-                $query->where('user_type', 'customer')
-                    ->orWhere('society_exco', true)
-                    ->orWhere('former_exco', true);
-            });
+            ->where('user_type', 'customer')
+            ->whereNull('deleted_at');
 
         $memberCount = (clone $memberBase)->count();
         $newMembersThisMonth = (clone $memberBase)
             ->where('created_at', '>=', $startOfMonth)
             ->count();
 
-        $branchPurseBalance = (float) SavingsAccount::query()
-            ->where('user_id', $branch->branch_user_id)
-            ->where('is_branch_acount', true)
-            ->where('status', 1)
-            ->sum('balance');
+        $branchPurseBalance = $this->branchLedgerBalance($branch);
 
         $accountTotals = $this->memberAccountTotals($branch);
         $memberWalletTotal = array_sum($accountTotals);
@@ -111,6 +103,7 @@ class DashboardService
             ->join('savings_products', 'savings_products.id', '=', 'savings_accounts.savings_product_id')
             ->where('users.branch_id', (string) $branch->id)
             ->where('users.branch_account', false)
+            ->where('users.user_type', 'customer')
             ->whereNull('users.deleted_at')
             ->where('savings_accounts.is_branch_acount', false)
             ->where('savings_accounts.status', 1)
@@ -200,6 +193,18 @@ class DashboardService
             'debits' => round($debits, 2),
             'net' => round($credits - $debits, 2),
         ];
+    }
+
+    protected function branchLedgerBalance(Branch $branch): float
+    {
+        return round(
+            (float) Transaction::query()
+                ->where('branch_id', $branch->id)
+                ->where('is_branch', true)
+                ->whereNull('deleted_at')
+                ->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
+            2
+        );
     }
 
     protected function cashFlowChart(Branch $branch): array

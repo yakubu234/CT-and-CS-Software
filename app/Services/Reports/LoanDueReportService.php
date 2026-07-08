@@ -78,12 +78,8 @@ class LoanDueReportService
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
             ->where('users.branch_id', $branch->id)
             ->where('users.branch_account', false)
+            ->where('users.user_type', 'customer')
             ->whereNull('users.deleted_at')
-            ->where(function (Builder $query): void {
-                $query->where('users.user_type', 'customer')
-                    ->orWhere('users.society_exco', true)
-                    ->orWhere('users.former_exco', true);
-            })
             ->orderBy('users.name')
             ->orderBy('users.last_name')
             ->get([
@@ -110,6 +106,9 @@ class LoanDueReportService
             ->leftJoin('users as borrowers', 'borrowers.id', '=', 'loans.borrower_id')
             ->leftJoin('user_details as borrower_details', 'borrower_details.user_id', '=', 'borrowers.id')
             ->where('loans.branch_id', $branch->id)
+            ->where('borrowers.branch_account', false)
+            ->where('borrowers.user_type', 'customer')
+            ->whereNull('borrowers.deleted_at')
             ->whereRaw('CAST(COALESCE(loans.balanace, 0) AS DECIMAL(15,2)) > 0')
             ->whereExists(function ($subQuery) use ($endDate): void {
                 $subQuery->selectRaw('1')

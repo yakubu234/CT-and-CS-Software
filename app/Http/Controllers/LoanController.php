@@ -40,6 +40,11 @@ class LoanController extends Controller
             Loan::query()
                 ->with(['borrower.detail'])
                 ->where('branch_id', $branch->id)
+                ->whereHas('borrower', function (Builder $borrowerQuery): void {
+                    $borrowerQuery->where('user_type', 'customer')
+                        ->where('branch_account', false)
+                        ->whereNull('deleted_at');
+                })
                 ->where(function (Builder $query): void {
                     $query->where(function (Builder $activeQuery): void {
                         $activeQuery->whereRaw('CAST(COALESCE(amount_due, 0) AS DECIMAL(15,2)) > 0')
@@ -84,6 +89,11 @@ class LoanController extends Controller
                 ->with(['loan.borrower.detail', 'borrower.detail', 'creator'])
                 ->where('branch_id', $branch->id)
                 ->where('decision_status', LoanDetail::STATUS_PENDING)
+                ->whereHas('borrower', function (Builder $borrowerQuery): void {
+                    $borrowerQuery->where('user_type', 'customer')
+                        ->where('branch_account', false)
+                        ->whereNull('deleted_at');
+                })
                 ->when($request->filled('search'), function (Builder $query) use ($request): void {
                     $search = $request->string('search')->toString();
                     $query->whereHas('borrower', function (Builder $borrowerQuery) use ($search): void {
@@ -125,6 +135,11 @@ class LoanController extends Controller
                 ->with(['loan.borrower.detail', 'borrower.detail', 'creator', 'decliner'])
                 ->where('branch_id', $branch->id)
                 ->where('decision_status', LoanDetail::STATUS_DECLINED)
+                ->whereHas('borrower', function (Builder $borrowerQuery): void {
+                    $borrowerQuery->where('user_type', 'customer')
+                        ->where('branch_account', false)
+                        ->whereNull('deleted_at');
+                })
                 ->when($request->filled('search'), function (Builder $query) use ($request): void {
                     $search = $request->string('search')->toString();
                     $query->where(function (Builder $builder) use ($search): void {
@@ -162,12 +177,8 @@ class LoanController extends Controller
             ->with('detail')
             ->where('branch_id', (string) $branch->id)
             ->where('branch_account', false)
+            ->where('user_type', 'customer')
             ->whereNull('deleted_at')
-            ->where(function (Builder $query): void {
-                $query->where('user_type', 'customer')
-                    ->orWhere('society_exco', true)
-                    ->orWhere('former_exco', true);
-            })
             ->orderBy('name')
             ->get()
             ->map(function (User $borrower) use ($branch) {
@@ -204,6 +215,7 @@ class LoanController extends Controller
             ->where('id', $request->integer('borrower_id'))
             ->where('branch_id', (string) $branch->id)
             ->where('branch_account', false)
+            ->where('user_type', 'customer')
             ->whereNull('deleted_at')
             ->firstOrFail();
 
