@@ -51,6 +51,10 @@ class PermissionRegistry
                 'sms.view' => 'View SMS settings, templates, campaigns, and logs',
                 'sms.manage' => 'Manage SMS settings, templates, campaigns, and automations',
             ],
+            'Email' => [
+                'email.view' => 'View email settings, templates, campaigns, and logs',
+                'email.manage' => 'Manage email settings, templates, and campaigns',
+            ],
             'User Management' => [
                 'users.view' => 'View staff users',
                 'users.manage' => 'Create, edit, and archive staff users',

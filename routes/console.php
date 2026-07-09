@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\BranchService;
+use App\Services\Email\EmailCampaignService;
 use App\Services\Sms\SmsAutomationService;
 use App\Services\Sms\SmsCampaignService;
 use Illuminate\Foundation\Inspiring;
@@ -313,3 +314,10 @@ Artisan::command('sms:process-pending', function (SmsCampaignService $campaignSe
     $this->line("Queued campaign messages processed: {$queuedMessages}");
     $this->line("Automation messages processed: {$automaticMessages}");
 })->purpose('Process queued SMS campaigns and date-based SMS automations.');
+
+Artisan::command('email:process-pending', function (EmailCampaignService $campaignService) {
+    $queuedMessages = $campaignService->processScheduledMessages();
+
+    $this->info('Email processing complete.');
+    $this->line("Queued campaign messages processed: {$queuedMessages}");
+})->purpose('Process queued and scheduled email campaigns.');

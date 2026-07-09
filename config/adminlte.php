@@ -489,6 +489,41 @@ return [
             ],
         ],
         [
+            'text' => 'Email',
+            'icon' => 'fas fa-envelope-open-text',
+            'permissions' => ['email.view', 'email.manage'],
+            'submenu' => [
+                [
+                    'text' => 'Email Settings',
+                    'url' => 'email/settings',
+                    'icon' => 'fas fa-cogs',
+                    'active' => ['email/settings'],
+                    'permissions' => ['email.view', 'email.manage'],
+                ],
+                [
+                    'text' => 'Email Templates',
+                    'url' => 'email/templates',
+                    'icon' => 'fas fa-file-alt',
+                    'active' => ['email/templates', 'email/templates/*'],
+                    'permissions' => ['email.view', 'email.manage'],
+                ],
+                [
+                    'text' => 'Email Campaigns',
+                    'url' => 'email/campaigns',
+                    'icon' => 'fas fa-paper-plane',
+                    'active' => ['email/campaigns', 'email/campaigns/*'],
+                    'permissions' => ['email.view', 'email.manage'],
+                ],
+                [
+                    'text' => 'Email Logs',
+                    'url' => 'email/logs',
+                    'icon' => 'fas fa-history',
+                    'active' => ['email/logs', 'email/logs/*'],
+                    'permissions' => ['email.view', 'email.manage'],
+                ],
+            ],
+        ],
+        [
             'text' => 'Transaction',
             'icon' => 'fas fa-exchange-alt',
             'permissions' => ['transactions.view', 'transactions.manage'],

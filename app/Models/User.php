@@ -149,6 +149,11 @@ class User extends Authenticatable
         return $this->hasMany(SmsMessage::class);
     }
 
+    public function emailMessages(): HasMany
+    {
+        return $this->hasMany(EmailMessage::class);
+    }
+
     public function isAdminSideUser(): bool
     {
         return $this->user_type !== 'customer' && ! $this->branch_account;

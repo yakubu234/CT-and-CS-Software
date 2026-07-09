@@ -8,6 +8,10 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DesignationController;
+use App\Http\Controllers\EmailCampaignController;
+use App\Http\Controllers\EmailMessageController;
+use App\Http\Controllers\EmailSettingsController;
+use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\IncomeExpenseController;
 use App\Http\Controllers\LoanController;
@@ -132,6 +136,20 @@ Route::middleware('auth')->group(function () {
     Route::put('/bulk-sms/automations/{smsAutomationRule}', [SmsAutomationController::class, 'update'])->name('bulk-sms.automations.update');
     Route::delete('/bulk-sms/automations/{smsAutomationRule}', [SmsAutomationController::class, 'destroy'])->name('bulk-sms.automations.destroy');
     Route::get('/bulk-sms/logs', [SmsMessageController::class, 'index'])->name('bulk-sms.logs.index');
+
+    Route::get('/email/settings', [EmailSettingsController::class, 'edit'])->name('email.settings.edit');
+    Route::post('/email/settings/test-send', [EmailSettingsController::class, 'testSend'])->name('email.settings.test-send');
+    Route::get('/email/templates', [EmailTemplateController::class, 'index'])->name('email.templates.index');
+    Route::get('/email/templates/create', [EmailTemplateController::class, 'create'])->name('email.templates.create');
+    Route::post('/email/templates', [EmailTemplateController::class, 'store'])->name('email.templates.store');
+    Route::get('/email/templates/{emailTemplate}/edit', [EmailTemplateController::class, 'edit'])->name('email.templates.edit');
+    Route::put('/email/templates/{emailTemplate}', [EmailTemplateController::class, 'update'])->name('email.templates.update');
+    Route::delete('/email/templates/{emailTemplate}', [EmailTemplateController::class, 'destroy'])->name('email.templates.destroy');
+    Route::get('/email/campaigns', [EmailCampaignController::class, 'index'])->name('email.campaigns.index');
+    Route::get('/email/campaigns/create', [EmailCampaignController::class, 'create'])->name('email.campaigns.create');
+    Route::post('/email/campaigns', [EmailCampaignController::class, 'store'])->name('email.campaigns.store');
+    Route::get('/email/campaigns/{emailCampaign}', [EmailCampaignController::class, 'show'])->name('email.campaigns.show');
+    Route::get('/email/logs', [EmailMessageController::class, 'index'])->name('email.logs.index');
 
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::get('/transactions/create', [TransactionController::class, 'create'])->name('transactions.create');

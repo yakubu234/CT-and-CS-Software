@@ -58,4 +58,14 @@ class Branch extends Model
     {
         return $this->hasMany(SmsMessage::class);
     }
+
+    public function emailCampaigns(): HasMany
+    {
+        return $this->hasMany(EmailCampaign::class);
+    }
+
+    public function emailMessages(): HasMany
+    {
+        return $this->hasMany(EmailMessage::class);
+    }
 }

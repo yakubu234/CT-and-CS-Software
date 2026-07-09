@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             CustomFieldsTableSeeder::class,
             TransactionCategoriesSeeder::class,
             SmsTemplateSeeder::class,
+            EmailTemplateSeeder::class,
             BlogPostSeeder::class,
         ]);
 
