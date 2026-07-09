@@ -49,14 +49,15 @@
                     <input
                         type="password"
                         name="password"
+                        id="password"
                         class="form-control"
                         placeholder="Password"
                         required
                     >
                     <div class="input-group-append">
-                        <div class="input-group-text">
-                            <span class="fas fa-lock"></span>
-                        </div>
+                        <button type="button" class="btn btn-outline-secondary toggle-password-visibility" data-target="password" aria-label="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -83,5 +84,29 @@
 <script src="{{ asset('vendor/adminlte/plugins/jquery/jquery.min.js') }}"></script>
 <script src="{{ asset('vendor/adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ asset('vendor/adminlte/dist/js/adminlte.min.js') }}"></script>
+<script>
+    (function () {
+        const passwordToggleButton = document.querySelector('.toggle-password-visibility');
+
+        if (! passwordToggleButton) {
+            return;
+        }
+
+        passwordToggleButton.addEventListener('click', function () {
+            const input = document.getElementById(passwordToggleButton.dataset.target || '');
+            const icon = passwordToggleButton.querySelector('i');
+
+            if (! input || ! icon) {
+                return;
+            }
+
+            const shouldShow = input.type === 'password';
+            input.type = shouldShow ? 'text' : 'password';
+            icon.classList.toggle('fa-eye', ! shouldShow);
+            icon.classList.toggle('fa-eye-slash', shouldShow);
+            passwordToggleButton.setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+        });
+    })();
+</script>
 </body>
 </html>
