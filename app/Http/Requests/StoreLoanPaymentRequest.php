@@ -20,6 +20,7 @@ class StoreLoanPaymentRequest extends FormRequest
             'repayment_amount' => ['nullable', 'numeric', 'min:0'],
             'interest_rate' => ['nullable', 'numeric', 'min:0'],
             'interest_paid' => ['nullable', 'numeric', 'min:0'],
+            'outstanding_interest' => ['nullable', 'numeric', 'min:0'],
             'carry_forward_remaining' => ['nullable', 'boolean'],
             'remarks' => ['nullable', 'string'],
         ];
@@ -31,9 +32,10 @@ class StoreLoanPaymentRequest extends FormRequest
             function (Validator $validator): void {
                 $repaymentAmount = round((float) $this->input('repayment_amount', 0), 2);
                 $interestPaid = round((float) $this->input('interest_paid', 0), 2);
+                $outstandingInterest = round((float) $this->input('outstanding_interest', 0), 2);
 
-                if ($repaymentAmount <= 0 && $interestPaid <= 0) {
-                    $validator->errors()->add('repayment_amount', 'Enter a repayment amount, an interest payment, or both.');
+                if ($repaymentAmount <= 0 && $interestPaid <= 0 && $outstandingInterest <= 0) {
+                    $validator->errors()->add('repayment_amount', 'Enter a repayment amount, an interest payment, outstanding interest, or a combination.');
                 }
             },
         ];

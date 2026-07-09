@@ -421,23 +421,21 @@ class LoanPaymentService
         $interestMeta = $this->suggestedInterest($loan, $interestRate, $payload['paid_at'], $excludePayment);
         $enteredPrincipal = round((float) ($payload['repayment_amount'] ?? 0), 2);
         $enteredInterest = round((float) ($payload['interest_paid'] ?? 0), 2);
+        $enteredOutstandingInterest = round((float) ($payload['outstanding_interest'] ?? 0), 2);
         $principalApplied = $enteredPrincipal;
-        $interestExpectedTotal = $interestMeta['total_interest_due'];
-        $interestCovered = min($enteredInterest, $interestExpectedTotal);
+        $interestExpectedTotal = round($enteredInterest + $enteredOutstandingInterest, 2);
         $interestApplied = $enteredInterest;
 
-        if ($principalApplied <= 0 && $interestApplied <= 0) {
-            throw new RuntimeException('Enter a repayment amount, an interest payment, or both.');
+        if ($principalApplied <= 0 && $interestApplied <= 0 && $enteredOutstandingInterest <= 0) {
+            throw new RuntimeException('Enter a repayment amount, an interest payment, outstanding interest, or a combination.');
         }
 
         if ($principalApplied > $context['current_balance']) {
             throw new RuntimeException('The repayment amount cannot be greater than the current amount owed on this loan.');
         }
 
-        $interestRemaining = round(max($interestExpectedTotal - $interestCovered, 0), 2);
-        $carryForwardFlag = $interestRemaining > 0
-            ? ((bool) ($payload['carry_forward_remaining'] ?? false) ? 1 : 0)
-            : 0;
+        $interestRemaining = $enteredOutstandingInterest;
+        $carryForwardFlag = $interestRemaining > 0 ? 1 : 0;
 
         return [
             'detail' => $context['detail'],

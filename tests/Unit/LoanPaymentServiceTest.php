@@ -65,6 +65,58 @@ class LoanPaymentServiceTest extends TestCase
         $this->assertSame(0.0, $prepared['interest_remaining']);
     }
 
+    public function test_entered_outstanding_interest_is_carried_forward(): void
+    {
+        $branch = new Branch(['id' => 1]);
+        $loan = new Loan(['balanace' => 1000000]);
+
+        $service = new class(Mockery::mock(LoanService::class)) extends LoanPaymentService
+        {
+            public array $context = [];
+
+            public array $interestMeta = [];
+
+            public function repaymentContext(Loan $loan, ?string $paidAt = null, $excludePayment = null): array
+            {
+                return $this->context;
+            }
+
+            public function suggestedInterest(Loan $loan, float $interestRate, ?string $paidAt = null, $excludePayment = null): array
+            {
+                return $this->interestMeta;
+            }
+
+            public function prepare(Branch $branch, Loan $loan, array $payload): array
+            {
+                return $this->prepareRepaymentPayload($branch, $loan, $payload);
+            }
+        };
+
+        $service->context = [
+            'detail' => null,
+            'paid_at' => Carbon::parse('2026-06-23'),
+            'current_balance' => 1000000.0,
+        ];
+        $service->interestMeta = [
+            'current_interest_due' => 0.0,
+            'total_interest_due' => 0.0,
+            'pending_carry_forwards' => new Collection(),
+            'due_cycle' => [],
+        ];
+
+        $prepared = $service->prepare($branch, $loan, [
+            'paid_at' => '2026-06-23',
+            'repayment_amount' => 0,
+            'interest_paid' => 3000,
+            'outstanding_interest' => 1500,
+        ]);
+
+        $this->assertSame(3000.0, $prepared['interest_applied']);
+        $this->assertSame(1500.0, $prepared['interest_remaining']);
+        $this->assertSame(4500.0, $prepared['interest_expected_total']);
+        $this->assertSame(1, $prepared['carry_forward_flag']);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();

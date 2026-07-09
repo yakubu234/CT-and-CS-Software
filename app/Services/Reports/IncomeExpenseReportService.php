@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class IncomeExpenseReportService
 {
+    protected const LOAN_INTEREST_TYPE = 'Loan Interest Repayment';
+
     public function build(Branch $branch, Request $request): array
     {
         [$startDate, $endDate] = $this->resolveDateRange($request);
@@ -75,6 +77,10 @@ class IncomeExpenseReportService
         return Transaction::query()
             ->where('branch_id', $branch->id)
             ->where('is_branch', true)
+            ->where(function (Builder $query): void {
+                $query->where('tracking_id', 'expenses')
+                    ->orWhere('type', self::LOAN_INTEREST_TYPE);
+            })
             ->whereNull('deleted_at')
             ->whereNotNull('type')
             ->distinct()
@@ -89,6 +95,10 @@ class IncomeExpenseReportService
         $query = Transaction::query()
             ->where('branch_id', $branch->id)
             ->where('is_branch', true)
+            ->where(function (Builder $builder): void {
+                $builder->where('tracking_id', 'expenses')
+                    ->orWhere('type', self::LOAN_INTEREST_TYPE);
+            })
             ->whereNull('deleted_at');
 
         $category = trim((string) $request->input('category'));

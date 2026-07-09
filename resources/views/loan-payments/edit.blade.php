@@ -176,7 +176,7 @@
                 <div class="repayment-inline-note">
                     <i class="fas fa-circle-info"></i>
                     <div>
-                        The interest preview updates live from the current outstanding balance. Enter the rate as a decimal, such as 0.01 for 1%. The repayment schedule notice is advisory only, so you can still record interest outside the exact interval when needed.
+                        Enter the interest being paid now separately from outstanding interest. Any outstanding interest entered here will be carried forward automatically.
                     </div>
                 </div>
 
@@ -200,20 +200,22 @@
                         @enderror
                     </div>
                     <div class="col-lg-4 mb-3">
-                        <label for="interest_rate">Interest Rate</label>
-                        <input type="number" min="0" step="0.01" name="interest_rate" id="interest_rate" class="form-control @error('interest_rate') is-invalid @enderror" value="{{ old('interest_rate', $repayment->interest_rate !== null ? number_format((float) $repayment->interest_rate, 2, '.', '') : '') }}">
-                        <small class="form-text text-muted">Enter the rate as a decimal, for example 0.01 for 1%.</small>
-                        @error('interest_rate')
+                        <label for="interest_paid">Interest to Pay Now</label>
+                        <input type="number" min="0" step="0.01" name="interest_paid" id="interest_paid" class="form-control @error('interest_paid') is-invalid @enderror" value="{{ old('interest_paid', number_format((float) ($repayment->interest_paid ?? 0), 2, '.', '')) }}">
+                        <small class="form-text text-muted" id="interest-paid-helper">
+                            This amount will be posted as interest received.
+                        </small>
+                        @error('interest_paid')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
                     <div class="col-lg-4 mb-3">
-                        <label for="interest_paid">Interest to Pay Now</label>
-                        <input type="number" min="0" step="0.01" name="interest_paid" id="interest_paid" class="form-control @error('interest_paid') is-invalid @enderror" value="{{ old('interest_paid', number_format((float) ($repayment->interest_paid ?? 0), 2, '.', '')) }}">
-                        <small class="form-text text-muted" id="interest-paid-helper">
-                            You can enter interest here at any time. The interest rate and carry-forward details below are only a guide.
+                        <label for="outstanding_interest">Outstanding Interest</label>
+                        <input type="number" min="0" step="0.01" name="outstanding_interest" id="outstanding_interest" class="form-control @error('outstanding_interest') is-invalid @enderror" value="{{ old('outstanding_interest', number_format((float) ($repayment->outstanding_interest ?? 0), 2, '.', '')) }}">
+                        <small class="form-text text-muted">
+                            Any amount entered here will be carried forward automatically.
                         </small>
-                        @error('interest_paid')
+                        @error('outstanding_interest')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
@@ -225,8 +227,8 @@
                         <div class="repayment-stat-value" id="amount-owed">&#8358;0.00</div>
                     </div>
                     <div class="repayment-stat">
-                        <div class="repayment-stat-label">Suggested Interest</div>
-                        <div class="repayment-stat-value text-info" id="suggested-interest">&#8358;0.00</div>
+                        <div class="repayment-stat-label">Existing Carry-Forward</div>
+                        <div class="repayment-stat-value text-info" id="existing-carry-forward">&#8358;0.00</div>
                     </div>
                     <div class="repayment-stat">
                         <div class="repayment-stat-label">Projected Loan Balance</div>
@@ -240,18 +242,6 @@
                 <div class="alert alert-warning d-none" id="carry-forward-notice">
                     <strong>Uncompleted interest is pending.</strong>
                     <div class="mt-2 carry-forward-list" id="carry-forward-list"></div>
-                </div>
-
-                <div class="form-group mt-3 d-none" id="carry-forward-toggle-wrap">
-                    <div class="custom-control custom-checkbox">
-                        <input type="checkbox" class="custom-control-input" id="carry_forward_remaining" name="carry_forward_remaining" value="1" @checked(old('carry_forward_remaining', (int) ($repayment->carry_forward ?? 0) === 1))>
-                        <label class="custom-control-label" for="carry_forward_remaining">
-                            Carry any remaining unpaid interest forward to the next repayment
-                        </label>
-                    </div>
-                    <small class="form-text text-muted d-none" id="carry-forward-helper">
-                        This has been checked automatically because the interest paid is lower than the suggested interest. You can uncheck it if you do not want the remainder carried forward.
-                    </small>
                 </div>
 
                 <div class="form-group mt-3">
@@ -281,19 +271,16 @@
             const loan = @json($loanJs);
             const paidAtInput = document.getElementById('paid_at');
             const repaymentInput = document.getElementById('repayment_amount');
-            const interestRateInput = document.getElementById('interest_rate');
             const interestPaidInput = document.getElementById('interest_paid');
+            const outstandingInterestInput = document.getElementById('outstanding_interest');
             const amountOwedNode = document.getElementById('amount-owed');
-            const suggestedInterestNode = document.getElementById('suggested-interest');
+            const existingCarryForwardNode = document.getElementById('existing-carry-forward');
             const projectedBalanceNode = document.getElementById('projected-balance');
             const interestBreakdownNode = document.getElementById('interest-breakdown');
             const dueCycleNoticeNode = document.getElementById('due-cycle-notice');
             const interestPaidHelper = document.getElementById('interest-paid-helper');
             const carryForwardNoticeNode = document.getElementById('carry-forward-notice');
             const carryForwardListNode = document.getElementById('carry-forward-list');
-            const carryForwardToggleWrap = document.getElementById('carry-forward-toggle-wrap');
-            const carryForwardCheckbox = document.getElementById('carry_forward_remaining');
-            const carryForwardHelper = document.getElementById('carry-forward-helper');
 
             const formatMoney = (value) => `₦${new Intl.NumberFormat('en-NG', {
                 minimumFractionDigits: 2,
@@ -302,20 +289,15 @@
 
             const parseDate = (value) => value ? new Date(`${value}T00:00:00`) : null;
 
-            const syncInterestPaidAvailability = (interestRate) => {
+            const syncInterestPaidAvailability = () => {
                 const hasCarryForward = Number(loan.carry_forward_total || 0) > 0;
-                const hasInterestRate = Number(interestRate || 0) > 0;
 
                 interestPaidInput.disabled = false;
 
-                if (hasCarryForward && hasInterestRate) {
-                    interestPaidHelper.textContent = 'You can enter interest here at any time. This loan also has a live suggested interest and carried-forward interest guide.';
-                } else if (hasCarryForward) {
-                    interestPaidHelper.textContent = 'You can enter interest here at any time. This loan has carried-forward interest waiting to be settled.';
-                } else if (hasInterestRate) {
-                    interestPaidHelper.textContent = 'You can enter interest here at any time. The amount below is being guided by the rate you entered.';
+                if (hasCarryForward) {
+                    interestPaidHelper.textContent = 'This loan has existing carried-forward interest. Enter only the interest being paid now in this box.';
                 } else {
-                    interestPaidHelper.textContent = 'You can enter interest here at any time, even without an interest rate or carry-forward interest.';
+                    interestPaidHelper.textContent = 'This amount will be posted as interest received.';
                 }
             };
 
@@ -363,29 +345,23 @@
             const updatePreview = () => {
                 const paidAt = paidAtInput.value;
                 const repaymentAmount = Number(repaymentInput.value || 0);
-                const interestRate = Number(interestRateInput.value || 0);
-                syncInterestPaidAvailability(interestRate);
+                syncInterestPaidAvailability();
                 const interestPaid = Number(interestPaidInput.value || 0);
+                const outstandingInterest = Number(outstandingInterestInput.value || 0);
                 const cycle = isDueCycle(paidAt);
-                const currentInterestDue = loan.balance * interestRate;
-                const suggestedInterest = loan.carry_forward_total + currentInterestDue;
-                const appliedInterest = Math.min(interestPaid, suggestedInterest);
-                const excessInterest = Math.max(interestPaid - suggestedInterest, 0);
                 const projectedBalance = Math.max(loan.balance - repaymentAmount, 0);
-                const remainingInterest = Math.max(suggestedInterest - appliedInterest, 0);
+                const totalInterestForRecord = interestPaid + outstandingInterest;
 
                 amountOwedNode.textContent = formatMoney(loan.balance);
-                suggestedInterestNode.textContent = formatMoney(suggestedInterest);
+                existingCarryForwardNode.textContent = formatMoney(loan.carry_forward_total);
                 projectedBalanceNode.textContent = formatMoney(projectedBalance);
 
                 interestBreakdownNode.innerHTML = `
-                    <strong>Interest breakdown:</strong>
-                    Current balance ${formatMoney(loan.balance)}
-                    × rate ${interestRate.toFixed(4)}
-                    = ${formatMoney(currentInterestDue)}
-                    ${loan.carry_forward_total > 0 ? `<br>Carried-forward interest: ${formatMoney(loan.carry_forward_total)}` : ''}
-                    <br><strong>Total suggested interest:</strong> ${formatMoney(suggestedInterest)}.
-                    ${excessInterest > 0 ? `<br>Extra interest entered ${formatMoney(excessInterest)} will be recorded as interest and will not reduce the loan principal.` : ''}
+                    <strong>Interest entry:</strong>
+                    Interest to pay now: ${formatMoney(interestPaid)}.
+                    Outstanding interest to carry forward: ${formatMoney(outstandingInterest)}.
+                    <br><strong>Total interest recorded:</strong> ${formatMoney(totalInterestForRecord)}.
+                    ${loan.carry_forward_total > 0 ? `<br>Existing carried-forward interest awaiting settlement: ${formatMoney(loan.carry_forward_total)}.` : ''}
                 `;
 
                 dueCycleNoticeNode.textContent = cycle.label;
@@ -406,22 +382,9 @@
                     carryForwardListNode.innerHTML = '';
                 }
 
-                if (remainingInterest > 0) {
-                    carryForwardToggleWrap.classList.remove('d-none');
-                    if (interestPaid > 0 && interestPaid < suggestedInterest) {
-                        carryForwardCheckbox.checked = true;
-                        carryForwardHelper.classList.remove('d-none');
-                    } else {
-                        carryForwardHelper.classList.add('d-none');
-                    }
-                } else {
-                    carryForwardToggleWrap.classList.add('d-none');
-                    carryForwardCheckbox.checked = false;
-                    carryForwardHelper.classList.add('d-none');
-                }
             };
 
-            [paidAtInput, repaymentInput, interestRateInput, interestPaidInput].forEach((field) => {
+            [paidAtInput, repaymentInput, interestPaidInput, outstandingInterestInput].forEach((field) => {
                 field.addEventListener('change', updatePreview);
                 field.addEventListener('input', updatePreview);
             });
