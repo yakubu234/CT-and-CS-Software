@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
+use App\Models\AssetCategory;
 use App\Services\ActiveBranchService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
@@ -123,7 +124,7 @@ class AssetController extends Controller
         return $request->validate([
             'branch_id' => ['nullable', 'exists:branches,id'],
             'name' => ['required', 'string', 'max:191'],
-            'category' => ['required', Rule::in(array_keys($this->categoryOptions()))],
+            'category' => ['required', Rule::in(array_keys($this->categoryOptions(true)))],
             'purchase_date' => ['nullable', 'date'],
             'purchase_cost' => ['required', 'numeric', 'min:0'],
             'supplier' => ['nullable', 'string', 'max:191'],
@@ -147,18 +148,13 @@ class AssetController extends Controller
         ];
     }
 
-    protected function categoryOptions(): array
+    protected function categoryOptions(bool $activeOnly = false): array
     {
-        return [
-            'land_buildings' => 'Land and Buildings',
-            'office_furniture' => 'Office Furniture',
-            'computers_laptops' => 'Computers and Laptops',
-            'printers' => 'Printers',
-            'vehicles' => 'Vehicles',
-            'generators' => 'Generators',
-            'office_equipment' => 'Office Equipment',
-            'other_fixed_assets' => 'Other Fixed Assets',
-        ];
+        return AssetCategory::query()
+            ->when($activeOnly, fn (Builder $query) => $query->where('status', true))
+            ->orderBy('name')
+            ->pluck('name', 'slug')
+            ->all();
     }
 
     protected function statusOptions(): array

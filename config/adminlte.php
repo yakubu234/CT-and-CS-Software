@@ -546,10 +546,24 @@ return [
         ],
         [
             'text' => 'Assets',
-            'url' => 'assets',
             'icon' => 'fas fa-building',
-            'active' => ['assets', 'assets/*'],
             'permissions' => ['assets.view', 'assets.manage'],
+            'submenu' => [
+                [
+                    'text' => 'Fixed Assets',
+                    'url' => 'assets',
+                    'icon' => 'far fa-circle',
+                    'active' => ['assets', 'assets/*'],
+                    'permissions' => ['assets.view', 'assets.manage'],
+                ],
+                [
+                    'text' => 'Asset Categories',
+                    'url' => 'asset-categories',
+                    'icon' => 'far fa-circle',
+                    'active' => ['asset-categories', 'asset-categories/*'],
+                    'permissions' => ['assets.view', 'assets.manage'],
+                ],
+            ],
         ],
         [
             'text' => 'Reports',

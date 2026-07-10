@@ -86,6 +86,10 @@
                     <i class="fas fa-plus mr-1"></i>
                     Record Asset
                 </a>
+                <a href="{{ route('asset-categories.index') }}" class="btn btn-outline-secondary ml-2">
+                    <i class="fas fa-tags mr-1"></i>
+                    Manage Categories
+                </a>
             </div>
 
             <div class="table-responsive">

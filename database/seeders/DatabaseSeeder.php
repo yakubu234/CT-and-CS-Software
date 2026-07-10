@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             TransactionCategoriesSeeder::class,
             SmsTemplateSeeder::class,
             EmailTemplateSeeder::class,
+            AssetCategorySeeder::class,
             BlogPostSeeder::class,
         ]);
 

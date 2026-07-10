@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountTypeController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
@@ -117,6 +118,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/blog/{blogPost}', [BlogController::class, 'destroy'])->name('blog.destroy');
 
     Route::resource('assets', AssetController::class);
+    Route::resource('asset-categories', AssetCategoryController::class)->except(['show']);
 
     Route::get('/bulk-sms/settings', [SmsSettingsController::class, 'edit'])->name('bulk-sms.settings.edit');
     Route::put('/bulk-sms/settings', [SmsSettingsController::class, 'update'])->name('bulk-sms.settings.update');
