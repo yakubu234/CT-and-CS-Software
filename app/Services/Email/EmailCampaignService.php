@@ -90,18 +90,25 @@ class EmailCampaignService
         $campaign->update(['status' => EmailCampaign::STATUS_PROCESSING]);
 
         $failed = false;
+        $pending = false;
 
         foreach ($campaign->messages()->where('status', EmailMessage::STATUS_PENDING)->get() as $message) {
             $result = $this->dispatchService->dispatch($message);
 
-            if ($result->status !== EmailMessage::STATUS_SENT) {
+            if ($result->status === EmailMessage::STATUS_PENDING) {
+                $pending = true;
+            }
+
+            if ($result->status === EmailMessage::STATUS_FAILED) {
                 $failed = true;
             }
         }
 
         $campaign->update([
-            'status' => $failed ? EmailCampaign::STATUS_FAILED : EmailCampaign::STATUS_SENT,
-            'sent_at' => now(),
+            'status' => $pending
+                ? EmailCampaign::STATUS_PROCESSING
+                : ($failed ? EmailCampaign::STATUS_FAILED : EmailCampaign::STATUS_SENT),
+            'sent_at' => ! $pending ? now() : null,
         ]);
     }
 

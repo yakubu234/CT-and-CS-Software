@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountTypeController;
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
@@ -115,6 +116,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/blog/{blogPost}', [BlogController::class, 'update'])->name('blog.update');
     Route::delete('/blog/{blogPost}', [BlogController::class, 'destroy'])->name('blog.destroy');
 
+    Route::resource('assets', AssetController::class);
+
     Route::get('/bulk-sms/settings', [SmsSettingsController::class, 'edit'])->name('bulk-sms.settings.edit');
     Route::put('/bulk-sms/settings', [SmsSettingsController::class, 'update'])->name('bulk-sms.settings.update');
     Route::post('/bulk-sms/settings/balance', [SmsSettingsController::class, 'balance'])->name('bulk-sms.settings.balance');
@@ -139,6 +142,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/email/settings', [EmailSettingsController::class, 'edit'])->name('email.settings.edit');
     Route::post('/email/settings/test-send', [EmailSettingsController::class, 'testSend'])->name('email.settings.test-send');
+    Route::post('/email/settings/smtp-accounts', [EmailSettingsController::class, 'storeSmtp'])->name('email.settings.smtp.store');
+    Route::put('/email/settings/smtp-accounts/{smtpAccount}', [EmailSettingsController::class, 'updateSmtp'])->name('email.settings.smtp.update');
+    Route::delete('/email/settings/smtp-accounts/{smtpAccount}', [EmailSettingsController::class, 'destroySmtp'])->name('email.settings.smtp.destroy');
+    Route::post('/email/settings/preferences', [EmailSettingsController::class, 'storePreference'])->name('email.settings.preferences.store');
+    Route::delete('/email/settings/preferences/{emailPreference}', [EmailSettingsController::class, 'destroyPreference'])->name('email.settings.preferences.destroy');
     Route::get('/email/templates', [EmailTemplateController::class, 'index'])->name('email.templates.index');
     Route::get('/email/templates/create', [EmailTemplateController::class, 'create'])->name('email.templates.create');
     Route::post('/email/templates', [EmailTemplateController::class, 'store'])->name('email.templates.store');

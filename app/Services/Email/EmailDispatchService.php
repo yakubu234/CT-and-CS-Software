@@ -12,6 +12,8 @@ class EmailDispatchService
 {
     public function __construct(
         protected EmailSettingsService $settings,
+        protected EmailSmtpAccountService $smtpAccounts,
+        protected EmailPreferenceService $preferences,
     ) {
     }
 
@@ -29,13 +31,41 @@ class EmailDispatchService
             return $message->fresh();
         }
 
+        [$canSend, $pauseReason] = $this->preferences->canSend($message);
+
+        if (! $canSend) {
+            $message->update([
+                'status' => EmailMessage::STATUS_SKIPPED,
+                'error_message' => $pauseReason,
+                'processed_at' => now(),
+            ]);
+
+            return $message->fresh();
+        }
+
+        $smtpAccount = $this->smtpAccounts->eligibleAccount();
+
+        if (! $smtpAccount) {
+            $message->update([
+                'status' => EmailMessage::STATUS_PENDING,
+                'error_message' => 'No SMTP account is currently available within its hourly limit.',
+                'scheduled_for' => $this->smtpAccounts->nextAvailableAt(),
+                'processed_at' => now(),
+            ]);
+
+            return $message->fresh();
+        }
+
+        $mailer = $this->smtpAccounts->configureRuntimeMailer($smtpAccount);
+
         try {
-            Mail::mailer($this->settings->mailer())
+            Mail::mailer($mailer)
                 ->to($message->email, $message->recipient_name)
                 ->send(new EmailModuleMessage($message));
         } catch (Throwable $exception) {
             $message->update([
-                'mailer' => $this->settings->mailer(),
+                'mailer' => $mailer,
+                'smtp_account_id' => $smtpAccount->id,
                 'status' => EmailMessage::STATUS_FAILED,
                 'error_message' => $exception->getMessage(),
                 'processed_at' => now(),
@@ -44,8 +74,11 @@ class EmailDispatchService
             return $message->fresh();
         }
 
+        $this->smtpAccounts->recordSent($smtpAccount);
+
         $message->update([
-            'mailer' => $this->settings->mailer(),
+            'mailer' => $mailer,
+            'smtp_account_id' => $smtpAccount->id,
             'status' => EmailMessage::STATUS_SENT,
             'error_message' => null,
             'processed_at' => now(),

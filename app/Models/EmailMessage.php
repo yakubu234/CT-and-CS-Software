@@ -22,6 +22,7 @@ class EmailMessage extends Model
         'subject',
         'body',
         'mailer',
+        'smtp_account_id',
         'status',
         'error_message',
         'related_type',
@@ -56,6 +57,11 @@ class EmailMessage extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function smtpAccount(): BelongsTo
+    {
+        return $this->belongsTo(EmailSmtpAccount::class, 'smtp_account_id');
     }
 
     public function related(): MorphTo

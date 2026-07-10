@@ -545,6 +545,13 @@ return [
             ],
         ],
         [
+            'text' => 'Assets',
+            'url' => 'assets',
+            'icon' => 'fas fa-building',
+            'active' => ['assets', 'assets/*'],
+            'permissions' => ['assets.view', 'assets.manage'],
+        ],
+        [
             'text' => 'Reports',
             'icon' => 'fas fa-chart-line',
             'permissions' => ['reports.view', 'reports.manage'],

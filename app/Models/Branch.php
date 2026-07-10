@@ -68,4 +68,9 @@ class Branch extends Model
     {
         return $this->hasMany(EmailMessage::class);
     }
+
+    public function assets(): HasMany
+    {
+        return $this->hasMany(Asset::class);
+    }
 }

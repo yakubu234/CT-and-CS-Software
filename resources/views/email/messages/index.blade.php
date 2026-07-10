@@ -22,7 +22,7 @@
                         <th>Source</th>
                         <th>Subject</th>
                         <th>Status</th>
-                        <th>Mailer</th>
+                        <th>SMTP Account</th>
                         <th>Sent</th>
                     </tr>
                     </thead>
@@ -37,7 +37,10 @@
                             <td>{{ $message->campaign?->name ?: 'System' }}</td>
                             <td>{{ \Illuminate\Support\Str::limit($message->subject, 80) }}</td>
                             <td><span class="badge badge-{{ $message->status === 'sent' ? 'success' : ($message->status === 'failed' ? 'danger' : 'secondary') }}">{{ ucfirst($message->status) }}</span></td>
-                            <td>{{ $message->mailer ?: 'N/A' }}</td>
+                            <td>
+                                <div>{{ $message->smtpAccount?->name ?: 'N/A' }}</div>
+                                <small class="text-muted">{{ $message->mailer ?: 'N/A' }}</small>
+                            </td>
                             <td>{{ optional($message->sent_at)->format('d M Y h:i A') ?: 'Pending' }}</td>
                         </tr>
                     @empty

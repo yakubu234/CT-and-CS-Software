@@ -43,6 +43,10 @@ class PermissionRegistry
                 'income-expenses.view' => 'View income, expenses, and categories',
                 'income-expenses.manage' => 'Create, edit, and delete income, expenses, and categories',
             ],
+            'Assets' => [
+                'assets.view' => 'View cooperative fixed assets',
+                'assets.manage' => 'Create, edit, and delete cooperative fixed assets',
+            ],
             'Reports' => [
                 'reports.view' => 'View and export reports',
                 'reports.manage' => 'Manage report access',

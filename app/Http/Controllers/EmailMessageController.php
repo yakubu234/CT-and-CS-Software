@@ -18,7 +18,7 @@ class EmailMessageController extends Controller
     {
         $messages = TableListing::paginate(
             TableListing::applySearch(
-                EmailMessage::query()->with(['campaign', 'user.detail', 'branch'])->latest('id'),
+                EmailMessage::query()->with(['campaign', 'user.detail', 'branch', 'smtpAccount'])->latest('id'),
                 $request->string('search')->toString(),
                 ['email', 'recipient_name', 'subject', 'body', 'status']
             ),
