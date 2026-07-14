@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class CustomerPortalController extends Controller
@@ -50,6 +51,7 @@ class CustomerPortalController extends Controller
     public function updatePassword(Request $request): RedirectResponse
     {
         $customer = $this->customer($request);
+        $wasForcedChange = (bool) $customer->must_change_password;
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
@@ -67,7 +69,7 @@ class CustomerPortalController extends Controller
         $customer->save();
 
         return redirect()
-            ->route('customer.dashboard')
+            ->route($wasForcedChange ? 'customer.dashboard' : 'customer.profile')
             ->with('status', 'Your password has been updated successfully.');
     }
 
@@ -213,6 +215,36 @@ class CustomerPortalController extends Controller
         return view('customer.profile', [
             'customer' => $customer,
         ]);
+    }
+
+    public function updateProfile(Request $request): RedirectResponse
+    {
+        $customer = $this->customer($request);
+
+        $validated = $request->validate([
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($customer->id),
+            ],
+            'mobile' => ['required', 'string', 'max:50'],
+        ]);
+
+        $customer->email = $validated['email'];
+        $customer->save();
+
+        $customer->detail()->updateOrCreate(
+            ['user_id' => $customer->id],
+            [
+                'branch_id' => $customer->branch_id,
+                'mobile' => $validated['mobile'],
+            ]
+        );
+
+        return redirect()
+            ->route('customer.profile')
+            ->with('status', 'Your profile has been updated successfully.');
     }
 
     public function support(Request $request): View

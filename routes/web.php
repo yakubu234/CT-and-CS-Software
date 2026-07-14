@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/transactions/export', [CustomerPortalController::class, 'exportTransactions'])->name('transactions.export');
         Route::get('/notifications', [CustomerPortalController::class, 'notifications'])->name('notifications');
         Route::get('/profile', [CustomerPortalController::class, 'profile'])->name('profile');
+        Route::put('/profile', [CustomerPortalController::class, 'updateProfile'])->name('profile.update');
         Route::get('/support', [CustomerPortalController::class, 'support'])->name('support');
         Route::post('/support', [CustomerPortalController::class, 'storeSupport'])->name('support.store');
     });
