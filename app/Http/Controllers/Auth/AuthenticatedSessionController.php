@@ -8,6 +8,7 @@ use App\Services\ActiveBranchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -24,31 +25,33 @@ class AuthenticatedSessionController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
+        $validated = $request->validate([
+            'login' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
+        ], attributes: [
+            'login' => 'email or member number',
         ]);
 
         $remember = $request->boolean('remember');
+        $user = $this->findUserForLogin($validated['login']);
 
-        if (! Auth::attempt($credentials, $remember)) {
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
             return back()
-                ->withInput($request->only('email', 'remember'))
+                ->withInput($request->only('login', 'remember'))
                 ->withErrors([
-                    'email' => 'The provided login details do not match our staff records.',
+                    'login' => 'The provided login details do not match our records.',
                 ]);
         }
 
-        /** @var User|null $user */
-        $user = Auth::user();
+        Auth::login($user, $remember);
 
         if (! $user || $user->branch_account) {
             Auth::guard('web')->logout();
 
             return back()
-                ->withInput($request->only('email', 'remember'))
+                ->withInput($request->only('login', 'remember'))
                 ->withErrors([
-                    'email' => 'This login cannot access the application.',
+                    'login' => 'This login cannot access the application.',
                 ]);
         }
 
@@ -64,6 +67,22 @@ class AuthenticatedSessionController extends Controller
         }
 
         return redirect()->intended(route('dashboard'));
+    }
+
+    protected function findUserForLogin(string $login): ?User
+    {
+        $login = trim($login);
+
+        return User::query()
+            ->whereNull('deleted_at')
+            ->where(function ($query) use ($login): void {
+                $query->where('email', $login)
+                    ->orWhere('member_no', $login)
+                    ->orWhereHas('detail', function ($detailQuery) use ($login): void {
+                        $detailQuery->where('member_no', $login);
+                    });
+            })
+            ->first();
     }
 
     public function destroy(Request $request): RedirectResponse

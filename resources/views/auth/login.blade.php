@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Staff Login | Oreoluwapo CT&CU</title>
+    <title>Login | Oreoluwapo CT&CU</title>
     <link rel="stylesheet" href="{{ asset('vendor/adminlte/plugins/fontawesome-free/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/adminlte/plugins/icheck-bootstrap/icheck-bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/adminlte/dist/css/adminlte.min.css') }}">
@@ -12,7 +12,7 @@
 <body class="hold-transition login-page">
 <div class="login-box">
     <div class="login-logo">
-        <a href="#"><b>Oreoluwapo CT &amp; CU</b> Admin</a>
+        <a href="#"><b>Oreoluwapo CT &amp; CU</b></a>
     </div>
 
     <div class="card card-outline card-primary">
@@ -20,27 +20,27 @@
             <p class="h4 mb-0">Cooperative Management Panel</p>
         </div>
         <div class="card-body">
-            <p class="login-box-msg">Sign in with an existing staff account from your imported database.</p>
+            <p class="login-box-msg">Sign in with your email address or member number.</p>
 
             <form action="{{ route('login.store') }}" method="POST">
                 @csrf
 
                 <div class="input-group mb-3">
                     <input
-                        type="email"
-                        name="email"
-                        class="form-control @error('email') is-invalid @enderror"
-                        placeholder="Email"
-                        value="{{ old('email') }}"
+                        type="text"
+                        name="login"
+                        class="form-control @error('login') is-invalid @enderror"
+                        placeholder="Email or Member Number"
+                        value="{{ old('login') }}"
                         required
                         autofocus
                     >
                     <div class="input-group-append">
                         <div class="input-group-text">
-                            <span class="fas fa-envelope"></span>
+                            <span class="fas fa-user"></span>
                         </div>
                     </div>
-                    @error('email')
+                    @error('login')
                         <span class="invalid-feedback d-block">{{ $message }}</span>
                     @enderror
                 </div>
@@ -75,7 +75,7 @@
             </form>
 
             <div class="alert alert-light border mt-4 mb-0">
-                <strong>Welcome:</strong> use your staff account to continue into the Oreoluwapo CT &amp; CU operations panel.
+                <strong>Welcome:</strong> staff and members can sign in from this same page.
             </div>
         </div>
     </div>
