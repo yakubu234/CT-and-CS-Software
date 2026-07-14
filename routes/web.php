@@ -8,6 +8,8 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
+use App\Http\Controllers\CustomerPortalController;
+use App\Http\Controllers\CustomerSupportRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\EmailCampaignController;
@@ -47,6 +49,23 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::prefix('customer')->name('customer.')->middleware('customer')->group(function () {
+        Route::get('/dashboard', [CustomerPortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('/password/change', [CustomerPortalController::class, 'editPassword'])->name('password.edit');
+        Route::put('/password/change', [CustomerPortalController::class, 'updatePassword'])->name('password.update');
+        Route::get('/accounts', [CustomerPortalController::class, 'accounts'])->name('accounts');
+        Route::get('/statement', [CustomerPortalController::class, 'statement'])->name('statement');
+        Route::get('/loans', [CustomerPortalController::class, 'loans'])->name('loans');
+        Route::get('/repayments', [CustomerPortalController::class, 'repayments'])->name('repayments');
+        Route::get('/transactions', [CustomerPortalController::class, 'transactions'])->name('transactions');
+        Route::get('/transactions/export', [CustomerPortalController::class, 'exportTransactions'])->name('transactions.export');
+        Route::get('/notifications', [CustomerPortalController::class, 'notifications'])->name('notifications');
+        Route::get('/profile', [CustomerPortalController::class, 'profile'])->name('profile');
+        Route::get('/support', [CustomerPortalController::class, 'support'])->name('support');
+        Route::post('/support', [CustomerPortalController::class, 'storeSupport'])->name('support.store');
+    });
+
+    Route::middleware('admin')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/accounts', [AccountController::class, 'index'])->name('accounts.index');
     Route::get('/accounts/inactive', [AccountController::class, 'inactive'])->name('accounts.inactive');
@@ -107,8 +126,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
     Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->name('members.edit');
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
+    Route::put('/members/{member}/password', [MemberController::class, 'updatePassword'])->name('members.password.update');
     Route::post('/members/{member}/documents', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
+
+    Route::get('/support-requests', [CustomerSupportRequestController::class, 'index'])->name('support-requests.index');
+    Route::get('/support-requests/{supportRequest}', [CustomerSupportRequestController::class, 'show'])->name('support-requests.show');
+    Route::put('/support-requests/{supportRequest}', [CustomerSupportRequestController::class, 'update'])->name('support-requests.update');
 
     Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
     Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');
@@ -217,6 +241,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/exco-roles/{designation}/edit', [DesignationController::class, 'edit'])->name('exco-roles.edit');
     Route::put('/exco-roles/{designation}', [DesignationController::class, 'update'])->name('exco-roles.update');
     Route::delete('/exco-roles/{designation}', [DesignationController::class, 'destroy'])->name('exco-roles.destroy');
+
+    });
 
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

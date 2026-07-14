@@ -15,6 +15,7 @@ use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Password;
 
 class MemberController extends Controller
 {
@@ -160,6 +161,36 @@ class MemberController extends Controller
         return redirect()
             ->route('members.show', $member)
             ->with('status', "{$member->name} has been updated successfully.");
+    }
+
+    public function updatePassword(Request $request, User $member): RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id,
+            404
+        );
+
+        $validated = $request->validate([
+            'password' => ['required', 'confirmed', Password::min(8)],
+            'must_change_password' => ['nullable', 'boolean'],
+        ], attributes: [
+            'password' => 'new password',
+            'password_confirmation' => 'confirm password',
+            'must_change_password' => 'require password change',
+        ]);
+
+        $member->password = $validated['password'];
+        $member->must_change_password = $request->boolean('must_change_password');
+        $member->save();
+
+        return redirect()
+            ->route('members.edit', $member)
+            ->with('status', "{$member->name}'s password has been updated successfully.");
     }
 
     public function destroy(Request $request, User $member): RedirectResponse

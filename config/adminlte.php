@@ -437,6 +437,13 @@ return [
                     'active' => ['members/custom-fields'],
                     'permissions' => ['members.view', 'members.manage'],
                 ],
+                [
+                    'text' => 'Support requests',
+                    'url' => 'support-requests',
+                    'icon' => 'far fa-circle',
+                    'active' => ['support-requests', 'support-requests/*'],
+                    'permissions' => ['members.view', 'members.manage'],
+                ],
             ],
         ],
         [

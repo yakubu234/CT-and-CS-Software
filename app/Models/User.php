@@ -28,6 +28,7 @@ class User extends Authenticatable
         'last_name',
         'email',
         'password',
+        'must_change_password',
         'user_type',
         'role_id',
         'branch_id',
@@ -75,6 +76,7 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
             'society_exco' => 'boolean',
             'former_exco' => 'boolean',
             'branch_account' => 'boolean',

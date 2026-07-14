@@ -12,6 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureAdminUser::class,
+            'customer' => \App\Http\Middleware\EnsureCustomerUser::class,
             'module' => \App\Http\Middleware\EnsureModulePermission::class,
         ]);
     })

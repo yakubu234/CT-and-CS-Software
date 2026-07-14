@@ -42,18 +42,26 @@ class AuthenticatedSessionController extends Controller
         /** @var User|null $user */
         $user = Auth::user();
 
-        if (! $user || $user->user_type === 'customer' || $user->branch_account) {
+        if (! $user || $user->branch_account) {
             Auth::guard('web')->logout();
 
             return back()
                 ->withInput($request->only('email', 'remember'))
                 ->withErrors([
-                    'email' => 'This login is restricted to the admin side of the application.',
+                    'email' => 'This login cannot access the application.',
                 ]);
         }
 
         $request->session()->regenerate();
         $this->activeBranchService->ensureActiveBranch($user);
+
+        if ($user->user_type === 'customer') {
+            if ($user->must_change_password) {
+                return redirect()->intended(route('customer.password.edit'));
+            }
+
+            return redirect()->intended(route('customer.dashboard'));
+        }
 
         return redirect()->intended(route('dashboard'));
     }
