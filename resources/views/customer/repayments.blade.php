@@ -5,6 +5,12 @@
 @section('page_subtitle', 'Principal, interest, penalties, balances, and upcoming due dates.')
 
 @section('content')
+    @include('customer._date_filter', [
+        'action' => route('customer.repayments'),
+        'filters' => $filters,
+        'prefix' => 'repayments',
+    ])
+
     <div class="card customer-card mb-3">
         <div class="card-body">
             <div class="text-muted small">Upcoming Repayment</div>

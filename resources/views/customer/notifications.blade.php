@@ -5,6 +5,12 @@
 @section('page_subtitle', 'Email and SMS updates sent to your account.')
 
 @section('content')
+    @include('customer._date_filter', [
+        'action' => route('customer.notifications'),
+        'filters' => $filters,
+        'prefix' => 'notifications',
+    ])
+
     <div class="row">
         <div class="col-lg-6 mb-3">
             <div class="card customer-card h-100">
@@ -34,6 +40,9 @@
                         @endforelse
                         </tbody>
                     </table>
+                </div>
+                <div class="card-footer">
+                    {{ $emails->links() }}
                 </div>
             </div>
         </div>
@@ -66,6 +75,9 @@
                         @endforelse
                         </tbody>
                     </table>
+                </div>
+                <div class="card-footer">
+                    {{ $smsMessages->links() }}
                 </div>
             </div>
         </div>

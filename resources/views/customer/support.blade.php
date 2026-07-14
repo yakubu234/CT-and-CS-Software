@@ -5,6 +5,12 @@
 @section('page_subtitle', 'Submit inquiries and track responses from the cooperative.')
 
 @section('content')
+    @include('customer._date_filter', [
+        'action' => route('customer.support'),
+        'filters' => $filters,
+        'prefix' => 'support',
+    ])
+
     <div class="row">
         <div class="col-lg-5 mb-3">
             <div class="card customer-card">

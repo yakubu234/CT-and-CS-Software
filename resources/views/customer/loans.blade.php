@@ -5,6 +5,12 @@
 @section('page_subtitle', 'Active loans and loan request approval history.')
 
 @section('content')
+    @include('customer._date_filter', [
+        'action' => route('customer.loans'),
+        'filters' => $filters,
+        'prefix' => 'loans',
+    ])
+
     <div class="card customer-card mb-4">
         <div class="card-header">
             <h3 class="card-title">Active Loans</h3>

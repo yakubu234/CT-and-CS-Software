@@ -88,24 +88,7 @@ class CustomerPortalController extends Controller
         $customer = $this->customer($request);
         $accounts = $this->memberAccounts($customer);
 
-        $transactions = $this->transactionsQuery($customer)
-            ->when($request->filled('account_id'), function (Builder $query) use ($request, $accounts): void {
-                $accountIds = $accounts->pluck('id')->all();
-                $accountId = (int) $request->input('account_id');
-
-                if (in_array($accountId, $accountIds, true)) {
-                    $query->where('savings_account_id', $accountId);
-                }
-            })
-            ->when($request->filled('type'), function (Builder $query) use ($request): void {
-                $query->where('dr_cr', $request->input('type'));
-            })
-            ->when($request->filled('start_date'), function (Builder $query) use ($request): void {
-                $query->whereDate('trans_date', '>=', $request->input('start_date'));
-            })
-            ->when($request->filled('end_date'), function (Builder $query) use ($request): void {
-                $query->whereDate('trans_date', '<=', $request->input('end_date'));
-            })
+        $transactions = $this->filteredTransactionsQuery($customer, $request, $accounts)
             ->paginate(20)
             ->withQueryString();
 
@@ -123,17 +106,22 @@ class CustomerPortalController extends Controller
 
         return view('customer.loans', [
             'customer' => $customer,
-            'loans' => $this->loansQuery($customer)
+            'loans' => $this->applyDateRange($this->loansQuery($customer), $request, 'created_at')
                 ->with(['details.payments'])
                 ->latest('id')
                 ->paginate(15)
                 ->withQueryString(),
-            'loanRequests' => LoanDetail::query()
-                ->with('loan')
-                ->where('borrower_id', $customer->id)
-                ->latest('id')
-                ->paginate(15, ['*'], 'requests_page')
-                ->withQueryString(),
+            'loanRequests' => $this->applyDateRange(
+                LoanDetail::query()
+                    ->with('loan')
+                    ->where('borrower_id', $customer->id),
+                $request,
+                'created_at'
+            )
+                    ->latest('id')
+                    ->paginate(15, ['*'], 'requests_page')
+                    ->withQueryString(),
+            'filters' => $request->only(['start_date', 'end_date']),
         ]);
     }
 
@@ -143,16 +131,21 @@ class CustomerPortalController extends Controller
 
         return view('customer.repayments', [
             'customer' => $customer,
-            'payments' => LoanPayment::query()
-                ->with(['loan', 'detail'])
-                ->whereHas('loan', function (Builder $query) use ($customer): void {
-                    $query->where('borrower_id', $customer->id);
-                })
-                ->latest('paid_at')
-                ->latest('id')
-                ->paginate(20)
-                ->withQueryString(),
+            'payments' => $this->applyDateRange(
+                LoanPayment::query()
+                    ->with(['loan', 'detail'])
+                    ->whereHas('loan', function (Builder $query) use ($customer): void {
+                        $query->where('borrower_id', $customer->id);
+                    }),
+                $request,
+                'paid_at'
+            )
+                    ->latest('paid_at')
+                    ->latest('id')
+                    ->paginate(20)
+                    ->withQueryString(),
             'nextRepaymentDue' => $this->nextRepaymentDue($customer),
+            'filters' => $request->only(['start_date', 'end_date']),
         ]);
     }
 
@@ -195,16 +188,23 @@ class CustomerPortalController extends Controller
 
         return view('customer.notifications', [
             'customer' => $customer,
-            'emails' => EmailMessage::query()
-                ->where('user_id', $customer->id)
-                ->latest('created_at')
-                ->limit(30)
-                ->get(),
-            'smsMessages' => SmsMessage::query()
-                ->where('user_id', $customer->id)
-                ->latest('created_at')
-                ->limit(30)
-                ->get(),
+            'emails' => $this->applyDateRange(
+                EmailMessage::query()->where('user_id', $customer->id),
+                $request,
+                'created_at'
+            )
+                    ->latest('created_at')
+                    ->paginate(15, ['*'], 'emails_page')
+                    ->withQueryString(),
+            'smsMessages' => $this->applyDateRange(
+                SmsMessage::query()->where('user_id', $customer->id),
+                $request,
+                'created_at'
+            )
+                    ->latest('created_at')
+                    ->paginate(15, ['*'], 'sms_page')
+                    ->withQueryString(),
+            'filters' => $request->only(['start_date', 'end_date']),
         ]);
     }
 
@@ -253,10 +253,15 @@ class CustomerPortalController extends Controller
 
         return view('customer.support', [
             'customer' => $customer,
-            'requests' => CustomerSupportRequest::query()
-                ->where('user_id', $customer->id)
-                ->latest('id')
-                ->paginate(10),
+            'requests' => $this->applyDateRange(
+                CustomerSupportRequest::query()->where('user_id', $customer->id),
+                $request,
+                'created_at'
+            )
+                    ->latest('id')
+                    ->paginate(10)
+                    ->withQueryString(),
+            'filters' => $request->only(['start_date', 'end_date']),
         ]);
     }
 
@@ -361,6 +366,17 @@ class CustomerPortalController extends Controller
             })
             ->when($request->filled('end_date'), function (Builder $query) use ($request): void {
                 $query->whereDate('trans_date', '<=', $request->input('end_date'));
+            });
+    }
+
+    protected function applyDateRange(Builder $query, Request $request, string $column): Builder
+    {
+        return $query
+            ->when($request->filled('start_date'), function (Builder $query) use ($request, $column): void {
+                $query->whereDate($column, '>=', $request->input('start_date'));
+            })
+            ->when($request->filled('end_date'), function (Builder $query) use ($request, $column): void {
+                $query->whereDate($column, '<=', $request->input('end_date'));
             });
     }
 
