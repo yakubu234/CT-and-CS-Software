@@ -46,6 +46,8 @@
                 &#8358;{{ number_format((float) $branchLedgerBalance, 2) }}
             </div>
 
+            @include('loans._member_financial_summary', ['memberFinancialSummary' => $memberFinancialSummary])
+
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <div class="small text-muted">Release Date</div>

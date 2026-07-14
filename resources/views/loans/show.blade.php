@@ -78,6 +78,8 @@
         </div>
     </div>
 
+    @include('loans._member_financial_summary', ['memberFinancialSummary' => $memberFinancialSummary])
+
     <div class="card card-outline card-primary">
         <div class="card-header">
             <h3 class="card-title">Loan Request History</h3>

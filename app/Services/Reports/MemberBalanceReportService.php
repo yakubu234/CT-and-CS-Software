@@ -44,7 +44,7 @@ class MemberBalanceReportService
         $members = $this->baseQuery($branch, $request, $startDate, $endDate)
             ->orderBy('display_name')
             ->get()
-            ->map(function ($member) {
+            ->map(function ($member) use ($branch) {
                 $loanOpening = (float) $member->loan_opening;
                 $loanCurrent = (float) $member->loan_current;
                 $sharesOpening = (float) $member->shares_opening;

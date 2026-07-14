@@ -139,6 +139,31 @@
                     </div>
                 </div>
 
+                <div class="alert alert-light border">
+                    <div class="font-weight-bold mb-2">Member Financial Summary</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead>
+                            <tr>
+                                <th>Account</th>
+                                <th class="text-right">Balance</th>
+                            </tr>
+                            </thead>
+                            <tbody id="member-financial-summary-rows">
+                            <tr>
+                                <td colspan="2" class="text-center text-muted">No borrower selected.</td>
+                            </tr>
+                            </tbody>
+                            <tfoot>
+                            <tr>
+                                <th>Total</th>
+                                <th class="text-right" id="member-financial-summary-total">&#8358;0.00</th>
+                            </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
                 @if ($customFields->isNotEmpty())
                     <hr>
                     <h5 class="mb-3">Loan Custom Fields</h5>
@@ -219,8 +244,11 @@
             const amountInput = document.getElementById('amount');
             const currentOutstanding = document.getElementById('current-outstanding');
             const projectedOutstanding = document.getElementById('projected-outstanding');
+            const financialSummaryRows = document.getElementById('member-financial-summary-rows');
+            const financialSummaryTotal = document.getElementById('member-financial-summary-total');
+            const borrowerFinancialSummaries = @json($borrowers->keyBy('id')->map(fn ($borrower) => $borrower['financial_summary'])->all());
 
-            if (! borrowerSelect || ! amountInput || ! currentOutstanding || ! projectedOutstanding) {
+            if (! borrowerSelect || ! amountInput || ! currentOutstanding || ! projectedOutstanding || ! financialSummaryRows || ! financialSummaryTotal) {
                 return;
             }
 
@@ -233,6 +261,22 @@
 
                 currentOutstanding.textContent = formatMoney(outstanding);
                 projectedOutstanding.textContent = formatMoney(outstanding + amount);
+
+                const summary = borrowerFinancialSummaries[borrowerSelect.value];
+
+                if (! summary) {
+                    financialSummaryRows.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No borrower selected.</td></tr>';
+                    financialSummaryTotal.textContent = formatMoney(0);
+                    return;
+                }
+
+                financialSummaryRows.innerHTML = summary.rows.map(row => `
+                    <tr>
+                        <td>${row.label}</td>
+                        <td class="text-right">${formatMoney(row.balance)}</td>
+                    </tr>
+                `).join('');
+                financialSummaryTotal.textContent = formatMoney(summary.total);
             };
 
             borrowerSelect.addEventListener('change', updatePreview);

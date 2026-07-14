@@ -174,7 +174,7 @@ class LoanController extends Controller
         }
 
         $borrowers = User::query()
-            ->with('detail')
+            ->with(['detail', 'savingsAccounts.product'])
             ->where('branch_id', (string) $branch->id)
             ->where('branch_account', false)
             ->where('user_type', 'customer')
@@ -189,6 +189,7 @@ class LoanController extends Controller
                     'name' => $borrower->name,
                     'member_no' => $borrower->display_member_no,
                     'outstanding' => $outstanding,
+                    'financial_summary' => $this->memberFinancialSummary($borrower),
                     'label' => trim(($borrower->display_member_no ?: 'N/A') . ' ' . $borrower->name),
                 ];
             })
@@ -234,6 +235,7 @@ class LoanController extends Controller
 
         $loan->load([
             'borrower.detail',
+            'borrower.savingsAccounts.product',
             'details.creator',
             'details.approver',
             'details.decliner',
@@ -243,6 +245,7 @@ class LoanController extends Controller
         return view('loans.show', [
             'branch' => $branch,
             'loan' => $loan,
+            'memberFinancialSummary' => $this->memberFinancialSummary($loan->borrower),
         ]);
     }
 
@@ -252,12 +255,21 @@ class LoanController extends Controller
 
         abort_unless($branch && (int) $loanDetail->branch_id === (int) $branch->id, 404);
 
-        $loanDetail->load(['loan.borrower.detail', 'borrower.detail', 'creator', 'approver', 'decliner', 'payments']);
+        $loanDetail->load([
+            'loan.borrower.detail',
+            'borrower.detail',
+            'borrower.savingsAccounts.product',
+            'creator',
+            'approver',
+            'decliner',
+            'payments',
+        ]);
 
         return view('loans.requests.show', [
             'branch' => $branch,
             'loanDetail' => $loanDetail,
             'branchLedgerBalance' => $this->loanService->branchLedgerBalance($branch),
+            'memberFinancialSummary' => $this->memberFinancialSummary($loanDetail->borrower),
         ]);
     }
 
@@ -376,6 +388,38 @@ class LoanController extends Controller
             'every-2-weeks' => 'Every 2 weeks',
             'every-3-weeks' => 'Every 3 weeks',
             'monthly' => 'Monthly',
+        ];
+    }
+
+    protected function memberFinancialSummary(?User $member): array
+    {
+        $accountTypes = [
+            'SAVINGS' => 'Savings',
+            'SHARES' => 'Shares',
+            'AUTHENTICATION' => 'Authentication',
+            'DEPOSIT' => 'Deposit',
+        ];
+
+        $accounts = $member
+            ? $member->savingsAccounts
+                ->where('is_branch_acount', false)
+                ->where('status', 1)
+                ->groupBy(fn ($account): string => strtoupper((string) ($account->product?->type ?? '')))
+            : collect();
+
+        $rows = collect($accountTypes)
+            ->map(function (string $label, string $type) use ($accounts): array {
+                return [
+                    'type' => $type,
+                    'label' => $label,
+                    'balance' => (float) $accounts->get($type, collect())->sum('balance'),
+                ];
+            })
+            ->values();
+
+        return [
+            'rows' => $rows->all(),
+            'total' => (float) $rows->sum('balance'),
         ];
     }
 }
