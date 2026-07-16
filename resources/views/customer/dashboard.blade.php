@@ -391,30 +391,6 @@
             </div>
         </div>
 
-        <div class="col-lg-4 mb-3">
-            <div class="card customer-card h-100">
-                <div class="card-header">
-                    <h3 class="card-title">My Accounts</h3>
-                </div>
-                <div class="card-body">
-                    <div class="account-list">
-                        @forelse ($accounts as $account)
-                            <a href="{{ route('customer.statement', ['account_id' => $account->id]) }}" class="account-row">
-                                <span>
-                                    <span class="d-block font-weight-bold">{{ $account->product?->type ?: 'Account' }}</span>
-                                    <span class="small text-muted">{{ $account->account_number ?: 'No account number' }}</span>
-                                </span>
-                                <span class="text-right font-weight-bold money-value">
-                                    &#8358;{{ number_format((float) $account->balance, 2) }}
-                                </span>
-                            </a>
-                        @empty
-                            <div class="text-muted">No account records found.</div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="card customer-card">
