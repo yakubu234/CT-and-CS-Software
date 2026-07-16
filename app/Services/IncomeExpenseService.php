@@ -29,12 +29,14 @@ class IncomeExpenseService
 
             $batchId = (string) Str::uuid();
             $records = new Collection();
+            $hasExpenseDebit = false;
 
             foreach ($entries as $entry) {
                 $category = $this->resolveActiveExpenseCategory((int) $entry['transaction_category_id']);
                 $amount = $this->normalizeAmount($entry['amount']);
                 $description = $entry['description'] ?: $category->name;
                 $drCr = strtolower($category->related_to);
+                $hasExpenseDebit = $hasExpenseDebit || $drCr === 'dr';
 
                 $records->push(Transaction::create([
                     'user_id' => $branchUserId,
@@ -75,7 +77,7 @@ class IncomeExpenseService
                 ])->fresh(['creator', 'updater']));
             }
 
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, $hasExpenseDebit);
 
             return $records;
         });
@@ -133,7 +135,7 @@ class IncomeExpenseService
                 'batch_id' => (string) Str::uuid(),
             ]);
 
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, $drCr === 'dr');
 
             return $record->fresh(['creator', 'updater']);
         });
@@ -174,7 +176,7 @@ class IncomeExpenseService
                 'is_branch' => 1,
             ]);
 
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, $drCr === 'dr');
 
             return $transaction->fresh(['creator', 'updater']);
         });
@@ -195,7 +197,7 @@ class IncomeExpenseService
 
             $transaction->delete();
 
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, strtolower((string) $transaction->dr_cr) === 'cr');
         });
     }
 

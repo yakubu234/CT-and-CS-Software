@@ -70,7 +70,7 @@ class BalanceSyncService
         return $runningBalance;
     }
 
-    public function syncBranchLedger(Branch $branch): float
+    public function syncBranchLedger(Branch $branch, bool $enforceNonNegative = true): float
     {
         $transactions = Transaction::query()
             ->where('branch_id', $branch->id)
@@ -80,10 +80,10 @@ class BalanceSyncService
             ->orderBy('id')
             ->get();
 
-        return $this->syncBranchTransactionCollection($transactions, $branch->name ?: 'This branch');
+        return $this->syncBranchTransactionCollection($transactions, $branch->name ?: 'This branch', $enforceNonNegative);
     }
 
-    public function syncBranchTransactionCollection(Collection $transactions, string $branchLabel = 'This branch'): float
+    public function syncBranchTransactionCollection(Collection $transactions, string $branchLabel = 'This branch', bool $enforceNonNegative = true): float
     {
         $runningBalance = 0.0;
 
@@ -94,7 +94,7 @@ class BalanceSyncService
             $transactionType = $transaction->type ?: 'transaction';
             $transactionAmount = number_format((float) $transaction->amount, 2);
 
-            if ($balanceAfter < 0) {
+            if ($enforceNonNegative && $balanceAfter < 0) {
                 $availableBalance = number_format($balanceBefore, 2);
                 $shortfall = number_format(abs($balanceAfter), 2);
                 $isExpense = $transaction->tracking_id === 'expenses'

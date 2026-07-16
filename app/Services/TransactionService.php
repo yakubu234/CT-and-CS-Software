@@ -25,11 +25,13 @@ class TransactionService
             $batchId = (string) Str::uuid();
             $transactions = new Collection();
             $accountsToSync = [];
+            $hasBranchDebit = false;
 
             foreach ($entries as $entry) {
                 $account = $this->resolveAccountForMember($member, (int) $entry['savings_account_id']);
                 $amount = $this->normalizeAmount($entry['amount']);
                 $drCr = strtolower($entry['dr_cr']);
+                $hasBranchDebit = $hasBranchDebit || $drCr === 'dr';
 
                 $transaction = Transaction::create([
                     'user_id' => $member->id,
@@ -81,7 +83,7 @@ class TransactionService
                 $this->balanceSyncService->syncSavingsAccount($account);
             }
 
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, $hasBranchDebit);
 
             return $transactions;
         });
@@ -155,7 +157,7 @@ class TransactionService
                 $this->balanceSyncService->syncSavingsAccount($newAccount);
             }
 
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, $newDrCr === 'dr');
 
             return $transaction->fresh(['account.product', 'user.detail', 'creator', 'updater', 'mirrors']);
         });
@@ -181,7 +183,11 @@ class TransactionService
                 throw new RuntimeException('The linked branch for this transaction could not be found.');
             }
 
+            $removesBranchCredit = false;
+
             foreach ($transaction->mirrors as $mirror) {
+                $removesBranchCredit = $removesBranchCredit || strtolower((string) $mirror->dr_cr) === 'cr';
+
                 $mirror->forceFill([
                     'updated_user_id' => $actor->id,
                 ])->save();
@@ -197,7 +203,7 @@ class TransactionService
 
             $account->updated_user_id = $actor->id;
             $this->balanceSyncService->syncSavingsAccount($account);
-            $this->balanceSyncService->syncBranchLedger($branch);
+            $this->balanceSyncService->syncBranchLedger($branch, $removesBranchCredit);
         });
     }
 
