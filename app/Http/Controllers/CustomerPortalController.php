@@ -34,8 +34,7 @@ class CustomerPortalController extends Controller
             'customer' => $customer,
             'accounts' => $accounts,
             'accountSummary' => $this->accountSummary($accounts),
-            'activeLoanBalance' => (float) $this->loansQuery($customer)->sum('balanace'),
-            'nextRepaymentDue' => $this->nextRepaymentDue($customer),
+            'loanSnapshot' => $this->loanSnapshot($customer),
             'recentTransactions' => $this->transactionsQuery($customer)->limit(8)->get(),
             'loans' => $loans,
         ]);
@@ -315,14 +314,87 @@ class CustomerPortalController extends Controller
     protected function accountSummary($accounts): array
     {
         $rows = $accounts->mapWithKeys(function ($account): array {
-            return [strtoupper((string) ($account->product?->type ?? 'ACCOUNT')) => (float) $account->balance];
+            return [
+                strtoupper((string) ($account->product?->type ?? 'ACCOUNT')) => [
+                    'balance' => (float) $account->balance,
+                    'account_id' => $account->id,
+                ],
+            ];
         });
 
+        return collect([
+            'Savings' => $rows['SAVINGS'] ?? ['balance' => 0, 'account_id' => null],
+            'Shares' => $rows['SHARES'] ?? ['balance' => 0, 'account_id' => null],
+            'Authentication' => $rows['AUTHENTICATION'] ?? ['balance' => 0, 'account_id' => null],
+            'Deposit' => $rows['DEPOSIT'] ?? ['balance' => 0, 'account_id' => null],
+        ])->map(function (array $summary): array {
+            $accountId = $summary['account_id'] ?? null;
+
+            return [
+                'balance' => (float) ($summary['balance'] ?? 0),
+                'url' => $accountId
+                    ? route('customer.statement', ['account_id' => $accountId])
+                    : route('customer.accounts'),
+            ];
+        })->all();
+    }
+
+    protected function loanSnapshot(User $customer): array
+    {
+        $loans = Loan::query()
+            ->where('borrower_id', $customer->id)
+            ->whereHas('details', function (Builder $query): void {
+                $query->where('decision_status', LoanDetail::STATUS_APPROVED);
+            })
+            ->with(['payments' => function ($query): void {
+                $query->whereNull('deleted_at');
+            }])
+            ->get();
+
+        $loanIds = $loans->pluck('id')->all();
+        $approvedAmount = round((float) $loans->sum(fn (Loan $loan): float => (float) ($loan->applied_amount ?? 0)), 2);
+        $outstandingBalance = round((float) $loans->sum(fn (Loan $loan): float => (float) ($loan->balanace ?? 0)), 2);
+        $principalRepaid = round((float) $loans->sum(fn (Loan $loan): float => (float) ($loan->total_paid ?? 0)), 2);
+        $totalInterestPaid = round((float) $loans->sum(function (Loan $loan): float {
+            return (float) $loan->payments->sum(fn (LoanPayment $payment): float => (float) ($payment->interest_paid ?? $payment->is_interest_paid ?? 0));
+        }), 2);
+        $outstandingInterest = round((float) $loans->sum(function (Loan $loan): float {
+            return (float) $loan->payments
+                ->where('carry_forward', 1)
+                ->sum(fn (LoanPayment $payment): float => (float) ($payment->outstanding_interest ?? 0));
+        }), 2);
+        $progress = $approvedAmount > 0 ? round(min(($principalRepaid / $approvedAmount) * 100, 100), 1) : 0;
+
+        $nextRepayment = $loanIds === []
+            ? null
+            : LoanDetail::query()
+                ->with('loan')
+                ->whereIn('loan_id', $loanIds)
+                ->where('borrower_id', $customer->id)
+                ->where('decision_status', LoanDetail::STATUS_APPROVED)
+                ->where('repayment_status', false)
+                ->orderBy('due_date')
+                ->first();
+
+        $hasOverdue = $loanIds !== [] && LoanDetail::query()
+            ->whereIn('loan_id', $loanIds)
+            ->where('borrower_id', $customer->id)
+            ->where('decision_status', LoanDetail::STATUS_APPROVED)
+            ->where('repayment_status', false)
+            ->whereDate('due_date', '<', now()->toDateString())
+            ->exists();
+
         return [
-            'Savings' => (float) ($rows['SAVINGS'] ?? 0),
-            'Shares' => (float) ($rows['SHARES'] ?? 0),
-            'Authentication' => (float) ($rows['AUTHENTICATION'] ?? 0),
-            'Deposit' => (float) ($rows['DEPOSIT'] ?? 0),
+            'approved_amount' => $approvedAmount,
+            'outstanding_balance' => $outstandingBalance,
+            'total_interest_paid' => $totalInterestPaid,
+            'outstanding_interest' => $outstandingInterest,
+            'principal_repaid' => $principalRepaid,
+            'next_repayment_date' => $nextRepayment?->due_date,
+            'next_repayment_amount' => (float) ($nextRepayment?->applied_amount ?? 0),
+            'status' => $hasOverdue ? 'Overdue' : ($outstandingBalance > 0 ? 'Active' : ($approvedAmount > 0 ? 'Completed' : 'No Active Loan')),
+            'progress' => $progress,
+            'has_loans' => $approvedAmount > 0,
         ];
     }
 

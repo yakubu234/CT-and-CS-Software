@@ -6,12 +6,14 @@
 
 @section('content')
     <div class="row">
-        @foreach ($accountSummary as $label => $balance)
+        @foreach ($accountSummary as $label => $summary)
             <div class="col-md-3 col-sm-6 mb-3">
-                <div class="card customer-card h-100">
+                <div class="card customer-card h-100 position-relative">
                     <div class="card-body">
                         <div class="text-muted small">{{ $label }}</div>
-                        <div class="h4 money-value mb-0">&#8358;{{ number_format((float) $balance, 2) }}</div>
+                        <div class="h4 money-value mb-1">&#8358;{{ number_format((float) $summary['balance'], 2) }}</div>
+                        <div class="small text-primary">View history</div>
+                        <a href="{{ $summary['url'] }}" class="stretched-link" aria-label="View {{ $label }} history"></a>
                     </div>
                 </div>
             </div>
@@ -19,22 +21,68 @@
     </div>
 
     <div class="row">
-        <div class="col-lg-4 mb-3">
-            <div class="card customer-card h-100">
+        <div class="col-lg-8 mb-3">
+            <div class="card customer-card h-100 position-relative">
                 <div class="card-header">
                     <h3 class="card-title">Loan Snapshot</h3>
+                    <div class="card-tools">
+                        <span class="badge badge-{{
+                            $loanSnapshot['status'] === 'Overdue'
+                                ? 'danger'
+                                : ($loanSnapshot['status'] === 'Completed' ? 'success' : ($loanSnapshot['status'] === 'Active' ? 'warning' : 'secondary'))
+                        }}">
+                            {{ $loanSnapshot['status'] }}
+                        </span>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="text-muted small">Active Loan Balance</div>
-                    <div class="h4 money-value">&#8358;{{ number_format((float) $activeLoanBalance, 2) }}</div>
-                    <hr>
-                    <div class="text-muted small">Next Repayment Due</div>
-                    @if ($nextRepaymentDue)
-                        <div class="font-weight-bold">{{ optional($nextRepaymentDue->due_date)->format('d M Y') }}</div>
-                        <div class="text-muted small">&#8358;{{ number_format((float) $nextRepaymentDue->applied_amount, 2) }} request</div>
-                    @else
-                        <div class="font-weight-bold">No upcoming repayment found</div>
-                    @endif
+                    <div class="row">
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="text-muted small">Loan Amount Approved</div>
+                            <div class="font-weight-bold money-value">&#8358;{{ number_format((float) $loanSnapshot['approved_amount'], 2) }}</div>
+                        </div>
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="text-muted small">Outstanding Loan Balance</div>
+                            <div class="font-weight-bold money-value">&#8358;{{ number_format((float) $loanSnapshot['outstanding_balance'], 2) }}</div>
+                        </div>
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="text-muted small">Total Principal Repaid</div>
+                            <div class="font-weight-bold money-value">&#8358;{{ number_format((float) $loanSnapshot['principal_repaid'], 2) }}</div>
+                        </div>
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="text-muted small">Total Interest Paid</div>
+                            <div class="font-weight-bold money-value">&#8358;{{ number_format((float) $loanSnapshot['total_interest_paid'], 2) }}</div>
+                        </div>
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="text-muted small">Outstanding Interest</div>
+                            <div class="font-weight-bold money-value">&#8358;{{ number_format((float) $loanSnapshot['outstanding_interest'], 2) }}</div>
+                        </div>
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="text-muted small">Next Repayment</div>
+                            @if ($loanSnapshot['next_repayment_date'])
+                                <div class="font-weight-bold">{{ optional($loanSnapshot['next_repayment_date'])->format('d M Y') }}</div>
+                                <div class="small text-muted">&#8358;{{ number_format((float) $loanSnapshot['next_repayment_amount'], 2) }}</div>
+                            @else
+                                <div class="font-weight-bold">No upcoming repayment found</div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="text-muted small">Loan Progress</div>
+                        <div class="font-weight-bold">{{ number_format((float) $loanSnapshot['progress'], 1) }}% Repaid</div>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div
+                            class="progress-bar bg-success"
+                            role="progressbar"
+                            style="width: {{ (float) $loanSnapshot['progress'] }}%;"
+                            aria-valuenow="{{ (float) $loanSnapshot['progress'] }}"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                        ></div>
+                    </div>
+                    <a href="{{ route('customer.loans') }}" class="stretched-link" aria-label="View loan details and repayment schedule"></a>
                 </div>
             </div>
         </div>
@@ -72,7 +120,11 @@
                         @forelse ($accounts as $account)
                             <tr>
                                 <td>{{ $account->product?->type ?: 'Account' }}</td>
-                                <td class="text-right font-weight-bold">&#8358;{{ number_format((float) $account->balance, 2) }}</td>
+                                <td class="text-right font-weight-bold">
+                                    <a href="{{ route('customer.statement', ['account_id' => $account->id]) }}" class="text-reset">
+                                        &#8358;{{ number_format((float) $account->balance, 2) }}
+                                    </a>
+                                </td>
                             </tr>
                         @empty
                             <tr>
