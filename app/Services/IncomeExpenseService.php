@@ -191,13 +191,17 @@ class IncomeExpenseService
                 throw new RuntimeException('The linked branch for this income or expense entry could not be found.');
             }
 
+            if (strtolower((string) $transaction->dr_cr) === 'cr') {
+                $this->balanceSyncService->validateBranchCreditRemoval($branch, $transaction);
+            }
+
             $transaction->forceFill([
                 'updated_user_id' => $actor->id,
             ])->save();
 
             $transaction->delete();
 
-            $this->balanceSyncService->syncBranchLedger($branch, strtolower((string) $transaction->dr_cr) === 'cr');
+            $this->balanceSyncService->syncBranchLedger($branch, false);
         });
     }
 

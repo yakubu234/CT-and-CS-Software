@@ -183,10 +183,10 @@ class TransactionService
                 throw new RuntimeException('The linked branch for this transaction could not be found.');
             }
 
-            $removesBranchCredit = false;
-
             foreach ($transaction->mirrors as $mirror) {
-                $removesBranchCredit = $removesBranchCredit || strtolower((string) $mirror->dr_cr) === 'cr';
+                if (strtolower((string) $mirror->dr_cr) === 'cr') {
+                    $this->balanceSyncService->validateBranchCreditRemoval($branch, $mirror);
+                }
 
                 $mirror->forceFill([
                     'updated_user_id' => $actor->id,
@@ -203,7 +203,7 @@ class TransactionService
 
             $account->updated_user_id = $actor->id;
             $this->balanceSyncService->syncSavingsAccount($account);
-            $this->balanceSyncService->syncBranchLedger($branch, $removesBranchCredit);
+            $this->balanceSyncService->syncBranchLedger($branch, false);
         });
     }
 

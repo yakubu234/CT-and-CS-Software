@@ -83,6 +83,55 @@ class BalanceSyncService
         return $this->syncBranchTransactionCollection($transactions, $branch->name ?: 'This branch', $enforceNonNegative);
     }
 
+    public function validateBranchCreditRemoval(Branch $branch, Transaction $removedTransaction): void
+    {
+        if (strtolower((string) $removedTransaction->dr_cr) !== 'cr') {
+            return;
+        }
+
+        $transactions = Transaction::query()
+            ->where('branch_id', $branch->id)
+            ->where('is_branch', true)
+            ->whereNull('deleted_at')
+            ->orderBy('trans_date')
+            ->orderBy('id')
+            ->get();
+
+        $originalBalance = 0.0;
+        $simulatedBalance = 0.0;
+        $isAffectedByRemoval = false;
+
+        foreach ($transactions as $transaction) {
+            $direction = strtolower((string) $transaction->dr_cr);
+            $amount = (float) $transaction->amount;
+            $originalAfter = $this->applyDirection($originalBalance, $direction, $amount);
+
+            if ((int) $transaction->id === (int) $removedTransaction->id) {
+                $isAffectedByRemoval = true;
+                $simulatedAfter = $simulatedBalance;
+            } else {
+                $simulatedAfter = $this->applyDirection($simulatedBalance, $direction, $amount);
+            }
+
+            if ($isAffectedByRemoval && $originalAfter >= 0 && $simulatedAfter < 0) {
+                $transactionDate = $transaction->trans_date ? $transaction->trans_date->format('Y-m-d') : 'the selected date';
+                $transactionType = $transaction->type ?: 'transaction';
+                $removedAmount = number_format((float) $removedTransaction->amount, 2);
+                $availableBalance = number_format($simulatedBalance, 2);
+                $shortfall = number_format(abs($simulatedAfter), 2);
+
+                throw new RuntimeException(
+                    "Deleting this credit of ₦{$removedAmount} would make the branch balance insufficient for {$branch->name} on {$transactionDate}. "
+                    . "After removing the credit, the available balance before \"{$transactionType}\" would be ₦{$availableBalance}, "
+                    . "leaving a shortfall of ₦{$shortfall}. Record enough income before this point or reduce later debits first."
+                );
+            }
+
+            $originalBalance = $originalAfter;
+            $simulatedBalance = $simulatedAfter;
+        }
+    }
+
     public function syncBranchTransactionCollection(Collection $transactions, string $branchLabel = 'This branch', bool $enforceNonNegative = true): float
     {
         $runningBalance = 0.0;
