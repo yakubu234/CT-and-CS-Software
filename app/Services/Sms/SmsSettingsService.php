@@ -52,7 +52,41 @@ class SmsSettingsService
 
         $config = $this->get("sms.providers.{$provider}", []);
 
-        return is_array($config) ? $config : [];
+        return array_replace($this->providerDefaults($provider), is_array($config) ? $config : []);
+    }
+
+    public function providerDefaults(string $provider): array
+    {
+        return match ($provider) {
+            'termii' => [
+                'base_url' => 'https://api.ng.termii.com',
+                'endpoint' => '/api/sms/send',
+                'balance_endpoint' => '/api/get-balance',
+                'api_key' => '',
+                'channel' => 'generic',
+                'type' => 'plain',
+            ],
+            'bulksmsnigeria' => [
+                'base_url' => 'https://www.bulksmsnigeria.com',
+                'endpoint' => '/api/v2/sms',
+                'balance_endpoint' => '/api/v2/balance',
+                'api_token' => '',
+                'gateway' => '',
+            ],
+            'generic' => [
+                'base_url' => '',
+                'endpoint' => '',
+                'balance_endpoint' => '',
+                'api_key' => '',
+                'auth_mode' => 'bearer',
+                'auth_header_name' => 'X-API-KEY',
+                'message_field' => 'message',
+                'phone_field' => 'to',
+                'sender_field' => 'from',
+                'callback_field' => 'callback_url',
+            ],
+            default => [],
+        };
     }
 
     public function string(string $key, ?string $default = null): ?string

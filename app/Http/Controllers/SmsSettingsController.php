@@ -24,9 +24,9 @@ class SmsSettingsController extends Controller
             'activeProvider' => $this->settings->activeProvider(),
             'senderId' => $this->settings->senderId(),
             'callbackUrl' => $this->settings->callbackUrl(),
-            'termii' => $this->settings->providerConfig('termii'),
-            'bulkSmsNigeria' => $this->settings->providerConfig('bulksmsnigeria'),
-            'generic' => $this->settings->providerConfig('generic'),
+            'termii' => $this->providerConfig('termii'),
+            'bulkSmsNigeria' => $this->providerConfig('bulksmsnigeria'),
+            'generic' => $this->providerConfig('generic'),
             'balanceResult' => session('sms_balance_result'),
             'testSendResult' => session('sms_test_send_result'),
         ]);
@@ -38,19 +38,19 @@ class SmsSettingsController extends Controller
             'active_provider' => ['nullable', 'in:termii,bulksmsnigeria,generic'],
             'sender_id' => ['nullable', 'string', 'max:50'],
             'callback_url' => ['nullable', 'url', 'max:255'],
-            'termii.base_url' => ['nullable', 'url', 'max:255'],
-            'termii.endpoint' => ['nullable', 'string', 'max:100'],
+            'termii.base_url' => ['required_if:active_provider,termii', 'nullable', 'url', 'max:255'],
+            'termii.endpoint' => ['required_if:active_provider,termii', 'nullable', 'string', 'max:100'],
             'termii.balance_endpoint' => ['nullable', 'string', 'max:100'],
-            'termii.api_key' => ['nullable', 'string', 'max:191'],
-            'termii.channel' => ['nullable', 'string', 'max:50'],
-            'termii.type' => ['nullable', 'string', 'max:50'],
-            'bulksmsnigeria.base_url' => ['nullable', 'url', 'max:255'],
-            'bulksmsnigeria.endpoint' => ['nullable', 'string', 'max:100'],
+            'termii.api_key' => ['required_if:active_provider,termii', 'nullable', 'string', 'max:191'],
+            'termii.channel' => ['required_if:active_provider,termii', 'nullable', 'in:generic,dnd,whatsapp,voice'],
+            'termii.type' => ['required_if:active_provider,termii', 'nullable', 'in:plain,unicode,encrypted,voice'],
+            'bulksmsnigeria.base_url' => ['required_if:active_provider,bulksmsnigeria', 'nullable', 'url', 'max:255'],
+            'bulksmsnigeria.endpoint' => ['required_if:active_provider,bulksmsnigeria', 'nullable', 'string', 'max:100'],
             'bulksmsnigeria.balance_endpoint' => ['nullable', 'string', 'max:100'],
-            'bulksmsnigeria.api_token' => ['nullable', 'string', 'max:191'],
+            'bulksmsnigeria.api_token' => ['required_if:active_provider,bulksmsnigeria', 'nullable', 'string', 'max:191'],
             'bulksmsnigeria.gateway' => ['nullable', 'string', 'max:100'],
-            'generic.base_url' => ['nullable', 'url', 'max:255'],
-            'generic.endpoint' => ['nullable', 'string', 'max:100'],
+            'generic.base_url' => ['required_if:active_provider,generic', 'nullable', 'url', 'max:255'],
+            'generic.endpoint' => ['required_if:active_provider,generic', 'nullable', 'string', 'max:100'],
             'generic.balance_endpoint' => ['nullable', 'string', 'max:100'],
             'generic.api_key' => ['nullable', 'string', 'max:191'],
             'generic.auth_mode' => ['nullable', 'in:bearer,header,body,none'],
@@ -64,9 +64,9 @@ class SmsSettingsController extends Controller
         $this->settings->put('sms.active_provider', $data['active_provider'] ?? null);
         $this->settings->put('sms.sender_id', $data['sender_id'] ?? null);
         $this->settings->put('sms.callback_url', $data['callback_url'] ?? null);
-        $this->settings->put('sms.providers.termii', $data['termii'] ?? []);
-        $this->settings->put('sms.providers.bulksmsnigeria', $data['bulksmsnigeria'] ?? []);
-        $this->settings->put('sms.providers.generic', $data['generic'] ?? []);
+        $this->settings->put('sms.providers.termii', array_replace($this->providerDefaults('termii'), $data['termii'] ?? []));
+        $this->settings->put('sms.providers.bulksmsnigeria', array_replace($this->providerDefaults('bulksmsnigeria'), $data['bulksmsnigeria'] ?? []));
+        $this->settings->put('sms.providers.generic', array_replace($this->providerDefaults('generic'), $data['generic'] ?? []));
 
         return redirect()
             ->route('bulk-sms.settings.edit')
@@ -139,5 +139,15 @@ class SmsSettingsController extends Controller
             'bulksmsnigeria' => 'BulkSMSNigeria',
             'generic' => 'Generic HTTP Provider',
         ];
+    }
+
+    protected function providerConfig(string $provider): array
+    {
+        return array_replace($this->providerDefaults($provider), $this->settings->providerConfig($provider));
+    }
+
+    protected function providerDefaults(string $provider): array
+    {
+        return $this->settings->providerDefaults($provider);
     }
 }

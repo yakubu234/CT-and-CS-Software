@@ -14,9 +14,20 @@
 
             <div class="card-body">
                 <div class="alert alert-info">
-                    Configure one active provider at a time. This module currently supports Nigeria-friendly presets for
-                    <strong>Termii</strong> and <strong>BulkSMSNigeria</strong>, plus a <strong>Generic HTTP</strong> option.
+                    Select one active SMS provider. Only the selected provider is used for sending SMS, balance checks,
+                    and test messages.
                 </div>
+
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <strong>Please fix the highlighted fields.</strong>
+                        <ul class="mb-0 mt-2">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 @if ($balanceResult)
                     <div class="alert alert-{{ $balanceResult['successful'] ? 'success' : 'danger' }}">
@@ -48,6 +59,7 @@
                                     <option value="{{ $value }}" @selected(old('active_provider', $activeProvider) === $value)>{{ $label }}</option>
                                 @endforeach
                             </select>
+                            <small class="form-text text-muted">Changing this will activate the selected provider and deactivate the others.</small>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -64,206 +76,177 @@
                     </div>
                 </div>
 
-                <hr>
-                <h5 class="mb-3">Termii</h5>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Base URL</label>
-                            <input type="url" name="termii[base_url]" class="form-control" value="{{ old('termii.base_url', $termii['base_url'] ?? '') }}" placeholder="https://api.ng.termii.com">
-                        </div>
+                <div class="card card-outline card-success mt-3" data-provider-panel="termii">
+                    <div class="card-header d-flex align-items-center">
+                        <h5 class="card-title mb-0">Termii</h5>
+                        <span class="badge ml-auto" data-provider-status="termii">Inactive</span>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Send Endpoint</label>
-                            <input type="text" name="termii[endpoint]" class="form-control" value="{{ old('termii.endpoint', $termii['endpoint'] ?? '/api/sms/send') }}">
+                    <div class="card-body">
+                        <div class="alert alert-light border">
+                            Termii requires an API key, sender ID, channel, and message type. Use <strong>DND</strong>
+                            for transactional messages when your Termii account is approved for it; <strong>Generic</strong>
+                            is usually for promotional routes.
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Balance Endpoint</label>
-                            <input type="text" name="termii[balance_endpoint]" class="form-control" value="{{ old('termii.balance_endpoint', $termii['balance_endpoint'] ?? '') }}" placeholder="/api/get-balance">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>API Key</label>
-                            <input type="text" name="termii[api_key]" class="form-control" value="{{ old('termii.api_key', $termii['api_key'] ?? '') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Channel</label>
-                            <input type="text" name="termii[channel]" class="form-control" value="{{ old('termii.channel', $termii['channel'] ?? 'generic') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Type</label>
-                            <input type="text" name="termii[type]" class="form-control" value="{{ old('termii.type', $termii['type'] ?? 'plain') }}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Base URL</label>
+                                    <input type="url" name="termii[base_url]" class="form-control" value="{{ old('termii.base_url', $termii['base_url'] ?? '') }}" placeholder="https://api.ng.termii.com">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Send Endpoint</label>
+                                    <input type="text" name="termii[endpoint]" class="form-control" value="{{ old('termii.endpoint', $termii['endpoint'] ?? '/api/sms/send') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Balance Endpoint</label>
+                                    <input type="text" name="termii[balance_endpoint]" class="form-control" value="{{ old('termii.balance_endpoint', $termii['balance_endpoint'] ?? '/api/get-balance') }}" placeholder="/api/get-balance">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>API Key</label>
+                                    <input type="text" name="termii[api_key]" class="form-control" value="{{ old('termii.api_key', $termii['api_key'] ?? '') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Channel</label>
+                                    <select name="termii[channel]" class="form-control">
+                                        @foreach (['generic' => 'Generic', 'dnd' => 'DND / Transactional', 'whatsapp' => 'WhatsApp', 'voice' => 'Voice'] as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('termii.channel', $termii['channel'] ?? 'generic') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Type</label>
+                                    <select name="termii[type]" class="form-control">
+                                        @foreach (['plain' => 'Plain text', 'unicode' => 'Unicode', 'encrypted' => 'Encrypted', 'voice' => 'Voice'] as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('termii.type', $termii['type'] ?? 'plain') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <hr>
-                <h5 class="mb-3">BulkSMSNigeria</h5>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Base URL</label>
-                            <input type="url" name="bulksmsnigeria[base_url]" class="form-control" value="{{ old('bulksmsnigeria.base_url', $bulkSmsNigeria['base_url'] ?? 'https://www.bulksmsnigeria.com') }}">
-                        </div>
+                <div class="card card-outline card-success mt-3" data-provider-panel="bulksmsnigeria">
+                    <div class="card-header d-flex align-items-center">
+                        <h5 class="card-title mb-0">BulkSMSNigeria</h5>
+                        <span class="badge ml-auto" data-provider-status="bulksmsnigeria">Inactive</span>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Send Endpoint</label>
-                            <input type="text" name="bulksmsnigeria[endpoint]" class="form-control" value="{{ old('bulksmsnigeria.endpoint', $bulkSmsNigeria['endpoint'] ?? '/api/v2/sms') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Balance Endpoint</label>
-                            <input type="text" name="bulksmsnigeria[balance_endpoint]" class="form-control" value="{{ old('bulksmsnigeria.balance_endpoint', $bulkSmsNigeria['balance_endpoint'] ?? '/api/v2/balance') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>API Token</label>
-                            <input type="text" name="bulksmsnigeria[api_token]" class="form-control" value="{{ old('bulksmsnigeria.api_token', $bulkSmsNigeria['api_token'] ?? '') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>Gateway</label>
-                            <input type="text" name="bulksmsnigeria[gateway]" class="form-control" value="{{ old('bulksmsnigeria.gateway', $bulkSmsNigeria['gateway'] ?? '') }}" placeholder="direct-refund, direct-corporate, otp">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Base URL</label>
+                                    <input type="url" name="bulksmsnigeria[base_url]" class="form-control" value="{{ old('bulksmsnigeria.base_url', $bulkSmsNigeria['base_url'] ?? 'https://www.bulksmsnigeria.com') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Send Endpoint</label>
+                                    <input type="text" name="bulksmsnigeria[endpoint]" class="form-control" value="{{ old('bulksmsnigeria.endpoint', $bulkSmsNigeria['endpoint'] ?? '/api/v2/sms') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Balance Endpoint</label>
+                                    <input type="text" name="bulksmsnigeria[balance_endpoint]" class="form-control" value="{{ old('bulksmsnigeria.balance_endpoint', $bulkSmsNigeria['balance_endpoint'] ?? '/api/v2/balance') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>API Token</label>
+                                    <input type="text" name="bulksmsnigeria[api_token]" class="form-control" value="{{ old('bulksmsnigeria.api_token', $bulkSmsNigeria['api_token'] ?? '') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Gateway</label>
+                                    <input type="text" name="bulksmsnigeria[gateway]" class="form-control" value="{{ old('bulksmsnigeria.gateway', $bulkSmsNigeria['gateway'] ?? '') }}" placeholder="direct-refund, direct-corporate, otp">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <hr>
-                <h5 class="mb-3">Generic HTTP Provider</h5>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Base URL</label>
-                            <input type="url" name="generic[base_url]" class="form-control" value="{{ old('generic.base_url', $generic['base_url'] ?? '') }}">
-                        </div>
+                <div class="card card-outline card-success mt-3" data-provider-panel="generic">
+                    <div class="card-header d-flex align-items-center">
+                        <h5 class="card-title mb-0">Generic HTTP Provider</h5>
+                        <span class="badge ml-auto" data-provider-status="generic">Inactive</span>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Send Endpoint</label>
-                            <input type="text" name="generic[endpoint]" class="form-control" value="{{ old('generic.endpoint', $generic['endpoint'] ?? '') }}" placeholder="/send-sms">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Balance Endpoint</label>
-                            <input type="text" name="generic[balance_endpoint]" class="form-control" value="{{ old('generic.balance_endpoint', $generic['balance_endpoint'] ?? '') }}" placeholder="/balance">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>API Key</label>
-                            <input type="text" name="generic[api_key]" class="form-control" value="{{ old('generic.api_key', $generic['api_key'] ?? '') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Auth Mode</label>
-                            <select name="generic[auth_mode]" class="form-control select2">
-                                @foreach (['bearer' => 'Bearer', 'header' => 'Header', 'body' => 'Body', 'none' => 'None'] as $value => $label)
-                                    <option value="{{ $value }}" @selected(old('generic.auth_mode', $generic['auth_mode'] ?? 'bearer') === $value)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label>Auth Header Name</label>
-                            <input type="text" name="generic[auth_header_name]" class="form-control" value="{{ old('generic.auth_header_name', $generic['auth_header_name'] ?? 'X-API-KEY') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Message Field</label>
-                            <input type="text" name="generic[message_field]" class="form-control" value="{{ old('generic.message_field', $generic['message_field'] ?? 'message') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Phone Field</label>
-                            <input type="text" name="generic[phone_field]" class="form-control" value="{{ old('generic.phone_field', $generic['phone_field'] ?? 'to') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Sender Field</label>
-                            <input type="text" name="generic[sender_field]" class="form-control" value="{{ old('generic.sender_field', $generic['sender_field'] ?? 'from') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Callback Field</label>
-                            <input type="text" name="generic[callback_field]" class="form-control" value="{{ old('generic.callback_field', $generic['callback_field'] ?? 'callback_url') }}">
-                        </div>
-                    </div>
-                </div>
-
-                <hr>
-                <div class="row">
-                    <div class="col-lg-5">
-                        <div class="card bg-light h-100">
-                            <div class="card-header">
-                                <strong>Check Balance</strong>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Base URL</label>
+                                    <input type="url" name="generic[base_url]" class="form-control" value="{{ old('generic.base_url', $generic['base_url'] ?? '') }}">
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <p class="text-muted mb-3">Use the currently active provider to fetch available SMS credit.</p>
-                                <form method="POST" action="{{ route('bulk-sms.settings.balance') }}">
-                                    @csrf
-                                    <button type="submit" class="btn btn-outline-primary">
-                                        <i class="fas fa-wallet mr-1"></i>
-                                        Check SMS Balance
-                                    </button>
-                                </form>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Send Endpoint</label>
+                                    <input type="text" name="generic[endpoint]" class="form-control" value="{{ old('generic.endpoint', $generic['endpoint'] ?? '') }}" placeholder="/send-sms">
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-7 mt-3 mt-lg-0">
-                        <div class="card bg-light h-100">
-                            <div class="card-header">
-                                <strong>Test Send</strong>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Balance Endpoint</label>
+                                    <input type="text" name="generic[balance_endpoint]" class="form-control" value="{{ old('generic.balance_endpoint', $generic['balance_endpoint'] ?? '') }}" placeholder="/balance">
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <form method="POST" action="{{ route('bulk-sms.settings.test-send') }}">
-                                    @csrf
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="test_phone">Test Phone</label>
-                                                <input type="text" name="test_phone" id="test_phone" class="form-control" value="{{ old('test_phone') }}" placeholder="2348012345678" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="test_sender_id">Sender ID Override</label>
-                                                <input type="text" name="test_sender_id" id="test_sender_id" class="form-control" value="{{ old('test_sender_id', $senderId) }}" placeholder="Optional">
-                                            </div>
-                                        </div>
-                                        <div class="col-12">
-                                            <div class="form-group mb-0">
-                                                <label for="test_message">Test Message</label>
-                                                <textarea name="test_message" id="test_message" rows="3" class="form-control" required>{{ old('test_message', 'Test SMS from Oreoluwapo CT&CU.') }}</textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="mt-3">
-                                        <button type="submit" class="btn btn-outline-success">
-                                            <i class="fas fa-paper-plane mr-1"></i>
-                                            Send Test SMS
-                                        </button>
-                                    </div>
-                                </form>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>API Key</label>
+                                    <input type="text" name="generic[api_key]" class="form-control" value="{{ old('generic.api_key', $generic['api_key'] ?? '') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Auth Mode</label>
+                                    <select name="generic[auth_mode]" class="form-control">
+                                        @foreach (['bearer' => 'Bearer', 'header' => 'Header', 'body' => 'Body', 'none' => 'None'] as $value => $label)
+                                            <option value="{{ $value }}" @selected(old('generic.auth_mode', $generic['auth_mode'] ?? 'bearer') === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Auth Header Name</label>
+                                    <input type="text" name="generic[auth_header_name]" class="form-control" value="{{ old('generic.auth_header_name', $generic['auth_header_name'] ?? 'X-API-KEY') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>Message Field</label>
+                                    <input type="text" name="generic[message_field]" class="form-control" value="{{ old('generic.message_field', $generic['message_field'] ?? 'message') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>Phone Field</label>
+                                    <input type="text" name="generic[phone_field]" class="form-control" value="{{ old('generic.phone_field', $generic['phone_field'] ?? 'to') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>Sender Field</label>
+                                    <input type="text" name="generic[sender_field]" class="form-control" value="{{ old('generic.sender_field', $generic['sender_field'] ?? 'from') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>Callback Field</label>
+                                    <input type="text" name="generic[callback_field]" class="form-control" value="{{ old('generic.callback_field', $generic['callback_field'] ?? 'callback_url') }}">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -275,4 +258,99 @@
             </div>
         </form>
     </div>
+
+    <div class="card card-outline card-secondary mt-3">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Provider Tools</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-lg-5">
+                    <div class="card bg-light h-100">
+                        <div class="card-header">
+                            <strong>Check Balance</strong>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3">Use the currently active provider to fetch available SMS credit.</p>
+                            <form method="POST" action="{{ route('bulk-sms.settings.balance') }}">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="fas fa-wallet mr-1"></i>
+                                    Check SMS Balance
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-7 mt-3 mt-lg-0">
+                    <div class="card bg-light h-100">
+                        <div class="card-header">
+                            <strong>Test Send</strong>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ route('bulk-sms.settings.test-send') }}">
+                                @csrf
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="test_phone">Test Phone</label>
+                                            <input type="text" name="test_phone" id="test_phone" class="form-control" value="{{ old('test_phone') }}" placeholder="2348012345678" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="test_sender_id">Sender ID Override</label>
+                                            <input type="text" name="test_sender_id" id="test_sender_id" class="form-control" value="{{ old('test_sender_id', $senderId) }}" placeholder="Optional">
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-group mb-0">
+                                            <label for="test_message">Test Message</label>
+                                            <textarea name="test_message" id="test_message" rows="3" class="form-control" required>{{ old('test_message', 'Test SMS from Oreoluwapo CT&CU.') }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-outline-success">
+                                        <i class="fas fa-paper-plane mr-1"></i>
+                                        Send Test SMS
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var providerSelect = document.getElementById('active_provider');
+            var panels = document.querySelectorAll('[data-provider-panel]');
+            var badges = document.querySelectorAll('[data-provider-status]');
+
+            function refreshProviderPanels() {
+                var activeProvider = providerSelect ? providerSelect.value : '';
+
+                panels.forEach(function (panel) {
+                    panel.classList.toggle('d-none', panel.dataset.providerPanel !== activeProvider);
+                });
+
+                badges.forEach(function (badge) {
+                    var isActive = badge.dataset.providerStatus === activeProvider;
+                    badge.textContent = isActive ? 'Active' : 'Inactive';
+                    badge.className = 'badge ml-auto ' + (isActive ? 'badge-success' : 'badge-secondary');
+                });
+            }
+
+            if (providerSelect) {
+                providerSelect.addEventListener('change', refreshProviderPanels);
+                refreshProviderPanels();
+            }
+        });
+    </script>
+@endpush
