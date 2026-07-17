@@ -219,9 +219,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/loan-due-report', [ReportController::class, 'loanDueReport'])->name('reports.loan-due-report');
     Route::get('/reports/loan-due-report/export', [ReportController::class, 'exportLoanDueReport'])->name('reports.loan-due-report.export');
     Route::get('/reports/soc-ledger-report', [ReportController::class, 'societyLedgerReport'])->name('reports.soc-ledger-report');
+    Route::get('/reports/soc-ledger-report/export', [ReportController::class, 'exportSocietyLedgerReport'])->name('reports.soc-ledger-report.export');
     Route::get('/reports/income-expense-report', [ReportController::class, 'incomeExpenseReport'])->name('reports.income-expense-report');
     Route::get('/reports/income-expense-report/export', [ReportController::class, 'exportIncomeExpenseReport'])->name('reports.income-expense-report.export');
     Route::get('/reports/society-report', [ReportController::class, 'societyReport'])->name('reports.society-report');
+    Route::get('/reports/society-report/export', [ReportController::class, 'exportSocietyReport'])->name('reports.society-report.export');
     Route::get('/reports/interest-report', [ReportController::class, 'interestReport'])->name('reports.interest-report');
     Route::get('/reports/interest-report/export', [ReportController::class, 'exportInterestReport'])->name('reports.interest-report.export');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');

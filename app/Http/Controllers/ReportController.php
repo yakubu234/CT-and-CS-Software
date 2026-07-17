@@ -7,6 +7,8 @@ use App\Exports\LoanDueReportExport;
 use App\Exports\LoanReportExport;
 use App\Exports\IncomeExpenseReportExport;
 use App\Exports\InterestReportExport;
+use App\Exports\SocietyLedgerReportExport;
+use App\Exports\SocietyReportExport;
 use App\Services\ActiveBranchService;
 use App\Services\Exports\ExcelDownloadService;
 use App\Services\Reports\IncomeExpenseReportService;
@@ -14,6 +16,8 @@ use App\Services\Reports\InterestReportService;
 use App\Services\Reports\LoanDueReportService;
 use App\Services\Reports\MemberBalanceReportService;
 use App\Services\Reports\LoanReportService;
+use App\Services\Reports\SocietyLedgerReportService;
+use App\Services\Reports\SocietyReportService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +31,8 @@ class ReportController extends Controller
         protected LoanDueReportService $loanDueReportService,
         protected IncomeExpenseReportService $incomeExpenseReportService,
         protected InterestReportService $interestReportService,
+        protected SocietyLedgerReportService $societyLedgerReportService,
+        protected SocietyReportService $societyReportService,
         protected ExcelDownloadService $excelDownloadService,
     ) {
         $this->middleware('module:reports');
@@ -184,9 +190,52 @@ class ReportController extends Controller
         );
     }
 
-    public function societyLedgerReport(): View
+    public function societyLedgerReport(Request $request): View|RedirectResponse
     {
-        return $this->placeholder('Society Ledger Report');
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before viewing reports.']);
+        }
+
+        $report = $this->societyLedgerReportService->build($branch, $request);
+
+        return view('reports.society-ledger-report', [
+            'branch' => $branch,
+            'records' => $report['records'],
+            'memberLedgers' => $report['member_ledgers'],
+            'summary' => $report['summary'],
+            'filters' => $report['filters'],
+            'memberOptions' => $this->societyLedgerReportService->memberOptions($branch),
+        ]);
+    }
+
+    public function exportSocietyLedgerReport(Request $request)
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before exporting reports.']);
+        }
+
+        $report = $this->societyLedgerReportService->buildExportData($branch, $request);
+
+        $filename = sprintf(
+            '%s Society Ledger %s to %s.xlsx',
+            preg_replace('/[\\\\\\/:*?"<>|]+/', ' ', $branch->name),
+            str_replace(':', '_', $report['filters']['start_date'] ?: 'Beginning'),
+            str_replace(':', '_', $report['filters']['end_date'])
+        );
+
+        return $this->excelDownloadService->download(
+            new SocietyLedgerReportExport(
+                $report['sheets'],
+                $report['filters']
+            ),
+            $filename
+        );
     }
 
     public function incomeExpenseReport(Request $request): View|RedirectResponse
@@ -239,9 +288,61 @@ class ReportController extends Controller
         );
     }
 
-    public function societyReport(): View
+    public function societyReport(Request $request): View|RedirectResponse
     {
-        return $this->placeholder('Society Report');
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before viewing reports.']);
+        }
+
+        $report = $this->societyReportService->build($branch, $request);
+
+        return view('reports.society-report', [
+            'branch' => $branch,
+            'rows' => $report['rows'],
+            'expenses' => $report['expenses'],
+            'loans' => $report['loans'],
+            'summary' => $report['summary'],
+            'reconciliation' => $report['reconciliation'],
+            'warnings' => $report['warnings'],
+            'filters' => $report['filters'],
+        ]);
+    }
+
+    public function exportSocietyReport(Request $request)
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before exporting reports.']);
+        }
+
+        $report = $this->societyReportService->buildExportData($branch, $request);
+
+        $filename = sprintf(
+            '%s Society Report %s to %s.xlsx',
+            preg_replace('/[\\\\\\/:*?"<>|]+/', ' ', $branch->name),
+            str_replace(':', '_', $report['filters']['start_date'] ?: 'Beginning'),
+            str_replace(':', '_', $report['filters']['end_date'])
+        );
+
+        return $this->excelDownloadService->download(
+            new SocietyReportExport(
+                $branch,
+                $report['rows'],
+                $report['expenses'],
+                $report['loans'],
+                $report['summary'],
+                $report['reconciliation'],
+                $report['warnings'],
+                $report['filters'],
+                $request->user()?->name ?? 'SYSTEM'
+            ),
+            $filename
+        );
     }
 
     public function interestReport(Request $request): View|RedirectResponse
