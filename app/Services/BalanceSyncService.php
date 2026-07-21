@@ -70,17 +70,73 @@ class BalanceSyncService
         return $runningBalance;
     }
 
-    public function syncBranchLedger(Branch $branch, bool $enforceNonNegative = true): float
+    public function syncBranchLedger(Branch $branch, bool $enforceNonNegative = true, array $enforcedTransactionIds = []): float
     {
         $transactions = Transaction::query()
             ->where('branch_id', $branch->id)
             ->where('is_branch', true)
             ->whereNull('deleted_at')
             ->orderBy('trans_date')
+            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
             ->orderBy('id')
             ->get();
 
-        return $this->syncBranchTransactionCollection($transactions, $branch->name ?: 'This branch', $enforceNonNegative);
+        return $this->syncBranchTransactionCollection(
+            $transactions,
+            $branch->name ?: 'This branch',
+            $enforceNonNegative,
+            $enforcedTransactionIds
+        );
+    }
+
+    public function validateBranchLedgerMutation(Branch $branch, array $changedTransactionIds): void
+    {
+        $changedTransactionIds = collect($changedTransactionIds)
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($changedTransactionIds === []) {
+            return;
+        }
+
+        $transactions = Transaction::query()
+            ->where('branch_id', $branch->id)
+            ->where('is_branch', true)
+            ->whereNull('deleted_at')
+            ->orderBy('trans_date')
+            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
+            ->orderBy('id')
+            ->get();
+
+        $actualBalance = 0.0;
+        $baselineBalance = 0.0;
+        $isAffectedByChange = false;
+
+        foreach ($transactions as $transaction) {
+            $isChangedTransaction = in_array((int) $transaction->id, $changedTransactionIds, true);
+            $direction = strtolower((string) $transaction->dr_cr);
+            $amount = (float) $transaction->amount;
+
+            if ($isChangedTransaction) {
+                $isAffectedByChange = true;
+            }
+
+            $actualBefore = $actualBalance;
+            $actualAfter = $this->applyDirection($actualBalance, $direction, $amount);
+            $baselineAfter = $isChangedTransaction
+                ? $baselineBalance
+                : $this->applyDirection($baselineBalance, $direction, $amount);
+
+            if ($isAffectedByChange && $actualAfter < 0 && $baselineAfter >= 0) {
+                $this->throwBranchBalanceException($branch->name ?: 'This branch', $transaction, $actualBefore, $actualAfter);
+            }
+
+            $actualBalance = $actualAfter;
+            $baselineBalance = $baselineAfter;
+        }
     }
 
     public function validateBranchCreditRemoval(Branch $branch, Transaction $removedTransaction): void
@@ -94,6 +150,7 @@ class BalanceSyncService
             ->where('is_branch', true)
             ->whereNull('deleted_at')
             ->orderBy('trans_date')
+            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
             ->orderBy('id')
             ->get();
 
@@ -132,35 +189,29 @@ class BalanceSyncService
         }
     }
 
-    public function syncBranchTransactionCollection(Collection $transactions, string $branchLabel = 'This branch', bool $enforceNonNegative = true): float
+    public function syncBranchTransactionCollection(
+        Collection $transactions,
+        string $branchLabel = 'This branch',
+        bool $enforceNonNegative = true,
+        array $enforcedTransactionIds = []
+    ): float
     {
         $runningBalance = 0.0;
+        $enforcedTransactionIds = collect($enforcedTransactionIds)
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
 
         foreach ($transactions as $transaction) {
             $balanceBefore = $runningBalance;
             $balanceAfter = $this->applyDirection($balanceBefore, strtolower((string) $transaction->dr_cr), (float) $transaction->amount);
-            $transactionDate = $transaction->trans_date ? $transaction->trans_date->format('Y-m-d') : 'the selected date';
-            $transactionType = $transaction->type ?: 'transaction';
-            $transactionAmount = number_format((float) $transaction->amount, 2);
+            $shouldValidate = $enforcedTransactionIds === []
+                || in_array((int) $transaction->id, $enforcedTransactionIds, true);
 
-            if ($enforceNonNegative && $balanceAfter < 0) {
-                $availableBalance = number_format($balanceBefore, 2);
-                $shortfall = number_format(abs($balanceAfter), 2);
-                $isExpense = $transaction->tracking_id === 'expenses'
-                    && strtolower((string) $transaction->dr_cr) === 'dr';
-                $attemptedEntry = $isExpense
-                    ? "expense \"{$transactionType}\""
-                    : "debit for \"{$transactionType}\"";
-                $correctiveAction = $isExpense
-                    ? 'Reduce the expense amount or record sufficient income before posting this expense.'
-                    : 'Reduce the debit amount or credit the branch before posting this transaction.';
-
-                throw new RuntimeException(
-                    "Insufficient branch balance for {$branchLabel} on {$transactionDate}. "
-                    . "When branch transactions are applied in date order, the available balance is ₦{$availableBalance}, "
-                    . "but the attempted {$attemptedEntry} is ₦{$transactionAmount}, leaving a shortfall of ₦{$shortfall}. "
-                    . $correctiveAction
-                );
+            if ($enforceNonNegative && $shouldValidate && $balanceAfter < 0) {
+                $this->throwBranchBalanceException($branchLabel, $transaction, $balanceBefore, $balanceAfter);
             }
 
             $this->updateTransactionSnapshot($transaction, $balanceBefore, $balanceAfter);
@@ -187,5 +238,33 @@ class BalanceSyncService
         $transaction->update([
             'transaction_details' => $details,
         ]);
+    }
+
+    protected function throwBranchBalanceException(
+        string $branchLabel,
+        Transaction $transaction,
+        float $balanceBefore,
+        float $balanceAfter
+    ): never {
+        $transactionDate = $transaction->trans_date ? $transaction->trans_date->format('Y-m-d') : 'the selected date';
+        $transactionType = $transaction->type ?: 'transaction';
+        $transactionAmount = number_format((float) $transaction->amount, 2);
+        $availableBalance = number_format($balanceBefore, 2);
+        $shortfall = number_format(abs($balanceAfter), 2);
+        $isExpense = $transaction->tracking_id === 'expenses'
+            && strtolower((string) $transaction->dr_cr) === 'dr';
+        $attemptedEntry = $isExpense
+            ? "expense \"{$transactionType}\""
+            : "debit for \"{$transactionType}\"";
+        $correctiveAction = $isExpense
+            ? 'Reduce the expense amount or record sufficient income before posting this expense.'
+            : 'Reduce the debit amount or credit the branch before posting this transaction.';
+
+        throw new RuntimeException(
+            "Insufficient branch balance for {$branchLabel} on {$transactionDate}. "
+            . "When branch transactions are applied in date order, the available balance is ₦{$availableBalance}, "
+            . "but the attempted {$attemptedEntry} is ₦{$transactionAmount}, leaving a shortfall of ₦{$shortfall}. "
+            . $correctiveAction
+        );
     }
 }

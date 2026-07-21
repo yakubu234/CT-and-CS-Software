@@ -26,6 +26,7 @@ class TransactionService
             $transactions = new Collection();
             $accountsToSync = [];
             $hasBranchDebit = false;
+            $changedBranchTransactionIds = [];
 
             foreach ($entries as $entry) {
                 $account = $this->resolveAccountForMember($member, (int) $entry['savings_account_id']);
@@ -69,7 +70,11 @@ class TransactionService
                     'batch_id' => $batchId,
                 ]);
 
-                $this->createBranchMirrorTransaction($branch, $actor, $transaction, $account, $batchId);
+                $mirror = $this->createBranchMirrorTransaction($branch, $actor, $transaction, $account, $batchId);
+                if ($mirror && $drCr === 'dr') {
+                    $changedBranchTransactionIds[] = $mirror->id;
+                }
+
                 $accountsToSync[$account->id] = $account;
 
                 $transactions->push($transaction->fresh(['account.product', 'user.detail', 'creator']));
@@ -83,7 +88,11 @@ class TransactionService
                 $this->balanceSyncService->syncSavingsAccount($account);
             }
 
-            $this->balanceSyncService->syncBranchLedger($branch, $hasBranchDebit);
+            if ($hasBranchDebit) {
+                $this->balanceSyncService->validateBranchLedgerMutation($branch, $changedBranchTransactionIds);
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch, false);
 
             return $transactions;
         });
@@ -110,6 +119,7 @@ class TransactionService
             $newDrCr = strtolower($payload['dr_cr']);
             $newDate = $payload['trans_date'];
             $newDescription = $payload['description'] ?: $this->displayType($newAccount);
+            $changedBranchTransactionIds = [];
 
             $transaction->update([
                 'trans_date' => $newDate,
@@ -147,6 +157,10 @@ class TransactionService
                         'account_type' => $newAccount->product?->type,
                     ],
                 ]);
+
+                if ($newDrCr === 'dr') {
+                    $changedBranchTransactionIds[] = $mirror->id;
+                }
             }
 
             $originalAccount->updated_user_id = $actor->id;
@@ -157,7 +171,11 @@ class TransactionService
                 $this->balanceSyncService->syncSavingsAccount($newAccount);
             }
 
-            $this->balanceSyncService->syncBranchLedger($branch, $newDrCr === 'dr');
+            if ($newDrCr === 'dr') {
+                $this->balanceSyncService->validateBranchLedgerMutation($branch, $changedBranchTransactionIds);
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch, false);
 
             return $transaction->fresh(['account.product', 'user.detail', 'creator', 'updater', 'mirrors']);
         });

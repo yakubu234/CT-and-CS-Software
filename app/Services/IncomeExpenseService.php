@@ -77,7 +77,11 @@ class IncomeExpenseService
                 ])->fresh(['creator', 'updater']));
             }
 
-            $this->balanceSyncService->syncBranchLedger($branch, $hasExpenseDebit);
+            if ($hasExpenseDebit) {
+                $this->balanceSyncService->validateBranchLedgerMutation($branch, $records->pluck('id')->all());
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch, false);
 
             return $records;
         });
@@ -135,7 +139,11 @@ class IncomeExpenseService
                 'batch_id' => (string) Str::uuid(),
             ]);
 
-            $this->balanceSyncService->syncBranchLedger($branch, $drCr === 'dr');
+            if ($drCr === 'dr') {
+                $this->balanceSyncService->validateBranchLedgerMutation($branch, [$record->id]);
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch, false);
 
             return $record->fresh(['creator', 'updater']);
         });
@@ -176,7 +184,11 @@ class IncomeExpenseService
                 'is_branch' => 1,
             ]);
 
-            $this->balanceSyncService->syncBranchLedger($branch, $drCr === 'dr');
+            if ($drCr === 'dr') {
+                $this->balanceSyncService->validateBranchLedgerMutation($branch, [$transaction->id]);
+            }
+
+            $this->balanceSyncService->syncBranchLedger($branch, false);
 
             return $transaction->fresh(['creator', 'updater']);
         });

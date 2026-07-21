@@ -15,6 +15,11 @@ use RuntimeException;
 
 class LoanService
 {
+    public function __construct(
+        protected BalanceSyncService $balanceSyncService,
+    ) {
+    }
+
     public function currentOutstandingForBorrower(Branch $branch, User $borrower): float
     {
         $loan = Loan::query()
@@ -103,12 +108,7 @@ class LoanService
                 throw new RuntimeException('Only pending loan requests can be approved.');
             }
 
-            $availableBalance = $this->branchLedgerBalance($branch);
             $amount = round((float) $detail->applied_amount, 2);
-
-            if ($availableBalance < $amount) {
-                throw new RuntimeException('The society purse does not have enough balance to approve this loan.');
-            }
 
             if (! $branch->branch_user_id) {
                 throw new RuntimeException('The active branch is not linked to a society account user yet.');
@@ -116,7 +116,7 @@ class LoanService
 
             $loan = $detail->loan;
 
-            Transaction::create([
+            $disbursement = Transaction::create([
                 'user_id' => $branch->branch_user_id,
                 'trans_date' => $detail->release_date,
                 'savings_account_id' => null,
@@ -143,8 +143,8 @@ class LoanService
                     'borrower_id' => $detail->borrower_id,
                     'borrower_name' => $detail->borrower?->name,
                     'member_no' => $detail->borrower?->display_member_no,
-                    'balance_before' => $availableBalance,
-                    'balance_after' => round($availableBalance - $amount, 2),
+                    'balance_before' => null,
+                    'balance_after' => null,
                 ],
                 'tracking_id' => 'loan',
                 'detail_id' => (string) $detail->id,
@@ -153,6 +153,9 @@ class LoanService
                 'loan_repayment_id' => null,
                 'batch_id' => null,
             ]);
+
+            $this->balanceSyncService->validateBranchLedgerMutation($branch, [$disbursement->id]);
+            $this->balanceSyncService->syncBranchLedger($branch, false);
 
             $newOutstanding = round((float) ($loan->amount_due ?? 0) + $amount, 2);
             $newBalance = round((float) ($loan->balanace ?? 0) + $amount, 2);
@@ -253,12 +256,6 @@ class LoanService
                     ->whereNull('deleted_at')
                     ->first();
 
-                $availableBalance = $this->branchLedgerBalance($branch) + (float) ($transaction?->amount ?? 0);
-
-                if ($availableBalance < $newAmount) {
-                    throw new RuntimeException('The society purse does not have enough balance for this updated loan amount.');
-                }
-
                 if ($transaction) {
                     $transaction->update([
                         'trans_date' => $detail->release_date,
@@ -270,10 +267,14 @@ class LoanService
                             'borrower_id' => $detail->borrower_id,
                             'borrower_name' => $detail->borrower?->name,
                             'member_no' => $detail->borrower?->display_member_no,
-                            'balance_after' => round($availableBalance - $newAmount, 2),
+                            'balance_before' => null,
+                            'balance_after' => null,
                         ]),
                         'updated_user_id' => $actor->id,
                     ]);
+
+                    $this->balanceSyncService->validateBranchLedgerMutation($branch, [$transaction->id]);
+                    $this->balanceSyncService->syncBranchLedger($branch, false);
                 }
             }
 
@@ -296,13 +297,16 @@ class LoanService
             }
 
             if ($detail->decision_status === LoanDetail::STATUS_APPROVED) {
+                $deletedBranchIds = [];
+
                 Transaction::query()
                     ->where('loan_details_id', $detail->id)
                     ->where('tracking_id', 'loan')
                     ->where('is_branch', true)
                     ->whereNull('deleted_at')
                     ->get()
-                    ->each(function (Transaction $transaction) use ($actor): void {
+                    ->each(function (Transaction $transaction) use ($actor, &$deletedBranchIds): void {
+                        $deletedBranchIds[] = $transaction->id;
                         $transaction->update([
                             'updated_user_id' => $actor->id,
                             'loan_details_id' => null,
@@ -310,6 +314,14 @@ class LoanService
                         ]);
                         $transaction->delete();
                     });
+
+                if ($deletedBranchIds !== []) {
+                    $branch = Branch::query()->find($detail->branch_id);
+
+                    if ($branch) {
+                        $this->balanceSyncService->syncBranchLedger($branch, false);
+                    }
+                }
             }
 
             $loan = $detail->loan;
