@@ -29,6 +29,9 @@
                     </ul>
 
                     <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
+                    <a href="{{ route('members.id-card', $member) }}" class="btn btn-outline-primary btn-block">
+                        <i class="fas fa-id-card mr-1"></i> View / Download ID Card
+                    </a>
                     <a href="#documents" class="btn btn-outline-secondary btn-block">Add Document</a>
                 </div>
             </div>

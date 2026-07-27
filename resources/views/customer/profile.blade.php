@@ -24,6 +24,10 @@
                             <dd class="col-sm-8">{{ $customer->branch?->name ?: 'N/A' }}</dd>
                         </dl>
 
+                        <a href="{{ route('customer.id-card') }}" class="btn btn-outline-primary mb-3">
+                            <i class="fas fa-id-card mr-1"></i> View / Download My ID Card
+                        </a>
+
                         <div class="form-group">
                             <label for="email">Email</label>
                             <input

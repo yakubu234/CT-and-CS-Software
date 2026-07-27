@@ -58,6 +58,7 @@
                             </td>
                             <td>
                                 <a href="{{ route('members.show', $member) }}" class="btn btn-sm btn-outline-info">View</a>
+                                <a href="{{ route('members.id-card', $member) }}" class="btn btn-sm btn-outline-primary">ID Card</a>
                                 <a href="{{ route('members.edit', $member) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                                 <a href="{{ route('members.show', $member) }}#documents" class="btn btn-sm btn-outline-secondary">Add Document</a>
                                 <form action="{{ route('members.destroy', $member) }}" method="POST" class="d-inline">

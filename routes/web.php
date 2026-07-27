@@ -22,6 +22,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanCustomFieldController;
 use App\Http\Controllers\LoanPaymentController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberIdCardController;
 use App\Http\Controllers\MemberCustomFieldController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SmsAutomationController;
@@ -62,6 +63,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/notifications', [CustomerPortalController::class, 'notifications'])->name('notifications');
         Route::get('/profile', [CustomerPortalController::class, 'profile'])->name('profile');
         Route::put('/profile', [CustomerPortalController::class, 'updateProfile'])->name('profile.update');
+        Route::get('/id-card', [MemberIdCardController::class, 'customer'])->name('id-card');
         Route::get('/documents/{memberDocument}', [CustomerPortalController::class, 'document'])->name('documents.view');
         Route::get('/support', [CustomerPortalController::class, 'support'])->name('support');
         Route::post('/support', [CustomerPortalController::class, 'storeSupport'])->name('support.store');
@@ -130,6 +132,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
     Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
+    Route::get('/members/{member}/id-card', [MemberIdCardController::class, 'admin'])
+        ->middleware('module:members')
+        ->name('members.id-card');
     Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->name('members.edit');
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::put('/members/{member}/password', [MemberController::class, 'updatePassword'])->name('members.password.update');

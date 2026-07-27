@@ -137,6 +137,7 @@
                     ['route' => 'customer.transactions', 'icon' => 'fas fa-exchange-alt', 'label' => 'Transactions'],
                     ['route' => 'customer.notifications', 'icon' => 'fas fa-bell', 'label' => 'Notifications'],
                     ['route' => 'customer.profile', 'icon' => 'fas fa-user-circle', 'label' => 'Profile'],
+                    ['route' => 'customer.id-card', 'icon' => 'fas fa-id-card', 'label' => 'My ID Card'],
                     ['route' => 'customer.support', 'icon' => 'fas fa-life-ring', 'label' => 'Support'],
                 ];
             @endphp
