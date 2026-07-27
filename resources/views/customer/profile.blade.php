@@ -136,7 +136,8 @@
                                 <td>{{ $document->name ?? 'Document' }}</td>
                                 <td class="text-right">
                                     @if ($document->document ?? false)
-                                        <a href="{{ asset('storage/' . $document->document) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a href="{{ route('customer.documents.view', $document) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a href="{{ route('customer.documents.view', [$document, 'download' => 1]) }}" class="btn btn-sm btn-outline-secondary">Download</a>
                                     @else
                                         <span class="text-muted">Unavailable</span>
                                     @endif

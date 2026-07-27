@@ -622,19 +622,7 @@ class LoanPaymentService
 
     protected function branchLedgerBalance(Branch $branch, array $excludeTransactionIds = []): float
     {
-        $query = Transaction::query()
-            ->where('branch_id', $branch->id)
-            ->where('is_branch', true)
-            ->whereNull('deleted_at');
-
-        if ($excludeTransactionIds !== []) {
-            $query->whereNotIn('id', $excludeTransactionIds);
-        }
-
-        return round(
-            (float) $query->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
-            2
-        );
+        return $this->loanService->branchLedgerBalance($branch, $excludeTransactionIds);
     }
 
     protected function refreshLoanPaymentSnapshots(Loan $loan): void

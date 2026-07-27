@@ -8,6 +8,8 @@ use App\Services\Sms\SmsCampaignService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use App\Services\BranchAccountReconciler;
+use App\Services\BalanceSyncService;
+use App\Models\Branch;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -26,6 +28,27 @@ Artisan::command('branches:reconcile-accounts {--dry-run}', function (BranchAcco
         $this->line("- {$note}");
     }
 })->purpose('Reconcile duplicate branch-account users and branch savings accounts.');
+
+Artisan::command('branches:sync-ledgers {--branch=}', function (BalanceSyncService $balanceSyncService) {
+    $branches = Branch::query()
+        ->whereNull('deleted_at')
+        ->when($this->option('branch'), fn ($query, $branchId) => $query->whereKey($branchId))
+        ->orderBy('id')
+        ->get();
+
+    if ($branches->isEmpty()) {
+        $this->warn('No matching active branches were found.');
+
+        return;
+    }
+
+    foreach ($branches as $branch) {
+        $balance = $balanceSyncService->syncBranchLedger($branch, false);
+        $this->line("Branch {$branch->id} ({$branch->name}): ₦" . number_format($balance, 2));
+    }
+
+    $this->info("Synchronized {$branches->count()} branch ledger(s).");
+})->purpose('Recalculate society running balances, including historical member transactions.');
 
 Artisan::command('users:backfill-exco-accounts {--dry-run}', function (BranchService $branchService) {
     $dryRun = (bool) $this->option('dry-run');

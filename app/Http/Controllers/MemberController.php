@@ -15,7 +15,9 @@ use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MemberController extends Controller
 {
@@ -234,5 +236,29 @@ class MemberController extends Controller
         return redirect()
             ->route('members.show', $member)
             ->with('status', 'Document added successfully.');
+    }
+
+    public function viewDocument(Request $request, User $member, MemberDocument $memberDocument): StreamedResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id
+            && (int) $memberDocument->user_id === (int) $member->id,
+            404
+        );
+
+        $path = $memberDocument->document;
+        abort_unless($path && Storage::disk('public')->exists($path), 404, 'The uploaded document could not be found.');
+
+        return Storage::disk('public')->response(
+            $path,
+            basename($path),
+            [],
+            $request->boolean('download') ? 'attachment' : 'inline'
+        );
     }
 }

@@ -72,6 +72,60 @@ class BalanceSyncServiceTest extends TestCase
         $this->assertSame(30.0, $endingBalance);
     }
 
+    public function test_branch_replay_carries_forward_the_opening_balance(): void
+    {
+        $service = new BalanceSyncService();
+
+        $income = $this->mockTransaction(45, '2026-02-01', 'cr', 50, [], [
+            'balance_before' => 100.0,
+            'balance_after' => 150.0,
+        ]);
+        $income->is_branch = true;
+
+        $endingBalance = $service->syncBranchTransactionCollection(
+            new Collection([$income]),
+            'Main Branch',
+            true,
+            [],
+            100
+        );
+
+        $this->assertSame(150.0, $endingBalance);
+    }
+
+    public function test_historical_member_transaction_contributes_without_overwriting_member_snapshot(): void
+    {
+        $service = new BalanceSyncService();
+
+        $historicalCredit = Mockery::mock(Transaction::class)->makePartial();
+        $historicalCredit->forceFill([
+            'id' => 46,
+            'trans_date' => Carbon::parse('2025-12-01'),
+            'dr_cr' => 'cr',
+            'amount' => 200,
+            'is_branch' => false,
+            'transaction_details' => [
+                'balance_before' => 50,
+                'balance_after' => 250,
+            ],
+        ]);
+        $historicalCredit->exists = true;
+        $historicalCredit->shouldReceive('update')->never();
+
+        $expense = $this->mockTransaction(47, '2025-12-31', 'dr', 75, [], [
+            'balance_before' => 200.0,
+            'balance_after' => 125.0,
+        ]);
+        $expense->is_branch = true;
+
+        $endingBalance = $service->syncBranchTransactionCollection(
+            new Collection([$historicalCredit, $expense]),
+            'Main Branch'
+        );
+
+        $this->assertSame(125.0, $endingBalance);
+    }
+
     public function test_it_rejects_a_replay_that_would_push_balance_below_zero(): void
     {
         $service = new BalanceSyncService();

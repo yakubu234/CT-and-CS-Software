@@ -72,21 +72,33 @@ class BalanceSyncService
 
     public function syncBranchLedger(Branch $branch, bool $enforceNonNegative = true, array $enforcedTransactionIds = []): float
     {
-        $transactions = Transaction::query()
-            ->where('branch_id', $branch->id)
-            ->where('is_branch', true)
-            ->whereNull('deleted_at')
-            ->orderBy('trans_date')
-            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
-            ->orderBy('id')
-            ->get();
-
         return $this->syncBranchTransactionCollection(
-            $transactions,
+            $this->branchLedgerTransactions($branch),
             $branch->name ?: 'This branch',
             $enforceNonNegative,
-            $enforcedTransactionIds
+            $enforcedTransactionIds,
+            $this->branchOpeningBalance($branch)
         );
+    }
+
+    public function branchLedgerBalance(Branch $branch, array $excludeTransactionIds = []): float
+    {
+        $excludedIds = collect($excludeTransactionIds)->map(fn ($id): int => (int) $id)->all();
+        $balance = $this->branchOpeningBalance($branch);
+
+        foreach ($this->branchLedgerTransactions($branch) as $transaction) {
+            if (in_array((int) $transaction->id, $excludedIds, true)) {
+                continue;
+            }
+
+            $balance = $this->applyDirection(
+                $balance,
+                strtolower((string) $transaction->dr_cr),
+                (float) $transaction->amount
+            );
+        }
+
+        return round($balance, 2);
     }
 
     public function validateBranchLedgerMutation(Branch $branch, array $changedTransactionIds): void
@@ -102,17 +114,9 @@ class BalanceSyncService
             return;
         }
 
-        $transactions = Transaction::query()
-            ->where('branch_id', $branch->id)
-            ->where('is_branch', true)
-            ->whereNull('deleted_at')
-            ->orderBy('trans_date')
-            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
-            ->orderBy('id')
-            ->get();
-
-        $actualBalance = 0.0;
-        $baselineBalance = 0.0;
+        $transactions = $this->branchLedgerTransactions($branch);
+        $actualBalance = $this->branchOpeningBalance($branch);
+        $baselineBalance = $actualBalance;
         $isAffectedByChange = false;
 
         foreach ($transactions as $transaction) {
@@ -145,17 +149,9 @@ class BalanceSyncService
             return;
         }
 
-        $transactions = Transaction::query()
-            ->where('branch_id', $branch->id)
-            ->where('is_branch', true)
-            ->whereNull('deleted_at')
-            ->orderBy('trans_date')
-            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
-            ->orderBy('id')
-            ->get();
-
-        $originalBalance = 0.0;
-        $simulatedBalance = 0.0;
+        $transactions = $this->branchLedgerTransactions($branch);
+        $originalBalance = $this->branchOpeningBalance($branch);
+        $simulatedBalance = $originalBalance;
         $isAffectedByRemoval = false;
 
         foreach ($transactions as $transaction) {
@@ -193,10 +189,11 @@ class BalanceSyncService
         Collection $transactions,
         string $branchLabel = 'This branch',
         bool $enforceNonNegative = true,
-        array $enforcedTransactionIds = []
+        array $enforcedTransactionIds = [],
+        float $openingBalance = 0
     ): float
     {
-        $runningBalance = 0.0;
+        $runningBalance = round($openingBalance, 2);
         $enforcedTransactionIds = collect($enforcedTransactionIds)
             ->map(fn ($id): int => (int) $id)
             ->filter(fn (int $id): bool => $id > 0)
@@ -214,11 +211,53 @@ class BalanceSyncService
                 $this->throwBranchBalanceException($branchLabel, $transaction, $balanceBefore, $balanceAfter);
             }
 
-            $this->updateTransactionSnapshot($transaction, $balanceBefore, $balanceAfter);
+            if ($transaction->is_branch !== false) {
+                $this->updateTransactionSnapshot($transaction, $balanceBefore, $balanceAfter);
+            }
             $runningBalance = $balanceAfter;
         }
 
         return $runningBalance;
+    }
+
+    protected function branchLedgerTransactions(Branch $branch): Collection
+    {
+        return Transaction::query()
+            ->where('branch_id', $branch->id)
+            ->whereNull('deleted_at')
+            ->where(function ($query): void {
+                $query->where('is_branch', true)
+                    ->orWhere(function ($sourceQuery): void {
+                        $sourceQuery->where('is_branch', false)
+                            ->where('tracking_id', 'regular')
+                            ->whereDoesntHave('mirrors', function ($mirrorQuery): void {
+                                $mirrorQuery->where('is_branch', true)
+                                    ->whereNull('deleted_at');
+                            });
+                    });
+            })
+            ->orderBy('trans_date')
+            ->orderByRaw("case when lower(dr_cr) = 'cr' then 0 else 1 end")
+            ->orderBy('id')
+            ->get();
+    }
+
+    protected function branchOpeningBalance(Branch $branch): float
+    {
+        return round(
+            (float) SavingsAccount::query()
+                ->where('is_branch_acount', false)
+                ->where('status', 1)
+                ->whereNull('disabled_at')
+                ->whereHas('user', function ($query) use ($branch): void {
+                    $query->where('branch_id', (string) $branch->id)
+                        ->where('branch_account', false)
+                        ->where('user_type', 'customer')
+                        ->whereNull('deleted_at');
+                })
+                ->sum('opening_balance'),
+            2
+        );
     }
 
     protected function applyDirection(float $balanceBefore, string $drCr, float $amount): float

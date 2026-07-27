@@ -7,6 +7,7 @@ use App\Models\EmailMessage;
 use App\Models\Loan;
 use App\Models\LoanDetail;
 use App\Models\LoanPayment;
+use App\Models\MemberDocument;
 use App\Models\SmsMessage;
 use App\Models\Transaction;
 use App\Models\User;
@@ -15,11 +16,30 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CustomerPortalController extends Controller
 {
+    public function document(Request $request, MemberDocument $memberDocument): StreamedResponse
+    {
+        $customer = $this->customer($request);
+
+        abort_unless((int) $memberDocument->user_id === (int) $customer->id, 404);
+
+        $path = $memberDocument->document;
+        abort_unless($path && Storage::disk('public')->exists($path), 404, 'The uploaded document could not be found.');
+
+        return Storage::disk('public')->response(
+            $path,
+            basename($path),
+            [],
+            $request->boolean('download') ? 'attachment' : 'inline'
+        );
+    }
+
     public function dashboard(Request $request): View
     {
         $customer = $this->customer($request);

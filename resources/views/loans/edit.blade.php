@@ -157,7 +157,7 @@
                             @if ($loanDetail->attachment)
                                 <small class="form-text text-muted">
                                     Current file:
-                                    <a href="{{ asset('storage/' . $loanDetail->attachment) }}" target="_blank">View attachment</a>
+                                    <a href="{{ route('loans.requests.attachment', $loanDetail) }}" target="_blank">View attachment</a>
                                 </small>
                             @endif
                         </div>

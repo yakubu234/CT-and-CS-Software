@@ -18,6 +18,11 @@ class IncomeExpenseService
     ) {
     }
 
+    public function syncLedger(Branch $branch): float
+    {
+        return $this->balanceSyncService->syncBranchLedger($branch, false);
+    }
+
     public function createBatch(Branch $branch, User $actor, string $transactionDate, array $entries): Collection
     {
         return DB::transaction(function () use ($branch, $actor, $transactionDate, $entries): Collection {

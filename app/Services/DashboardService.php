@@ -13,6 +13,11 @@ use Illuminate\Support\Str;
 
 class DashboardService
 {
+    public function __construct(
+        protected BalanceSyncService $balanceSyncService,
+    ) {
+    }
+
     public function build(Branch $branch): array
     {
         $today = now();
@@ -197,14 +202,7 @@ class DashboardService
 
     protected function branchLedgerBalance(Branch $branch): float
     {
-        return round(
-            (float) Transaction::query()
-                ->where('branch_id', $branch->id)
-                ->where('is_branch', true)
-                ->whereNull('deleted_at')
-                ->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
-            2
-        );
+        return $this->balanceSyncService->branchLedgerBalance($branch);
     }
 
     protected function cashFlowChart(Branch $branch): array

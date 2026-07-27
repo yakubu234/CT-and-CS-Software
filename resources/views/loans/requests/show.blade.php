@@ -76,8 +76,11 @@
                 @if ($loanDetail->attachment)
                     <div class="col-md-12 mb-3">
                         <div class="small text-muted">Attachment</div>
-                        <a href="{{ asset('storage/' . $loanDetail->attachment) }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
+                        <a href="{{ route('loans.requests.attachment', $loanDetail) }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
                             View Attachment
+                        </a>
+                        <a href="{{ route('loans.requests.attachment', [$loanDetail, 'download' => 1]) }}" class="btn btn-sm btn-outline-secondary mt-1">
+                            Download
                         </a>
                     </div>
                 @endif
@@ -87,12 +90,13 @@
                 <hr>
                 <h5 class="mb-3">Loan Custom Field Values</h5>
                 <div class="row">
-                    @foreach ($loanDetail->custom_fields as $field)
+                    @foreach ($loanDetail->custom_fields as $fieldIndex => $field)
                         <div class="col-md-6 mb-3">
                             <div class="small text-muted">{{ $field['label'] ?? 'Field' }}</div>
                             <div class="font-weight-bold">
                                 @if (($field['type'] ?? '') === 'file')
-                                    <a href="{{ asset('storage/' . ($field['value'] ?? '')) }}" target="_blank">View File</a>
+                                    <a href="{{ route('loans.requests.custom-fields.file', [$loanDetail, 'fieldIndex' => $fieldIndex]) }}" target="_blank">View File</a>
+                                    <a href="{{ route('loans.requests.custom-fields.file', [$loanDetail, 'fieldIndex' => $fieldIndex, 'download' => 1]) }}" class="ml-2">Download</a>
                                 @else
                                     {{ $field['value'] ?? 'N/A' }}
                                 @endif

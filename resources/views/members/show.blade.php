@@ -189,7 +189,10 @@
                             @foreach ($member->documents as $document)
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span>{{ $document->name }}</span>
-                                    <a href="{{ asset('storage/' . $document->document) }}" target="_blank" class="btn btn-sm btn-outline-primary">View Document</a>
+                                    <span>
+                                        <a href="{{ route('members.documents.view', [$member, $document]) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a href="{{ route('members.documents.view', [$member, $document, 'download' => 1]) }}" class="btn btn-sm btn-outline-secondary">Download</a>
+                                    </span>
                                 </li>
                             @endforeach
                         </ul>

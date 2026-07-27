@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/notifications', [CustomerPortalController::class, 'notifications'])->name('notifications');
         Route::get('/profile', [CustomerPortalController::class, 'profile'])->name('profile');
         Route::put('/profile', [CustomerPortalController::class, 'updateProfile'])->name('profile.update');
+        Route::get('/documents/{memberDocument}', [CustomerPortalController::class, 'document'])->name('documents.view');
         Route::get('/support', [CustomerPortalController::class, 'support'])->name('support');
         Route::post('/support', [CustomerPortalController::class, 'storeSupport'])->name('support.store');
     });
@@ -99,6 +100,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/loans/create', [LoanController::class, 'create'])->name('loans.create');
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/requests/{loanDetail}', [LoanController::class, 'showRequest'])->name('loans.requests.show');
+    Route::get('/loans/requests/{loanDetail}/attachment', [LoanController::class, 'attachment'])->name('loans.requests.attachment');
+    Route::get('/loans/requests/{loanDetail}/custom-fields/{fieldIndex}/file', [LoanController::class, 'customFieldFile'])
+        ->whereNumber('fieldIndex')
+        ->name('loans.requests.custom-fields.file');
     Route::get('/loans/requests/{loanDetail}/edit', [LoanController::class, 'edit'])->name('loans.requests.edit');
     Route::put('/loans/requests/{loanDetail}', [LoanController::class, 'update'])->name('loans.requests.update');
     Route::post('/loans/requests/{loanDetail}/approve', [LoanController::class, 'approve'])->name('loans.requests.approve');
@@ -129,6 +134,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::put('/members/{member}/password', [MemberController::class, 'updatePassword'])->name('members.password.update');
     Route::post('/members/{member}/documents', [MemberController::class, 'storeDocument'])->name('members.documents.store');
+    Route::get('/members/{member}/documents/{memberDocument}', [MemberController::class, 'viewDocument'])->name('members.documents.view');
     Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
 
     Route::get('/support-requests', [CustomerSupportRequestController::class, 'index'])->name('support-requests.index');

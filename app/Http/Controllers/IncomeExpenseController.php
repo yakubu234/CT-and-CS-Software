@@ -33,6 +33,8 @@ class IncomeExpenseController extends Controller
                 ->withErrors(['branch' => 'Please select an active branch before viewing income and expenses.']);
         }
 
+        $this->incomeExpenseService->syncLedger($branch);
+
         $recordsQuery = Transaction::query()
             ->with(['creator', 'updater'])
             ->where('branch_id', $branch->id)
@@ -111,6 +113,8 @@ class IncomeExpenseController extends Controller
 
         abort_unless($this->isBranchExpenseRecord($branch?->id, $incomeExpense), 404);
 
+        $this->incomeExpenseService->syncLedger($branch);
+        $incomeExpense->refresh();
         $incomeExpense->load(['creator', 'updater']);
 
         return view('income-expenses.show', [
@@ -126,6 +130,9 @@ class IncomeExpenseController extends Controller
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
 
         abort_unless($this->isBranchExpenseRecord($branch?->id, $incomeExpense), 404);
+
+        $this->incomeExpenseService->syncLedger($branch);
+        $incomeExpense->refresh();
 
         return view('income-expenses.edit', [
             'branch' => $branch,

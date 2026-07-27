@@ -102,7 +102,15 @@ class LoanService
     public function approve(Branch $branch, User $actor, LoanDetail $detail): LoanDetail
     {
         return DB::transaction(function () use ($branch, $actor, $detail): LoanDetail {
+            $detail = LoanDetail::query()
+                ->whereKey($detail->id)
+                ->lockForUpdate()
+                ->firstOrFail();
             $detail->loadMissing(['loan.borrower.detail', 'borrower']);
+
+            if ($detail->decision_status === LoanDetail::STATUS_APPROVED) {
+                return $detail->fresh(['loan.borrower.detail', 'borrower', 'approver']);
+            }
 
             if ($detail->decision_status !== LoanDetail::STATUS_PENDING) {
                 throw new RuntimeException('Only pending loan requests can be approved.');
@@ -114,68 +122,65 @@ class LoanService
                 throw new RuntimeException('The active branch is not linked to a society account user yet.');
             }
 
-            $loan = $detail->loan;
+            $loan = Loan::query()->whereKey($detail->loan_id)->lockForUpdate()->firstOrFail();
+            $disbursement = Transaction::query()
+                ->where('loan_id', $loan->id)
+                ->where('tracking_id', 'loan')
+                ->where('is_branch', true)
+                ->whereNull('deleted_at')
+                ->where(function ($query) use ($detail): void {
+                    $query->where('loan_details_id', $detail->id)
+                        ->orWhere('detail_id', (string) $detail->id);
+                })
+                ->first();
 
-            $disbursement = Transaction::create([
-                'user_id' => $branch->branch_user_id,
-                'trans_date' => $detail->release_date,
-                'savings_account_id' => null,
-                'charge' => 0,
-                'amount' => $amount,
-                'gateway_amount' => 0,
-                'dr_cr' => 'dr',
-                'type' => 'Loan Disbursement',
-                'attachment' => null,
-                'method' => 'Manual',
-                'status' => 2,
-                'note' => null,
-                'description' => 'Loan approved for ' . ($detail->borrower?->name ?: 'borrower'),
-                'loan_id' => $loan->id,
-                'ref_id' => null,
-                'parent_id' => null,
-                'gateway_id' => null,
-                'created_user_id' => $actor->id,
-                'updated_user_id' => null,
-                'branch_id' => $branch->id,
-                'transaction_details' => [
-                    'loan_id' => $loan->loan_id,
-                    'loan_detail_id' => $detail->id,
-                    'borrower_id' => $detail->borrower_id,
-                    'borrower_name' => $detail->borrower?->name,
-                    'member_no' => $detail->borrower?->display_member_no,
-                    'balance_before' => null,
-                    'balance_after' => null,
-                ],
-                'tracking_id' => 'loan',
-                'detail_id' => (string) $detail->id,
-                'is_branch' => 1,
-                'loan_details_id' => $detail->id,
-                'loan_repayment_id' => null,
-                'batch_id' => null,
-            ]);
+            if (! $disbursement) {
+                $disbursement = Transaction::create([
+                    'user_id' => $branch->branch_user_id,
+                    'trans_date' => $detail->release_date,
+                    'savings_account_id' => null,
+                    'charge' => 0,
+                    'amount' => $amount,
+                    'gateway_amount' => 0,
+                    'dr_cr' => 'dr',
+                    'type' => 'Loan Disbursement',
+                    'attachment' => null,
+                    'method' => 'Manual',
+                    'status' => 2,
+                    'note' => null,
+                    'description' => 'Loan approved for ' . ($detail->borrower?->name ?: 'borrower'),
+                    'loan_id' => $loan->id,
+                    'ref_id' => null,
+                    'parent_id' => null,
+                    'gateway_id' => null,
+                    'created_user_id' => $actor->id,
+                    'updated_user_id' => null,
+                    'branch_id' => $branch->id,
+                    'transaction_details' => [
+                        'loan_id' => $loan->loan_id,
+                        'loan_detail_id' => $detail->id,
+                        'borrower_id' => $detail->borrower_id,
+                        'borrower_name' => $detail->borrower?->name,
+                        'member_no' => $detail->borrower?->display_member_no,
+                        'balance_before' => null,
+                        'balance_after' => null,
+                    ],
+                    'tracking_id' => 'loan',
+                    'detail_id' => (string) $detail->id,
+                    'is_branch' => 1,
+                    'loan_details_id' => $detail->id,
+                    'loan_repayment_id' => null,
+                    'batch_id' => null,
+                ]);
 
-            $this->balanceSyncService->validateBranchLedgerMutation($branch, [$disbursement->id]);
-            $this->balanceSyncService->syncBranchLedger($branch, false);
-
-            $newOutstanding = round((float) ($loan->amount_due ?? 0) + $amount, 2);
-            $newBalance = round((float) ($loan->balanace ?? 0) + $amount, 2);
-
-            $loan->update([
-                'first_payment_date' => $detail->due_date,
-                'release_date' => $detail->release_date,
-                'applied_amount' => (string) $newOutstanding,
-                'total_payable' => (string) $newOutstanding,
-                'due_date' => $detail->due_date?->format('Y-m-d'),
-                'late_payment_penalties' => (string) ($detail->late_payment_penalties ?? 0),
-                'status' => 1,
-                'approved_date' => now()->toDateString(),
-                'approved_user_id' => $actor->id,
-                'updated_user_id' => $actor->id,
-                'recent_added_amount' => (string) $amount,
-                'amount_due' => (string) $newOutstanding,
-                'balanace' => (string) $newBalance,
-                'repayment_status' => $newBalance > 0 ? 'active' : 'refunded',
-            ]);
+                $this->balanceSyncService->validateBranchLedgerMutation($branch, [$disbursement->id]);
+            } elseif (! $disbursement->loan_details_id) {
+                $disbursement->update([
+                    'loan_details_id' => $detail->id,
+                    'detail_id' => (string) $detail->id,
+                    'updated_user_id' => $actor->id,
+                ]);
+            }
 
             $detail->update([
                 'status' => true,
@@ -186,6 +191,9 @@ class LoanService
                 'declined_by' => null,
                 'decline_reason' => null,
             ]);
+
+            $this->balanceSyncService->syncBranchLedger($branch, false);
+            $this->syncLoanAggregate($loan->fresh());
 
             DB::afterCommit(function () use ($detail): void {
                 app(SmsAutomationService::class)->handleLoanApproved($detail->fresh(['borrower.detail', 'borrower.branch', 'loan']));
@@ -406,16 +414,9 @@ class LoanService
         return $prefix . '_' . str_pad((string) ((int) $branch->loan_count), 4, '0', STR_PAD_LEFT);
     }
 
-    public function branchLedgerBalance(Branch $branch): float
+    public function branchLedgerBalance(Branch $branch, array $excludeTransactionIds = []): float
     {
-        return round(
-            (float) Transaction::query()
-                ->where('branch_id', $branch->id)
-                ->where('is_branch', true)
-                ->whereNull('deleted_at')
-                ->sum(DB::raw("case when lower(dr_cr) = 'cr' then amount else -amount end")),
-            2
-        );
+        return $this->balanceSyncService->branchLedgerBalance($branch, $excludeTransactionIds);
     }
 
     public function projectedOutstandingForDetail(LoanDetail $detail, ?float $replacementAmount = null): float

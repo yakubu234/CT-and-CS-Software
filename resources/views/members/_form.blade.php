@@ -268,7 +268,7 @@
                         <input type="text" name="existing_documents[{{ $index }}][name]" class="form-control" value="{{ old("existing_documents.{$index}.name", $document->name) }}">
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
-                        <a href="{{ asset('storage/' . $document->document) }}" target="_blank" class="btn btn-outline-secondary">View Document</a>
+                        <a href="{{ route('members.documents.view', [$member, $document]) }}" target="_blank" class="btn btn-outline-secondary">View Document</a>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
                         <div class="form-check mb-2">

@@ -16,7 +16,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LoanController extends Controller
 {
@@ -273,6 +275,28 @@ class LoanController extends Controller
         ]);
     }
 
+    public function attachment(Request $request, LoanDetail $loanDetail): StreamedResponse
+    {
+        $this->authorizeLoanFileAccess($request, $loanDetail);
+
+        return $this->storedFileResponse($request, $loanDetail->attachment);
+    }
+
+    public function customFieldFile(Request $request, LoanDetail $loanDetail, int $fieldIndex): StreamedResponse
+    {
+        $this->authorizeLoanFileAccess($request, $loanDetail);
+
+        $field = ($loanDetail->custom_fields ?? [])[$fieldIndex] ?? null;
+        abort_unless(
+            is_array($field)
+            && ($field['type'] ?? null) === 'file'
+            && is_string($field['value'] ?? null),
+            404
+        );
+
+        return $this->storedFileResponse($request, $field['value']);
+    }
+
     public function edit(Request $request, LoanDetail $loanDetail): View|RedirectResponse
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
@@ -329,7 +353,7 @@ class LoanController extends Controller
         }
 
         return redirect()
-            ->route('loans.requests.show', $loanDetail)
+            ->route('loans.show', $loanDetail->loan)
             ->with('status', 'Loan request approved successfully.');
     }
 
@@ -369,6 +393,25 @@ class LoanController extends Controller
         return redirect()
             ->route($loanStillExists ? 'loans.show' : 'loans.pending', $loanStillExists ? ['loan' => $loanId] : [])
             ->with('status', 'Loan request deleted successfully.');
+    }
+
+    protected function authorizeLoanFileAccess(Request $request, LoanDetail $loanDetail): void
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless($branch && (int) $loanDetail->branch_id === (int) $branch->id, 404);
+    }
+
+    protected function storedFileResponse(Request $request, ?string $path): StreamedResponse
+    {
+        abort_unless($path && Storage::disk('public')->exists($path), 404, 'The uploaded document could not be found.');
+
+        return Storage::disk('public')->response(
+            $path,
+            basename($path),
+            [],
+            $request->boolean('download') ? 'attachment' : 'inline'
+        );
     }
 
     protected function loanCustomFields()
