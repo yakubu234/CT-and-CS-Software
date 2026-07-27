@@ -5,19 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $member->name }} - ID Card</title>
     <link rel="stylesheet" href="{{ asset('id-card/style.css') }}">
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css"
-        integrity="sha512-dPXYcDub/aeb08c63jRq/k6GaKccl256JQy/AnOq7CAnEZ9FzSL9wSbcZkMp4R26vBsMLFYH4kQ67/bbV8XaCQ=="
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"
-    >
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
-        integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"
-    ></script>
+    <link rel="stylesheet" href="{{ asset('vendor/adminlte/plugins/fontawesome-free/css/all.min.css') }}">
+    <script src="{{ asset('id-card/vendor/html2canvas.min.js') }}"></script>
     <style>
         body {
             margin: 0;
@@ -131,12 +120,12 @@
                 <h1>OREOLUWAPO ILARO CTCU LTD</h1>
                 <div class="address">
                     <p>
-                        <span class="icon"><i class="bi bi-geo-alt-fill"></i></span>
+                        <span class="icon"><i class="fas fa-map-marker-alt"></i></span>
                         <span class="secretariat-text">Secretariat</span>
                         <span class="inner-address">{{ $headquartersAddress }}</span>
                     </p>
                     <div class="number">
-                        <span class="phone-icon"><i class="bi bi-telephone-plus-fill"></i></span>
+                        <span class="phone-icon"><i class="fas fa-phone-alt"></i></span>
                         <span>+2348151273635</span>
                         <span>+2348060957070</span>
                     </div>
