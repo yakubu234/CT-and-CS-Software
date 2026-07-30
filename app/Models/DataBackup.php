@@ -13,6 +13,8 @@ class DataBackup extends Model
         'format',
         'modules',
         'status',
+        'queued_at',
+        'processing_started_at',
         'file_name',
         'storage_path',
         'file_size',
@@ -20,6 +22,7 @@ class DataBackup extends Model
         'google_drive_url',
         'error_message',
         'completed_at',
+        'downloaded_at',
     ];
 
     protected function casts(): array
@@ -27,6 +30,9 @@ class DataBackup extends Model
         return [
             'modules' => 'array',
             'completed_at' => 'datetime',
+            'queued_at' => 'datetime',
+            'processing_started_at' => 'datetime',
+            'downloaded_at' => 'datetime',
         ];
     }
 

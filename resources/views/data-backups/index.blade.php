@@ -23,6 +23,11 @@
         </div>
     @endif
 
+    <div id="manual-backup-progress" class="alert alert-info d-none" role="status" aria-live="polite">
+        <i class="fas fa-spinner fa-spin mr-1"></i>
+        <span id="manual-backup-progress-message">Checking backup status…</span>
+    </div>
+
     @if (auth()->user()->hasPermission('data-backups.manage'))
     <div class="row">
         <div class="col-lg-5">
@@ -52,7 +57,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <button class="btn btn-primary" type="submit"><i class="fas fa-download mr-1"></i> Generate & download</button>
+                        <button class="btn btn-primary" type="submit"><i class="fas fa-clock mr-1"></i> Queue backup</button>
                     </div>
                 </form>
             </div>
@@ -144,22 +149,28 @@
                 <thead><tr><th>Date</th><th>Trigger</th><th>Format</th><th>Modules</th><th>Status</th><th>Size</th><th>Created by</th><th>Actions</th></tr></thead>
                 <tbody>
                 @forelse ($backups as $backup)
-                    <tr>
+                    <tr data-backup-id="{{ $backup->id }}">
                         <td>{{ $backup->created_at->format('d M Y, h:i A') }}</td>
                         <td>{{ ucfirst($backup->trigger) }}</td>
                         <td>{{ strtoupper($backup->format) }}</td>
                         <td>{{ collect($backup->modules)->map(fn ($key) => $modules[$key]['label'] ?? $key)->join(', ') }}</td>
-                        <td>
-                            <span class="badge badge-{{ $backup->status === 'completed' ? 'success' : ($backup->status === 'failed' ? 'danger' : 'warning') }}">
+                        <td class="backup-status-cell">
+                            <span class="backup-status-badge badge badge-{{ $backup->status === 'completed' ? 'success' : ($backup->status === 'failed' ? 'danger' : 'warning') }}">
                                 {{ ucfirst($backup->status) }}
                             </span>
-                            @if ($backup->error_message)<small class="d-block text-danger">{{ $backup->error_message }}</small>@endif
+                            <small class="backup-status-message d-block {{ $backup->error_message ? 'text-danger' : 'text-muted' }}">
+                                @if ($backup->downloaded_at)
+                                    Downloaded; server copy deleted.
+                                @elseif ($backup->error_message)
+                                    {{ $backup->error_message }}
+                                @endif
+                            </small>
                         </td>
                         <td>{{ $backup->file_size ? number_format($backup->file_size / 1024, 1).' KB' : '—' }}</td>
                         <td>{{ $backup->creator?->name ?? 'Scheduler' }}</td>
-                        <td class="text-nowrap">
-                            @if ($backup->status === 'completed')
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('data-backups.download', $backup) }}">Download</a>
+                        <td class="backup-actions text-nowrap">
+                            @if ($backup->status === 'completed' && ! $backup->downloaded_at)
+                                <a class="backup-download btn btn-sm btn-outline-primary" href="{{ route('data-backups.download', $backup) }}">Download once</a>
                             @endif
                             @if ($backup->google_drive_url)
                                 <a class="btn btn-sm btn-outline-success" href="{{ $backup->google_drive_url }}" target="_blank" rel="noopener">Drive</a>
@@ -176,3 +187,101 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const statusUrl = @json(route('data-backups.statuses'));
+    const banner = document.getElementById('manual-backup-progress');
+    const bannerMessage = document.getElementById('manual-backup-progress-message');
+    let serverOffset = 0;
+    let backupStates = [];
+
+    function remainingSeconds(queuedAt) {
+        const elapsed = Math.max(0, (Date.now() + serverOffset - new Date(queuedAt).getTime()) / 1000);
+        let estimate = 300;
+
+        if (elapsed >= estimate) {
+            estimate += Math.ceil((elapsed - estimate + 1) / 120) * 120;
+        }
+
+        return Math.max(0, Math.ceil(estimate - elapsed));
+    }
+
+    function duration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
+    }
+
+    function render() {
+        const active = backupStates.find(backup => ['pending', 'processing'].includes(backup.status));
+
+        if (active) {
+            const remaining = remainingSeconds(active.queued_at);
+            const prefix = active.status === 'pending'
+                ? `Backup #${active.id} is queued`
+                : `Backup #${active.id} is generating`;
+            banner.classList.remove('d-none', 'alert-success', 'alert-danger');
+            banner.classList.add('alert-info');
+            bannerMessage.textContent = `${prefix} and should be available in ${duration(remaining)}.`;
+        } else {
+            banner.classList.add('d-none');
+        }
+
+        backupStates.forEach(function (backup) {
+            const row = document.querySelector(`[data-backup-id="${backup.id}"]`);
+            if (! row) return;
+
+            const badge = row.querySelector('.backup-status-badge');
+            const message = row.querySelector('.backup-status-message');
+            const actions = row.querySelector('.backup-actions');
+            badge.textContent = backup.status.charAt(0).toUpperCase() + backup.status.slice(1);
+            badge.className = `backup-status-badge badge badge-${backup.status === 'completed' ? 'success' : (backup.status === 'failed' ? 'danger' : 'warning')}`;
+
+            if (['pending', 'processing'].includes(backup.status)) {
+                message.className = 'backup-status-message d-block text-muted';
+                message.textContent = `Estimated time remaining: ${duration(remainingSeconds(backup.queued_at))}`;
+            } else if (backup.status === 'failed') {
+                message.className = 'backup-status-message d-block text-danger';
+                message.textContent = backup.error_message || 'Backup generation failed.';
+            } else if (backup.downloaded_at) {
+                message.className = 'backup-status-message d-block text-muted';
+                message.textContent = 'Downloaded; server copy deleted.';
+                row.querySelector('.backup-download')?.remove();
+            } else {
+                message.className = 'backup-status-message d-block text-success';
+                message.textContent = 'Backup is now available. Click to download.';
+                if (backup.download_url && ! row.querySelector('.backup-download')) {
+                    const link = document.createElement('a');
+                    link.className = 'backup-download btn btn-sm btn-outline-primary';
+                    link.href = backup.download_url;
+                    link.textContent = 'Download once';
+                    actions.prepend(link);
+                }
+            }
+        });
+    }
+
+    async function refreshStatuses() {
+        try {
+            const response = await fetch(statusUrl, {
+                headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                credentials: 'same-origin'
+            });
+            if (! response.ok) return;
+            const payload = await response.json();
+            serverOffset = new Date(payload.server_time).getTime() - Date.now();
+            backupStates = payload.backups;
+            render();
+        } catch (error) {
+            // Keep the last known countdown visible during a temporary network error.
+        }
+    }
+
+    refreshStatuses();
+    setInterval(render, 1000);
+    setInterval(refreshStatuses, 10000);
+});
+</script>
+@endpush

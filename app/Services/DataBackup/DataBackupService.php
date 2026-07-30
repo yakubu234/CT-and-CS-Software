@@ -19,32 +19,71 @@ class DataBackupService
 
     public function create(array $modules, string $format, string $trigger = 'manual', ?int $createdBy = null): DataBackup
     {
-        $modules = $this->registry->validate($modules);
-        $backup = DataBackup::create([
+        $backup = $this->queue($modules, $format, $trigger, $createdBy);
+        $backup->forceFill([
+            'status' => 'processing',
+            'processing_started_at' => now(),
+        ])->save();
+
+        return $this->process($backup);
+    }
+
+    public function queue(array $modules, string $format, string $trigger = 'manual', ?int $createdBy = null): DataBackup
+    {
+        return DataBackup::create([
             'created_by' => $createdBy,
             'trigger' => $trigger,
             'format' => $format,
-            'modules' => $modules,
-            'status' => 'processing',
+            'modules' => $this->registry->validate($modules),
+            'status' => 'pending',
+            'queued_at' => now(),
         ]);
+    }
 
+    public function claimNextManual(): ?DataBackup
+    {
+        return DB::transaction(function (): ?DataBackup {
+            $backup = DataBackup::query()
+                ->where('trigger', 'manual')
+                ->where('status', 'pending')
+                ->orderBy('queued_at')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $backup) {
+                return null;
+            }
+
+            $backup->update([
+                'status' => 'processing',
+                'processing_started_at' => now(),
+                'error_message' => null,
+            ]);
+
+            return $backup->refresh();
+        });
+    }
+
+    public function process(DataBackup $backup): DataBackup
+    {
         try {
             $fileName = sprintf(
                 'database-backup-%s-%s.%s',
                 now()->format('Ymd-His'),
                 Str::lower(Str::random(6)),
-                $format
+                $backup->format
             );
             $path = trim(config('data_backup.storage_directory'), '/') . '/' . $fileName;
 
-            if ($format === 'xlsx') {
+            if ($backup->format === 'xlsx') {
                 $content = Excel::raw(
-                    new DataBackupWorkbook($modules, $this->registry),
+                    new DataBackupWorkbook($backup->modules, $this->registry),
                     ExcelWriter::XLSX
                 );
             } else {
                 $tables = [];
-                foreach ($this->registry->tables($modules) as $table) {
+                foreach ($this->registry->tables($backup->modules) as $table) {
                     $columns = $this->registry->columns($table);
                     $tables[] = [
                         'name' => $table,

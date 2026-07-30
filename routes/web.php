@@ -242,6 +242,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/interest-report/export', [ReportController::class, 'exportInterestReport'])->name('reports.interest-report.export');
     Route::get('/data-backups', [DataBackupController::class, 'index'])->name('data-backups.index');
     Route::post('/data-backups', [DataBackupController::class, 'store'])->name('data-backups.store');
+    Route::get('/data-backups/statuses', [DataBackupController::class, 'statuses'])->name('data-backups.statuses');
     Route::get('/data-backups/{dataBackup}/download', [DataBackupController::class, 'download'])->name('data-backups.download');
     Route::put('/data-backups/settings', [DataBackupController::class, 'updateSettings'])->name('data-backups.settings.update');
     Route::post('/data-backups/test-drive', [DataBackupController::class, 'testDrive'])->name('data-backups.drive.test');

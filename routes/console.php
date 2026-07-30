@@ -11,6 +11,8 @@ use App\Services\BranchAccountReconciler;
 use App\Services\BalanceSyncService;
 use App\Models\Branch;
 use App\Services\DataBackup\AutomaticBackupRunner;
+use App\Services\DataBackup\DataBackupService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -354,6 +356,34 @@ Artisan::command('data-backups:run', function (AutomaticBackupRunner $runner) {
         ? 'Automatic backups are disabled or no backup was completed.'
         : count($backups) . ' automatic backup(s) uploaded to Google Drive.');
 })->purpose('Generate configured database exports and upload them to Google Drive.');
+
+Artisan::command('data-backups:process-pending', function (DataBackupService $service) {
+    $lock = Cache::lock('data-backups:process-pending', 3600);
+
+    if (! $lock->get()) {
+        $this->warn('Another manual backup processor is already running.');
+
+        return;
+    }
+
+    try {
+        $backup = $service->claimNextManual();
+
+        if (! $backup) {
+            $this->info('No pending manual backup requests.');
+
+            return;
+        }
+
+        $this->line("Processing manual backup #{$backup->id}...");
+        $service->process($backup);
+        $this->info("Manual backup #{$backup->id} completed.");
+    } catch (\Throwable $exception) {
+        $this->error('Manual backup processing failed: ' . $exception->getMessage());
+    } finally {
+        $lock->release();
+    }
+})->purpose('Process the oldest pending manual database backup request.');
 
 Schedule::command('data-backups:run')
     ->everySixHours()
