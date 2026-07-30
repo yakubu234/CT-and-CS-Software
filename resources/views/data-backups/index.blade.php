@@ -51,6 +51,7 @@
                         <div class="form-group">
                             <label for="format">Export format</label>
                             <select class="form-control" id="format" name="format" required>
+                                <option value="xlsx">Excel workbook (.xlsx)</option>
                                 <option value="csv">CSV archive (.zip)</option>
                                 <option value="pdf" @selected(old('format') === 'pdf')>PDF document (.pdf)</option>
                                 <option value="sql" @selected(old('format') === 'sql')>Importable SQL dump (.sql)</option>
@@ -79,7 +80,7 @@
 
                         <div class="form-group">
                             <label>Formats</label>
-                            @foreach (['csv' => 'CSV archive', 'pdf' => 'PDF', 'sql' => 'SQL dump'] as $format => $label)
+                            @foreach (['xlsx' => 'Excel', 'csv' => 'CSV archive', 'pdf' => 'PDF', 'sql' => 'SQL dump'] as $format => $label)
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input class="custom-control-input" type="checkbox" name="formats[]" value="{{ $format }}"
                                            id="auto-format-{{ $format }}" @checked(in_array($format, old('formats', $settings['formats']), true))>

@@ -35,7 +35,7 @@ class BackupSettingsService
             $settings = array_replace($defaults, is_array($decoded) ? $decoded : []);
             $settings['formats'] = array_values(array_intersect(
                 (array) $settings['formats'],
-                ['csv', 'pdf', 'sql']
+                ['xlsx', 'csv', 'pdf', 'sql']
             )) ?: ['csv'];
 
             return $settings;

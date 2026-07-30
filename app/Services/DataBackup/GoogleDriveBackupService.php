@@ -41,6 +41,7 @@ class GoogleDriveBackupService
                 'mimeType' => match ($backup->format) {
                     'pdf' => 'application/pdf',
                     'sql' => 'application/sql',
+                    'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     default => 'application/zip',
                 },
                 'uploadType' => 'multipart',

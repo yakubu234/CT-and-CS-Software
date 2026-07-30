@@ -2,12 +2,15 @@
 
 namespace App\Services\DataBackup;
 
+use App\Exports\DataBackupWorkbook;
 use App\Models\DataBackup;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
 use ZipArchive;
 
 class DataBackupService
@@ -77,7 +80,15 @@ class DataBackupService
             $path = trim(config('data_backup.storage_directory'), '/') . '/' . $fileName;
             $disk = Storage::disk(config('data_backup.storage_disk'));
 
-            if ($backup->format === 'csv') {
+            if ($backup->format === 'xlsx') {
+                $disk->put(
+                    $path,
+                    Excel::raw(
+                        new DataBackupWorkbook($backup->modules, $this->registry),
+                        ExcelWriter::XLSX
+                    )
+                );
+            } elseif ($backup->format === 'csv') {
                 $this->writeCsvArchive($disk->path($path), $backup->modules);
             } elseif ($backup->format === 'sql') {
                 $this->writeSqlDump($disk->path($path), $backup->modules);
