@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\StaffLoginOtpController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountTypeController;
 use App\Http\Controllers\AssetController;
@@ -48,6 +49,13 @@ Route::get('/blogs/{blogPost:slug}', [PublicBlogController::class, 'show'])->nam
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login.store');
+    Route::get('/login/otp', [StaffLoginOtpController::class, 'create'])->name('staff-otp.create');
+    Route::post('/login/otp', [StaffLoginOtpController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('staff-otp.store');
+    Route::post('/login/otp/resend', [StaffLoginOtpController::class, 'resend'])
+        ->middleware('throttle:3,1')
+        ->name('staff-otp.resend');
 });
 
 Route::middleware('auth')->group(function () {

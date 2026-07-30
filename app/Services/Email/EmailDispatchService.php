@@ -31,7 +31,10 @@ class EmailDispatchService
             return $message->fresh();
         }
 
-        [$canSend, $pauseReason] = $this->preferences->canSend($message);
+        $isSecurityMessage = (bool) data_get($message->meta, 'transactional_security', false);
+        [$canSend, $pauseReason] = $isSecurityMessage
+            ? [true, null]
+            : $this->preferences->canSend($message);
 
         if (! $canSend) {
             $message->update([

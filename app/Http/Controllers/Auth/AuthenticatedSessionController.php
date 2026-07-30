@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\ActiveBranchService;
+use App\Services\Auth\StaffLoginOtpService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,7 @@ class AuthenticatedSessionController extends Controller
 {
     public function __construct(
         protected ActiveBranchService $activeBranchService,
+        protected StaffLoginOtpService $staffLoginOtpService,
     ) {
     }
 
@@ -43,11 +45,7 @@ class AuthenticatedSessionController extends Controller
                 ]);
         }
 
-        Auth::login($user, $remember);
-
-        if (! $user || $user->branch_account) {
-            Auth::guard('web')->logout();
-
+        if ($user->branch_account) {
             return back()
                 ->withInput($request->only('login', 'remember'))
                 ->withErrors([
@@ -55,10 +53,11 @@ class AuthenticatedSessionController extends Controller
                 ]);
         }
 
-        $request->session()->regenerate();
-        $this->activeBranchService->ensureActiveBranch($user);
-
         if ($user->user_type === 'customer') {
+            Auth::login($user, $remember);
+            $request->session()->regenerate();
+            $this->activeBranchService->ensureActiveBranch($user);
+
             if ($user->must_change_password) {
                 return redirect()->intended(route('customer.password.edit'));
             }
@@ -66,7 +65,25 @@ class AuthenticatedSessionController extends Controller
             return redirect()->intended(route('customer.dashboard'));
         }
 
-        return redirect()->intended(route('dashboard'));
+        try {
+            $result = $this->staffLoginOtpService->begin($user, $request);
+        } catch (\Throwable $exception) {
+            return back()
+                ->withInput($request->only('login', 'remember'))
+                ->withErrors(['login' => 'Unable to send the staff verification code: ' . $exception->getMessage()]);
+        }
+
+        $request->session()->regenerate();
+        $request->session()->put([
+            'staff_login_otp_token' => $result['token'],
+            'staff_login_otp_remember' => $remember,
+        ]);
+
+        return redirect()
+            ->route('staff-otp.create')
+            ->with('status', $result['sent']
+                ? 'A six-digit verification code was sent to your email address.'
+                : 'Your existing verification code is still active.');
     }
 
     protected function findUserForLogin(string $login): ?User
