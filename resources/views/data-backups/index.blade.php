@@ -51,8 +51,9 @@
                         <div class="form-group">
                             <label for="format">Export format</label>
                             <select class="form-control" id="format" name="format" required>
-                                <option value="xlsx">Excel workbook (.xlsx)</option>
+                                <option value="csv">CSV archive (.zip)</option>
                                 <option value="pdf" @selected(old('format') === 'pdf')>PDF document (.pdf)</option>
+                                <option value="sql" @selected(old('format') === 'sql')>Importable SQL dump (.sql)</option>
                             </select>
                         </div>
                     </div>
@@ -78,7 +79,7 @@
 
                         <div class="form-group">
                             <label>Formats</label>
-                            @foreach (['xlsx' => 'Excel', 'pdf' => 'PDF'] as $format => $label)
+                            @foreach (['csv' => 'CSV archive', 'pdf' => 'PDF', 'sql' => 'SQL dump'] as $format => $label)
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input class="custom-control-input" type="checkbox" name="formats[]" value="{{ $format }}"
                                            id="auto-format-{{ $format }}" @checked(in_array($format, old('formats', $settings['formats']), true))>
@@ -86,6 +87,7 @@
                                 </div>
                             @endforeach
                         </div>
+                        <small class="form-text text-warning mb-3">SQL dumps are intended for full restoration and contain the selected tables exactly, including encrypted credentials and password hashes. Restrict access carefully.</small>
 
                         <div class="form-group">
                             <label>Modules</label>

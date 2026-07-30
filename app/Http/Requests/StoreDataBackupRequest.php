@@ -17,7 +17,7 @@ class StoreDataBackupRequest extends FormRequest
         return [
             'modules' => ['required', 'array', 'min:1'],
             'modules.*' => ['required', 'string', Rule::in(array_keys(config('data_backup.modules', [])))],
-            'format' => ['required', Rule::in(['xlsx', 'pdf'])],
+            'format' => ['required', Rule::in(['csv', 'pdf', 'sql'])],
         ];
     }
 }

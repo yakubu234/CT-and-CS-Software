@@ -38,9 +38,11 @@ class GoogleDriveBackupService
             ]),
             [
                 'data' => $disk->get($backup->storage_path),
-                'mimeType' => $backup->format === 'pdf'
-                    ? 'application/pdf'
-                    : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'mimeType' => match ($backup->format) {
+                    'pdf' => 'application/pdf',
+                    'sql' => 'application/sql',
+                    default => 'application/zip',
+                },
                 'uploadType' => 'multipart',
                 'fields' => 'id,webViewLink',
                 'supportsAllDrives' => true,

@@ -16,7 +16,7 @@ class BackupSettingsService
     {
         $defaults = [
             'enabled' => false,
-            'formats' => ['xlsx'],
+            'formats' => ['csv'],
             'modules' => array_keys(config('data_backup.modules', [])),
             'drive_folder_id' => '',
             'recipient_emails' => [],
@@ -32,7 +32,13 @@ class BackupSettingsService
         try {
             $decoded = json_decode(Crypt::decryptString($value), true, flags: JSON_THROW_ON_ERROR);
 
-            return array_replace($defaults, is_array($decoded) ? $decoded : []);
+            $settings = array_replace($defaults, is_array($decoded) ? $decoded : []);
+            $settings['formats'] = array_values(array_intersect(
+                (array) $settings['formats'],
+                ['csv', 'pdf', 'sql']
+            )) ?: ['csv'];
+
+            return $settings;
         } catch (\Throwable) {
             return $defaults;
         }

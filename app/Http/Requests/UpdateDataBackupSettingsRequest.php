@@ -29,7 +29,7 @@ class UpdateDataBackupSettingsRequest extends FormRequest
             'modules' => ['required', 'array', 'min:1'],
             'modules.*' => ['string', Rule::in(array_keys(config('data_backup.modules', [])))],
             'formats' => ['required', 'array', 'min:1'],
-            'formats.*' => ['string', Rule::in(['xlsx', 'pdf'])],
+            'formats.*' => ['string', Rule::in(['csv', 'pdf', 'sql'])],
             'drive_folder_id' => ['required_if:enabled,true', 'nullable', 'string', 'max:255'],
             'recipient_emails' => ['array'],
             'recipient_emails.*' => ['email:rfc', 'max:255'],

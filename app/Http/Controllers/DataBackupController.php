@@ -115,7 +115,7 @@ class DataBackupController extends Controller
         try {
             $backup = $backupService->create(
                 $configuration['modules'],
-                $configuration['formats'][0] ?? 'xlsx',
+                $configuration['formats'][0] ?? 'csv',
                 'test',
                 request()->user()->id
             );
