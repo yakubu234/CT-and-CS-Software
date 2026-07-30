@@ -42,7 +42,7 @@
     <div class="card card-outline card-primary">
         @include('layouts.partials.table-toolbar', [
             'title' => 'Fixed Assets',
-            'subtitle' => 'Capital assets owned by the cooperative, separate from day-to-day operating expenses.',
+            'subtitle' => 'Capital assets for ' . $branch->name . '. Purchases are deducted from this branch’s Society Purse.',
             'action' => route('assets.index'),
             'placeholder' => 'Search by asset name, category, supplier, or status',
         ])
@@ -66,15 +66,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <select name="branch_id" class="form-control select2">
-                            <option value="">All branches</option>
-                            @foreach ($branches as $branch)
-                                <option value="{{ $branch->id }}" @selected((string) ($filters['branch_id'] ?? '') === (string) $branch->id)>{{ $branch->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-6 mb-2">
                         <button type="submit" class="btn btn-primary mr-2">Apply</button>
                         <a href="{{ route('assets.index') }}" class="btn btn-outline-secondary">Clear</a>
                     </div>

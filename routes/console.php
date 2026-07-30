@@ -12,6 +12,8 @@ use App\Services\BalanceSyncService;
 use App\Models\Branch;
 use App\Services\DataBackup\AutomaticBackupRunner;
 use App\Services\DataBackup\DataBackupService;
+use App\Services\AssetAccountingService;
+use App\Models\Asset;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
@@ -388,3 +390,52 @@ Artisan::command('data-backups:process-pending', function (DataBackupService $se
 Schedule::command('data-backups:run')
     ->everySixHours()
     ->withoutOverlapping();
+
+Artisan::command('assets:post-existing-purchases {--branch=} {--dry-run}', function (AssetAccountingService $accounting) {
+    $assets = Asset::query()
+        ->with(['branch', 'creator'])
+        ->whereNull('purchase_transaction_id')
+        ->whereNotNull('branch_id')
+        ->where('purchase_cost', '>', 0)
+        ->when($this->option('branch'), fn ($query, $branchId) => $query->where('branch_id', $branchId))
+        ->orderBy('id')
+        ->get();
+
+    $posted = 0;
+    $failed = 0;
+
+    foreach ($assets as $asset) {
+        if ($this->option('dry-run')) {
+            $this->line("- Would post asset #{$asset->id} ({$asset->name}) to {$asset->branch?->name}: ₦" . number_format((float) $asset->purchase_cost, 2));
+            continue;
+        }
+
+        $actor = $asset->creator ?: User::query()
+            ->where('user_type', '!=', 'customer')
+            ->where('branch_account', false)
+            ->orderBy('id')
+            ->first();
+
+        if (! $actor) {
+            $failed++;
+            $this->error("- Asset #{$asset->id}: no staff user is available to record the purchase transaction.");
+            continue;
+        }
+
+        try {
+            $accounting->linkExistingAsset($asset, $actor);
+            $posted++;
+            $this->line("- Posted asset #{$asset->id} ({$asset->name}).");
+        } catch (\Throwable $exception) {
+            $failed++;
+            $this->error("- Asset #{$asset->id}: {$exception->getMessage()}");
+        }
+    }
+
+    if ($this->option('dry-run')) {
+        $this->info("Dry run complete. {$assets->count()} asset purchase(s) are eligible.");
+        return;
+    }
+
+    $this->info("Existing asset purchase posting complete. Posted: {$posted}; failed: {$failed}.");
+})->purpose('Post unlinked historical asset purchases to their branch Society Purse.');

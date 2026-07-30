@@ -20,6 +20,7 @@ class Asset extends Model
         'category',
         'purchase_date',
         'purchase_cost',
+        'purchase_transaction_id',
         'supplier',
         'status',
         'depreciation_rate',
@@ -54,5 +55,10 @@ class Asset extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function purchaseTransaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class, 'purchase_transaction_id')->withTrashed();
     }
 }

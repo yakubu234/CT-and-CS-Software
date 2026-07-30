@@ -30,14 +30,9 @@
     </div>
     <div class="col-md-4">
         <div class="form-group">
-            <label for="branch_id">Branch</label>
-            <select name="branch_id" id="branch_id" class="form-control select2 @error('branch_id') is-invalid @enderror">
-                <option value="">Society-wide asset</option>
-                @foreach ($branches as $branch)
-                    <option value="{{ $branch->id }}" @selected((string) old('branch_id', $asset->branch_id) === (string) $branch->id)>{{ $branch->name }}</option>
-                @endforeach
-            </select>
-            @error('branch_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            <label>Branch</label>
+            <input type="text" class="form-control" value="{{ $branch->name }}" disabled>
+            <small class="form-text text-muted">This asset and its purchase debit will be recorded for the active branch.</small>
         </div>
     </div>
     <div class="col-md-4">
@@ -92,6 +87,9 @@
 </div>
 
 <div class="mt-3">
+    @if ($errors->has('asset'))
+        <div class="alert alert-danger">{{ $errors->first('asset') }}</div>
+    @endif
     <button type="submit" class="btn btn-primary">
         <i class="fas fa-save mr-1"></i>
         {{ $submitLabel ?? 'Save Asset' }}

@@ -5,25 +5,37 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Services\ActiveBranchService;
+use App\Services\AssetAccountingService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 class AssetController extends Controller
 {
     public function __construct(
         protected ActiveBranchService $activeBranchService,
+        protected AssetAccountingService $assetAccountingService,
     ) {
         $this->middleware('module:assets');
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before viewing assets.']);
+        }
+
         $query = TableListing::applySearch(
-            Asset::query()->with(['branch'])->latest('id'),
+            Asset::query()->with(['branch'])
+                ->where('branch_id', $branch->id)
+                ->latest('id'),
             $request->string('search')->toString(),
             ['name', 'category', 'supplier', 'status', 'remarks']
         );
@@ -36,10 +48,6 @@ class AssetController extends Controller
             $query->where('status', $request->string('status')->toString());
         }
 
-        if ($request->filled('branch_id')) {
-            $query->where('branch_id', $request->integer('branch_id'));
-        }
-
         $summaryQuery = clone $query;
 
         return view('assets.index', [
@@ -47,19 +55,22 @@ class AssetController extends Controller
             'summary' => $this->summary($summaryQuery),
             'categoryOptions' => $this->categoryOptions(),
             'statusOptions' => $this->statusOptions(),
-            'branches' => $this->activeBranchService->availableBranches($request->user()),
-            'filters' => $request->only(['search', 'category', 'status', 'branch_id']),
+            'branch' => $branch,
+            'filters' => $request->only(['search', 'category', 'status']),
         ]);
     }
 
     public function create(Request $request): View
     {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        abort_unless($branch, 404);
+
         return view('assets.create', [
             'asset' => new Asset([
-                'branch_id' => $this->activeBranchService->ensureActiveBranch($request->user())?->id,
+                'branch_id' => $branch->id,
                 'status' => Asset::STATUS_ACTIVE,
             ]),
-            'branches' => $this->activeBranchService->availableBranches($request->user()),
+            'branch' => $branch,
             'categoryOptions' => $this->categoryOptions(),
             'statusOptions' => $this->statusOptions(),
         ]);
@@ -67,19 +78,33 @@ class AssetController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $asset = Asset::create(array_merge($this->validated($request), [
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
-        ]));
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before recording an asset.']);
+        }
+
+        try {
+            $asset = $this->assetAccountingService->create(
+                $branch,
+                $request->user(),
+                $this->validated($request)
+            );
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->withErrors(['asset' => $exception->getMessage()]);
+        }
 
         return redirect()
             ->route('assets.show', $asset)
             ->with('status', 'Asset recorded successfully.');
     }
 
-    public function show(Asset $asset): View
+    public function show(Request $request, Asset $asset): View
     {
-        $asset->load(['branch', 'creator', 'updater']);
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        $this->abortUnlessActiveBranchAsset($branch?->id, $asset);
+        $asset->load(['branch', 'creator', 'updater', 'purchaseTransaction']);
 
         return view('assets.show', [
             'asset' => $asset,
@@ -90,9 +115,12 @@ class AssetController extends Controller
 
     public function edit(Asset $asset, Request $request): View
     {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        $this->abortUnlessActiveBranchAsset($branch?->id, $asset);
+
         return view('assets.edit', [
             'asset' => $asset,
-            'branches' => $this->activeBranchService->availableBranches($request->user()),
+            'branch' => $branch,
             'categoryOptions' => $this->categoryOptions(),
             'statusOptions' => $this->statusOptions(),
         ]);
@@ -100,9 +128,19 @@ class AssetController extends Controller
 
     public function update(Request $request, Asset $asset): RedirectResponse
     {
-        $asset->update(array_merge($this->validated($request), [
-            'updated_by' => $request->user()->id,
-        ]));
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        $this->abortUnlessActiveBranchAsset($branch?->id, $asset);
+
+        try {
+            $asset = $this->assetAccountingService->update(
+                $asset,
+                $branch,
+                $request->user(),
+                $this->validated($request)
+            );
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->withErrors(['asset' => $exception->getMessage()]);
+        }
 
         return redirect()
             ->route('assets.show', $asset)
@@ -111,8 +149,9 @@ class AssetController extends Controller
 
     public function destroy(Request $request, Asset $asset): RedirectResponse
     {
-        $asset->update(['updated_by' => $request->user()->id]);
-        $asset->delete();
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        $this->abortUnlessActiveBranchAsset($branch?->id, $asset);
+        $this->assetAccountingService->delete($asset, $branch, $request->user());
 
         return redirect()
             ->route('assets.index')
@@ -122,7 +161,6 @@ class AssetController extends Controller
     protected function validated(Request $request): array
     {
         return $request->validate([
-            'branch_id' => ['nullable', 'exists:branches,id'],
             'name' => ['required', 'string', 'max:191'],
             'category' => ['required', Rule::in(array_keys($this->categoryOptions(true)))],
             'purchase_date' => ['nullable', 'date'],
@@ -164,5 +202,15 @@ class AssetController extends Controller
             Asset::STATUS_UNDER_REPAIR => 'Under Repair',
             Asset::STATUS_DISPOSED => 'Disposed',
         ];
+    }
+
+    protected function abortUnlessActiveBranchAsset(?int $branchId, Asset $asset): void
+    {
+        abort_unless(
+            $branchId !== null
+            && (int) $asset->branch_id === $branchId
+            && $asset->deleted_at === null,
+            404
+        );
     }
 }

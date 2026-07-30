@@ -33,6 +33,9 @@
                 <div class="col-md-4 mb-3">
                     <div class="small text-muted">Purchase Cost</div>
                     <div class="font-weight-bold">&#8358;{{ number_format((float) $asset->purchase_cost, 2) }}</div>
+                    <small class="{{ $asset->purchaseTransaction ? 'text-success' : 'text-warning' }}">
+                        {{ $asset->purchaseTransaction ? 'Posted to Society Purse' : 'Legacy asset: purchase not yet posted' }}
+                    </small>
                 </div>
                 <div class="col-md-4 mb-3">
                     <div class="small text-muted">Supplier</div>
