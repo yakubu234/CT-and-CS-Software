@@ -22,6 +22,8 @@ class StoreLoanRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'interest_week_interval' => ['required', 'string', 'max:200'],
             'late_payment_penalties' => ['nullable', 'numeric', 'min:0'],
+            'attachments' => ['nullable', 'array', 'max:10'],
+            'attachments.*' => ['file', 'max:5120'],
             'attachment' => ['nullable', 'file', 'max:5120'],
         ];
 

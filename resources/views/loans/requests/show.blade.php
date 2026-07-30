@@ -73,15 +73,31 @@
                     <div class="small text-muted">Decision Status</div>
                     <div class="font-weight-bold text-capitalize">{{ $loanDetail->decision_status }}</div>
                 </div>
-                @if ($loanDetail->attachment)
+                @if ($loanDetail->attachments->isNotEmpty())
                     <div class="col-md-12 mb-3">
-                        <div class="small text-muted">Attachment</div>
-                        <a href="{{ route('loans.requests.attachment', $loanDetail) }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
-                            View Attachment
-                        </a>
-                        <a href="{{ route('loans.requests.attachment', [$loanDetail, 'download' => 1]) }}" class="btn btn-sm btn-outline-secondary mt-1">
-                            Download
-                        </a>
+                        <div class="small text-muted mb-2">Supporting Documents ({{ $loanDetail->attachments->count() }})</div>
+                        <div class="list-group">
+                            @foreach ($loanDetail->attachments as $attachment)
+                                <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+                                    <div class="mr-3">
+                                        <div class="font-weight-bold">{{ $attachment->original_name }}</div>
+                                        <small class="text-muted">
+                                            {{ $attachment->size ? number_format($attachment->size / 1024, 1) . ' KB' : 'Legacy upload' }}
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <a href="{{ route('loans.requests.attachments.view', [$loanDetail, $attachment]) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a href="{{ route('loans.requests.attachments.view', [$loanDetail, $attachment, 'download' => 1]) }}" class="btn btn-sm btn-outline-secondary">Download</a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @elseif ($loanDetail->attachment)
+                    <div class="col-md-12 mb-3">
+                        <div class="small text-muted">Legacy Attachment</div>
+                        <a href="{{ route('loans.requests.attachment', $loanDetail) }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">View</a>
+                        <a href="{{ route('loans.requests.attachment', [$loanDetail, 'download' => 1]) }}" class="btn btn-sm btn-outline-secondary mt-1">Download</a>
                     </div>
                 @endif
             </div>

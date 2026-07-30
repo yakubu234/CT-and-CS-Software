@@ -51,6 +51,10 @@ class PermissionRegistry
                 'reports.view' => 'View and export reports',
                 'reports.manage' => 'Manage report access',
             ],
+            'Data Backups' => [
+                'data-backups.view' => 'View backup history and download existing backups',
+                'data-backups.manage' => 'Export data and configure automatic Google Drive backups',
+            ],
             'Bulk SMS' => [
                 'sms.view' => 'View SMS settings, templates, campaigns, and logs',
                 'sms.manage' => 'Manage SMS settings, templates, campaigns, and automations',

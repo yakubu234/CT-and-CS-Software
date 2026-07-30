@@ -629,6 +629,13 @@ return [
             ],
         ],
         [
+            'text' => 'Data backups',
+            'url' => 'data-backups',
+            'icon' => 'fas fa-database',
+            'active' => ['data-backups', 'data-backups/*'],
+            'permissions' => ['data-backups.view', 'data-backups.manage'],
+        ],
+        [
             'text' => 'User management',
             'icon' => 'fas fa-user-shield',
             'permissions' => ['users.view', 'users.manage', 'roles.view', 'roles.manage'],

@@ -146,23 +146,55 @@
 
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="attachment">
-                                Replace Attachment
+                            <label for="attachments">
+                                Add Supporting Documents
                                 <span class="optional-label">(Optional)</span>
                             </label>
-                            <input type="file" name="attachment" id="attachment" class="form-control @error('attachment') is-invalid @enderror">
-                            @error('attachment')
+                            <input type="file" name="attachments[]" id="attachments" multiple class="form-control @error('attachments') is-invalid @enderror @error('attachments.*') is-invalid @enderror">
+                            <small class="form-text text-muted">Select up to 10 additional files. Each file may be up to 5 MB.</small>
+                            @error('attachments')
                                 <div class="invalid-feedback d-block">{{ $message }}</div>
                             @enderror
-                            @if ($loanDetail->attachment)
-                                <small class="form-text text-muted">
-                                    Current file:
-                                    <a href="{{ route('loans.requests.attachment', $loanDetail) }}" target="_blank">View attachment</a>
-                                </small>
-                            @endif
+                            @error('attachments.*')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
                 </div>
+
+                @if ($loanDetail->attachments->isNotEmpty())
+                    <div class="card card-outline card-secondary mb-4">
+                        <div class="card-header">
+                            <h3 class="card-title">Existing Supporting Documents</h3>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush">
+                                @foreach ($loanDetail->attachments as $attachment)
+                                    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+                                        <div class="mr-3">
+                                            <div class="font-weight-bold">{{ $attachment->original_name }}</div>
+                                            <small class="text-muted">
+                                                {{ $attachment->size ? number_format($attachment->size / 1024, 1) . ' KB' : 'Legacy upload' }}
+                                            </small>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <a href="{{ route('loans.requests.attachments.view', [$loanDetail, $attachment]) }}" target="_blank" class="btn btn-sm btn-outline-primary mr-3">View</a>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="remove_attachments[]" value="{{ $attachment->id }}" id="remove_attachment_{{ $attachment->id }}">
+                                                <label class="form-check-label text-danger" for="remove_attachment_{{ $attachment->id }}">Remove</label>
+                                            </div>
+                                        </div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                @elseif ($loanDetail->attachment)
+                    <div class="alert alert-light border">
+                        Legacy attachment:
+                        <a href="{{ route('loans.requests.attachment', $loanDetail) }}" target="_blank">View attachment</a>
+                    </div>
+                @endif
 
                 <div class="alert alert-light border">
                     <div class="row">

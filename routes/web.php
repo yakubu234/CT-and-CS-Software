@@ -11,6 +11,7 @@ use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\CustomerSupportRequestController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataBackupController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\EmailCampaignController;
 use App\Http\Controllers\EmailMessageController;
@@ -103,6 +104,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/requests/{loanDetail}', [LoanController::class, 'showRequest'])->name('loans.requests.show');
     Route::get('/loans/requests/{loanDetail}/attachment', [LoanController::class, 'attachment'])->name('loans.requests.attachment');
+    Route::get('/loans/requests/{loanDetail}/attachments/{loanAttachment}', [LoanController::class, 'viewAttachment'])
+        ->name('loans.requests.attachments.view');
     Route::get('/loans/requests/{loanDetail}/custom-fields/{fieldIndex}/file', [LoanController::class, 'customFieldFile'])
         ->whereNumber('fieldIndex')
         ->name('loans.requests.custom-fields.file');
@@ -237,6 +240,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/society-report/export', [ReportController::class, 'exportSocietyReport'])->name('reports.society-report.export');
     Route::get('/reports/interest-report', [ReportController::class, 'interestReport'])->name('reports.interest-report');
     Route::get('/reports/interest-report/export', [ReportController::class, 'exportInterestReport'])->name('reports.interest-report.export');
+    Route::get('/data-backups', [DataBackupController::class, 'index'])->name('data-backups.index');
+    Route::post('/data-backups', [DataBackupController::class, 'store'])->name('data-backups.store');
+    Route::get('/data-backups/{dataBackup}/download', [DataBackupController::class, 'download'])->name('data-backups.download');
+    Route::put('/data-backups/settings', [DataBackupController::class, 'updateSettings'])->name('data-backups.settings.update');
+    Route::post('/data-backups/test-drive', [DataBackupController::class, 'testDrive'])->name('data-backups.drive.test');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');

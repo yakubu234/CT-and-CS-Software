@@ -114,12 +114,16 @@
 
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="attachment">
-                                Attachment
+                            <label for="attachments">
+                                Supporting Documents
                                 <span class="optional-label">(Optional)</span>
                             </label>
-                            <input type="file" name="attachment" id="attachment" class="form-control @error('attachment') is-invalid @enderror">
-                            @error('attachment')
+                            <input type="file" name="attachments[]" id="attachments" multiple class="form-control @error('attachments') is-invalid @enderror @error('attachments.*') is-invalid @enderror">
+                            <small class="form-text text-muted">Select up to 10 files. Each file may be up to 5 MB.</small>
+                            @error('attachments')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            @error('attachments.*')
                                 <div class="invalid-feedback d-block">{{ $message }}</div>
                             @enderror
                         </div>

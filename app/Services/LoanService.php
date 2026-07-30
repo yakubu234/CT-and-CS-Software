@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\CustomField;
 use App\Models\Loan;
+use App\Models\LoanAttachment;
 use App\Models\LoanDetail;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Sms\SmsAutomationService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class LoanService
@@ -76,7 +78,7 @@ class LoanService
 
             $customFields = $this->prepareCustomFieldValues($payload['custom_fields'] ?? []);
 
-            return LoanDetail::create([
+            $detail = LoanDetail::create([
                 'applied_amount' => round((float) $payload['amount'], 2),
                 'amount_repayed' => 0,
                 'created_user_id' => $actor->id,
@@ -94,8 +96,12 @@ class LoanService
                 'repayment_status' => false,
                 'interest_week_interval' => $payload['interest_week_interval'],
                 'decision_status' => LoanDetail::STATUS_PENDING,
-                'attachment' => $this->storeOptionalFile($payload['attachment'] ?? null, 'loans/attachments'),
+                'attachment' => null,
             ]);
+
+            $this->storeAttachments($detail, $actor, $this->attachmentFiles($payload));
+
+            return $detail->fresh('attachments');
         });
     }
 
@@ -250,11 +256,9 @@ class LoanService
                 'custom_fields' => $customFields,
             ];
 
-            if (($payload['attachment'] ?? null) instanceof UploadedFile) {
-                $updates['attachment'] = $this->storeOptionalFile($payload['attachment'], 'loans/attachments');
-            }
-
             $detail->update($updates);
+            $this->removeAttachments($detail, $payload['remove_attachments'] ?? []);
+            $this->storeAttachments($detail, $actor, $this->attachmentFiles($payload));
 
             if ($detail->decision_status === LoanDetail::STATUS_APPROVED) {
                 $transaction = Transaction::query()
@@ -288,7 +292,7 @@ class LoanService
 
             $this->syncLoanAggregate($detail->loan->fresh());
 
-            return $detail->fresh(['loan.borrower.detail', 'borrower', 'approver', 'decliner']);
+            return $detail->fresh(['loan.borrower.detail', 'borrower', 'approver', 'decliner', 'attachments']);
         });
     }
 
@@ -333,6 +337,11 @@ class LoanService
             }
 
             $loan = $detail->loan;
+
+            foreach ($detail->attachments as $attachment) {
+                $path = $attachment->path;
+                DB::afterCommit(fn (): bool => Storage::disk('public')->delete($path));
+            }
 
             $detail->delete();
 
@@ -437,6 +446,57 @@ class LoanService
         }
 
         return $file->store($path, 'public');
+    }
+
+    protected function attachmentFiles(array $payload): array
+    {
+        $files = array_values(array_filter(
+            $payload['attachments'] ?? [],
+            fn ($file): bool => $file instanceof UploadedFile
+        ));
+
+        if (($payload['attachment'] ?? null) instanceof UploadedFile) {
+            $files[] = $payload['attachment'];
+        }
+
+        return $files;
+    }
+
+    protected function storeAttachments(LoanDetail $detail, User $actor, array $files): void
+    {
+        foreach ($files as $file) {
+            $path = $file->store('loans/attachments', 'public');
+
+            LoanAttachment::create([
+                'loan_detail_id' => $detail->id,
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'size' => $file->getSize(),
+                'uploaded_by' => $actor->id,
+            ]);
+        }
+    }
+
+    protected function removeAttachments(LoanDetail $detail, array $attachmentIds): void
+    {
+        if ($attachmentIds === []) {
+            return;
+        }
+
+        $detail->attachments()
+            ->whereIn('id', array_map('intval', $attachmentIds))
+            ->get()
+            ->each(function (LoanAttachment $attachment) use ($detail): void {
+                $path = $attachment->path;
+
+                if ($detail->attachment === $path) {
+                    $detail->forceFill(['attachment' => null])->save();
+                }
+
+                $attachment->delete();
+                DB::afterCommit(fn (): bool => Storage::disk('public')->delete($path));
+            });
     }
 
     public function syncLoanAggregate(Loan $loan): void

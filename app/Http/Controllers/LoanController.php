@@ -7,6 +7,7 @@ use App\Http\Requests\StoreLoanRequest;
 use App\Http\Requests\UpdateLoanRequest;
 use App\Models\CustomField;
 use App\Models\Loan;
+use App\Models\LoanAttachment;
 use App\Models\LoanDetail;
 use App\Models\User;
 use App\Services\ActiveBranchService;
@@ -265,6 +266,7 @@ class LoanController extends Controller
             'approver',
             'decliner',
             'payments',
+            'attachments.uploader',
         ]);
 
         return view('loans.requests.show', [
@@ -279,7 +281,26 @@ class LoanController extends Controller
     {
         $this->authorizeLoanFileAccess($request, $loanDetail);
 
-        return $this->storedFileResponse($request, $loanDetail->attachment);
+        $attachment = $loanDetail->attachments()->first();
+
+        return $attachment
+            ? $this->storedFileResponse($request, $attachment->path, $attachment->original_name)
+            : $this->storedFileResponse($request, $loanDetail->attachment);
+    }
+
+    public function viewAttachment(
+        Request $request,
+        LoanDetail $loanDetail,
+        LoanAttachment $loanAttachment
+    ): StreamedResponse {
+        $this->authorizeLoanFileAccess($request, $loanDetail);
+        abort_unless((int) $loanAttachment->loan_detail_id === (int) $loanDetail->id, 404);
+
+        return $this->storedFileResponse(
+            $request,
+            $loanAttachment->path,
+            $loanAttachment->original_name
+        );
     }
 
     public function customFieldFile(Request $request, LoanDetail $loanDetail, int $fieldIndex): StreamedResponse
@@ -309,7 +330,7 @@ class LoanController extends Controller
                 ->withErrors(['loan' => 'This loan request can no longer be edited.']);
         }
 
-        $loanDetail->load(['loan', 'borrower.detail', 'payments']);
+        $loanDetail->load(['loan', 'borrower.detail', 'payments', 'attachments.uploader']);
 
         return view('loans.edit', [
             'branch' => $branch,
@@ -402,13 +423,13 @@ class LoanController extends Controller
         abort_unless($branch && (int) $loanDetail->branch_id === (int) $branch->id, 404);
     }
 
-    protected function storedFileResponse(Request $request, ?string $path): StreamedResponse
+    protected function storedFileResponse(Request $request, ?string $path, ?string $name = null): StreamedResponse
     {
         abort_unless($path && Storage::disk('public')->exists($path), 404, 'The uploaded document could not be found.');
 
         return Storage::disk('public')->response(
             $path,
-            basename($path),
+            $name ?: basename($path),
             [],
             $request->boolean('download') ? 'attachment' : 'inline'
         );

@@ -104,6 +104,11 @@ class LoanDetail extends Model
         return $this->hasMany(LoanPayment::class, 'loan_details_id');
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(LoanAttachment::class)->orderBy('id');
+    }
+
     public function disbursementTransaction(): HasOne
     {
         return $this->hasOne(Transaction::class, 'loan_details_id')

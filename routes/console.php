@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Artisan;
 use App\Services\BranchAccountReconciler;
 use App\Services\BalanceSyncService;
 use App\Models\Branch;
+use App\Services\DataBackup\AutomaticBackupRunner;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -344,3 +346,15 @@ Artisan::command('email:process-pending', function (EmailCampaignService $campai
     $this->info('Email processing complete.');
     $this->line("Queued campaign messages processed: {$queuedMessages}");
 })->purpose('Process queued and scheduled email campaigns.');
+
+Artisan::command('data-backups:run', function (AutomaticBackupRunner $runner) {
+    $backups = $runner->run();
+
+    $this->info($backups === []
+        ? 'Automatic backups are disabled or no backup was completed.'
+        : count($backups) . ' automatic backup(s) uploaded to Google Drive.');
+})->purpose('Generate configured database exports and upload them to Google Drive.');
+
+Schedule::command('data-backups:run')
+    ->everySixHours()
+    ->withoutOverlapping();
