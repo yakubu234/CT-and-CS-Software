@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'View Member')
-@section('page_title', 'View Member')
+@section('title', $archived ? 'Archived Member' : 'View Member')
+@section('page_title', $archived ? 'Archived Member' : 'View Member')
 
 @section('content')
     <div class="row">
@@ -20,6 +20,11 @@
 
                     <h3 class="profile-username text-center">{{ $member->name }}</h3>
                     <p class="text-muted text-center">{{ $member->display_member_no ?: 'N/A' }}</p>
+                    @if ($archived)
+                        <p class="text-center">
+                            <span class="badge badge-secondary">Archived {{ optional($member->deleted_at)->format('d M Y, h:i A') }}</span>
+                        </p>
+                    @endif
 
                     <ul class="list-group list-group-unbordered mb-3">
                         <li class="list-group-item"><b>Email</b> <span class="float-right">{{ $member->email }}</span></li>
@@ -28,11 +33,22 @@
                         <li class="list-group-item"><b>Designation</b> <span class="float-right">{{ $member->designation ?: 'Member' }}</span></li>
                     </ul>
 
-                    <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
-                    <a href="{{ route('members.id-card', $member) }}" class="btn btn-outline-primary btn-block">
-                        <i class="fas fa-id-card mr-1"></i> View / Download ID Card
-                    </a>
-                    <a href="#documents" class="btn btn-outline-secondary btn-block">Add Document</a>
+                    @if ($archived)
+                        <form action="{{ route('members.restore', $member->id) }}" method="POST">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="btn btn-success btn-block" onclick="return confirm('Restore this member and the accounts archived with them?')">
+                                <i class="fas fa-undo mr-1"></i> Restore Member
+                            </button>
+                        </form>
+                        <a href="{{ route('members.archived') }}" class="btn btn-outline-secondary btn-block">Back to Archived Members</a>
+                    @else
+                        <a href="{{ route('members.edit', $member) }}" class="btn btn-primary btn-block">Edit Member</a>
+                        <a href="{{ route('members.id-card', $member) }}" class="btn btn-outline-primary btn-block">
+                            <i class="fas fa-id-card mr-1"></i> View / Download ID Card
+                        </a>
+                        <a href="#documents" class="btn btn-outline-secondary btn-block">Add Document</a>
+                    @endif
                 </div>
             </div>
         </div>
@@ -153,6 +169,7 @@
             <div class="card" id="documents">
                 <div class="card-header"><h3 class="card-title">Documents</h3></div>
                 <div class="card-body">
+                    @unless ($archived)
                     <div class="border rounded p-3 mb-4 bg-light">
                         <h6 class="mb-3">Add New Document</h6>
                         <form action="{{ route('members.documents.store', $member) }}" method="POST" enctype="multipart/form-data">
@@ -184,6 +201,7 @@
                             </div>
                         </form>
                     </div>
+                    @endunless
 
                     @if ($member->documents->isEmpty())
                         <p class="text-muted mb-0">No documents uploaded for this member yet.</p>

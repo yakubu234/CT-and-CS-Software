@@ -73,6 +73,9 @@
                             <td>
                                 <div class="inactive-account-holder">{{ $account->user?->name ?: 'N/A' }}</div>
                                 <div class="inactive-account-meta">{{ $account->user?->email ?: 'No email' }}</div>
+                                @if ($account->user?->trashed())
+                                    <span class="badge badge-secondary mt-1">Archived member</span>
+                                @endif
                             </td>
                             <td>{{ $account->user?->display_member_no ?: 'N/A' }}</td>
                             <td>
@@ -80,7 +83,7 @@
                                     @csrf
                                     @method('PATCH')
                                     <button type="submit" class="btn btn-sm btn-outline-success btn-block">
-                                        Re-enable
+                                        {{ $account->user?->trashed() ? 'Restore member' : 'Re-enable' }}
                                     </button>
                                 </form>
                             </td>

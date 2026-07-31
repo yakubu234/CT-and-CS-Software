@@ -18,6 +18,10 @@
                     <i class="fas fa-user-plus mr-1"></i>
                     Create Member
                 </a>
+                <a href="{{ route('members.archived') }}" class="btn btn-outline-secondary ml-2">
+                    <i class="fas fa-archive mr-1"></i>
+                    Archived Members
+                </a>
             </div>
 
             <div class="table-responsive">
@@ -61,11 +65,11 @@
                                 <a href="{{ route('members.id-card', $member) }}" class="btn btn-sm btn-outline-primary">ID Card</a>
                                 <a href="{{ route('members.edit', $member) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                                 <a href="{{ route('members.show', $member) }}#documents" class="btn btn-sm btn-outline-secondary">Add Document</a>
-                                <form action="{{ route('members.destroy', $member) }}" method="POST" class="d-inline">
+                                <form action="{{ route('members.archive', $member) }}" method="POST" class="d-inline">
                                     @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Archive this member?')">
-                                        Delete
+                                    @method('PATCH')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Archive this member? Their history will be retained and they can be restored later.')">
+                                        Archive
                                     </button>
                                 </form>
                             </td>

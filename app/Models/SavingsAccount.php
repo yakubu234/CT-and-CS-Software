@@ -19,6 +19,7 @@ class SavingsAccount extends Model
         'updated_user_id',
         'is_branch_acount',
         'disabled_at',
+        'archived_with_member_at',
     ];
 
     protected function casts(): array
@@ -29,6 +30,7 @@ class SavingsAccount extends Model
             'balance' => 'decimal:2',
             'is_branch_acount' => 'boolean',
             'disabled_at' => 'datetime',
+            'archived_with_member_at' => 'datetime',
         ];
     }
 

@@ -427,7 +427,14 @@ return [
                     'text' => 'View members',
                     'url' => 'members',
                     'icon' => 'far fa-circle',
-                    'active' => ['members', 'members/*'],
+                    'active' => ['members', 'members/create', 'members/*/edit'],
+                    'permissions' => ['members.view', 'members.manage'],
+                ],
+                [
+                    'text' => 'Archived members',
+                    'url' => 'members/archived',
+                    'icon' => 'fas fa-archive',
+                    'active' => ['members/archived', 'members/archived/*'],
                     'permissions' => ['members.view', 'members.manage'],
                 ],
                 [

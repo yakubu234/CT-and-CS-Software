@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SavingsAccount;
 use App\Models\User;
 use App\Services\ActiveBranchService;
+use App\Services\MemberService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +16,7 @@ class AccountController extends Controller
 {
     public function __construct(
         protected ActiveBranchService $activeBranchService,
+        protected MemberService $memberService,
     ) {
         $this->middleware('module:accounts');
     }
@@ -76,13 +78,16 @@ class AccountController extends Controller
         $accounts = TableListing::paginate(
             TableListing::applySearch(
                 SavingsAccount::query()
-                    ->with(['product', 'user.detail'])
+                    ->with([
+                        'product',
+                        'user' => fn ($query) => $query->withTrashed()->with('detail'),
+                    ])
                     ->where('status', 0)
                     ->where('is_branch_acount', false)
                     ->whereHas('user', function (Builder $query) use ($branch): void {
-                        $query->where('branch_id', (string) $branch->id)
-                            ->where('branch_account', false)
-                            ->whereNull('deleted_at');
+                        $query->withTrashed()
+                            ->where('branch_id', (string) $branch->id)
+                            ->where('branch_account', false);
                     })
                     ->latest('disabled_at')
                     ->latest('updated_at'),
@@ -102,17 +107,28 @@ class AccountController extends Controller
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
 
+        $member = $account->user()->withTrashed()->first();
+
         abort_unless(
             $branch
             && ! $account->is_branch_acount
-            && $account->user
-            && (string) $account->user->branch_id === (string) $branch->id,
+            && $member
+            && (string) $member->branch_id === (string) $branch->id,
             404
         );
+
+        if ($member->trashed()) {
+            $this->memberService->restore($member);
+
+            return redirect()
+                ->route('accounts.inactive')
+                ->with('status', "{$member->name} and the accounts archived with this member have been restored.");
+        }
 
         $account->update([
             'status' => 1,
             'disabled_at' => null,
+            'archived_with_member_at' => null,
             'updated_user_id' => $request->user()?->id,
         ]);
 

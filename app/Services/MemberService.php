@@ -142,14 +142,45 @@ class MemberService
         });
     }
 
-    public function delete(User $member): void
+    public function archive(User $member): void
     {
         DB::transaction(function () use ($member): void {
+            $archivedAt = now();
+
+            $member->savingsAccounts()
+                ->where('is_branch_acount', false)
+                ->where('status', 1)
+                ->update([
+                    'status' => 0,
+                    'disabled_at' => $archivedAt,
+                    'archived_with_member_at' => $archivedAt,
+                    'updated_at' => $archivedAt,
+                ]);
+
             $member->update([
                 'status' => 0,
             ]);
 
             $member->delete();
+        });
+    }
+
+    public function restore(User $member): void
+    {
+        DB::transaction(function () use ($member): void {
+            abort_unless($member->trashed(), 422, 'This member is already active.');
+
+            $member->restore();
+            $member->update(['status' => 1]);
+
+            $member->savingsAccounts()
+                ->whereNotNull('archived_with_member_at')
+                ->update([
+                    'status' => 1,
+                    'disabled_at' => null,
+                    'archived_with_member_at' => null,
+                    'updated_at' => now(),
+                ]);
         });
     }
 

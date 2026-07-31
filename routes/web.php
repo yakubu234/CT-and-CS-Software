@@ -142,6 +142,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/members', [MemberController::class, 'index'])->name('members.index');
     Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
+    Route::get('/members/archived', [MemberController::class, 'archived'])->name('members.archived');
+    Route::get('/members/archived/{memberId}', [MemberController::class, 'archivedShow'])->name('members.archived.show');
+    Route::patch('/members/archived/{memberId}/restore', [MemberController::class, 'restore'])->name('members.restore');
     Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
     Route::get('/members/{member}/id-card', [MemberIdCardController::class, 'admin'])
         ->middleware('module:members')
@@ -151,7 +154,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/members/{member}/password', [MemberController::class, 'updatePassword'])->name('members.password.update');
     Route::post('/members/{member}/documents', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::get('/members/{member}/documents/{memberDocument}', [MemberController::class, 'viewDocument'])->name('members.documents.view');
-    Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
+    Route::patch('/members/{member}/archive', [MemberController::class, 'archive'])->name('members.archive');
 
     Route::get('/support-requests', [CustomerSupportRequestController::class, 'index'])->name('support-requests.index');
     Route::get('/support-requests/{supportRequest}', [CustomerSupportRequestController::class, 'show'])->name('support-requests.show');

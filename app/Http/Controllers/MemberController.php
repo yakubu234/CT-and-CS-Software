@@ -76,6 +76,40 @@ class MemberController extends Controller
         ]);
     }
 
+    public function archived(Request $request): View|RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')
+                ->withErrors(['branch' => 'Please select an active branch before viewing archived members.']);
+        }
+
+        $members = TableListing::paginate(
+            TableListing::applySearch(
+                User::onlyTrashed()
+                    ->with(['detail'])
+                    ->withCount('savingsAccounts')
+                    ->where('branch_account', false)
+                    ->where('user_type', 'customer')
+                    ->where('branch_id', (string) $branch->id)
+                    ->latest('deleted_at'),
+                $request->string('search')->toString(),
+                ['name', 'last_name', 'email', 'member_no', 'designation']
+            ),
+            $request
+        );
+
+        return view('members.archived', compact('branch', 'members'));
+    }
+
+    public function archivedShow(Request $request, int $memberId): View|RedirectResponse
+    {
+        $member = User::onlyTrashed()->findOrFail($memberId);
+
+        return $this->showMember($request, $member, true);
+    }
+
     public function store(StoreMemberRequest $request): RedirectResponse
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
@@ -90,6 +124,11 @@ class MemberController extends Controller
     }
 
     public function show(Request $request, User $member): View|RedirectResponse
+    {
+        return $this->showMember($request, $member, false);
+    }
+
+    protected function showMember(Request $request, User $member, bool $archived): View|RedirectResponse
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
 
@@ -117,6 +156,7 @@ class MemberController extends Controller
 
         return view('members.show', [
             'member' => $member,
+            'archived' => $archived,
         ]);
     }
 
@@ -195,7 +235,7 @@ class MemberController extends Controller
             ->with('status', "{$member->name}'s password has been updated successfully.");
     }
 
-    public function destroy(Request $request, User $member): RedirectResponse
+    public function archive(Request $request, User $member): RedirectResponse
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
 
@@ -208,11 +248,32 @@ class MemberController extends Controller
         );
 
         $memberName = $member->name;
-        $this->memberService->delete($member);
+        $this->memberService->archive($member);
 
         return redirect()
             ->route('members.index')
             ->with('status', "{$memberName} has been archived successfully.");
+    }
+
+    public function restore(Request $request, int $memberId): RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        $member = User::onlyTrashed()->findOrFail($memberId);
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id,
+            404
+        );
+
+        $memberName = $member->name;
+        $this->memberService->restore($member);
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('status', "{$memberName} has been restored successfully.");
     }
 
     public function storeDocument(StoreMemberDocumentRequest $request, User $member): RedirectResponse
