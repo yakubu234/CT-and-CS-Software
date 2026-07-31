@@ -76,6 +76,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/documents/{memberDocument}', [CustomerPortalController::class, 'document'])->name('documents.view');
         Route::get('/support', [CustomerPortalController::class, 'support'])->name('support');
         Route::post('/support', [CustomerPortalController::class, 'storeSupport'])->name('support.store');
+        Route::get('/support/{supportRequest}', [CustomerPortalController::class, 'showSupport'])->name('support.show');
+        Route::post('/support/{supportRequest}/reply', [CustomerPortalController::class, 'replySupport'])->name('support.reply');
     });
 
     Route::middleware('admin')->group(function () {
@@ -157,8 +159,11 @@ Route::middleware('auth')->group(function () {
     Route::patch('/members/{member}/archive', [MemberController::class, 'archive'])->name('members.archive');
 
     Route::get('/support-requests', [CustomerSupportRequestController::class, 'index'])->name('support-requests.index');
+    Route::get('/support-requests/create', [CustomerSupportRequestController::class, 'create'])->name('support-requests.create');
+    Route::post('/support-requests', [CustomerSupportRequestController::class, 'store'])->name('support-requests.store');
     Route::get('/support-requests/{supportRequest}', [CustomerSupportRequestController::class, 'show'])->name('support-requests.show');
     Route::put('/support-requests/{supportRequest}', [CustomerSupportRequestController::class, 'update'])->name('support-requests.update');
+    Route::post('/support-requests/{supportRequest}/reply', [CustomerSupportRequestController::class, 'reply'])->name('support-requests.reply');
 
     Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
     Route::get('/blog/create', [BlogController::class, 'create'])->name('blog.create');

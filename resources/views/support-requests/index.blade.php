@@ -52,9 +52,11 @@
 
     <div class="card card-outline card-primary">
         <div class="card-header">
-            <h3 class="card-title">Member Support Requests</h3>
+            <h3 class="card-title">Complaint Conversations</h3>
             <div class="card-tools">
-                <span class="text-muted small">Branch: {{ $branch->name }}</span>
+                <a href="{{ route('support-requests.create') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus mr-1"></i> New Staff Complaint
+                </a>
             </div>
         </div>
         <div class="card-body table-responsive p-0">
@@ -63,6 +65,7 @@
                 <tr>
                     <th>Submitted</th>
                     <th>Member</th>
+                    <th>Type / Participants</th>
                     <th>Subject</th>
                     <th>Category</th>
                     <th>Status</th>
@@ -73,13 +76,22 @@
                 @forelse ($requests as $supportRequest)
                     <tr>
                         <td>{{ optional($supportRequest->created_at)->format('d M Y h:i A') }}</td>
+                        <td>{{ $supportRequest->conversation_type === 'customer_admin' ? ($supportRequest->user?->name ?: 'N/A') : 'Staff conversation' }}</td>
                         <td>
-                            <div class="font-weight-bold">{{ $supportRequest->user?->name ?: 'N/A' }}</div>
-                            <div class="text-muted small">{{ $supportRequest->user?->display_member_no ?: 'N/A' }}</div>
+                            @if ($supportRequest->conversation_type === 'admin_admin')
+                                <span class="badge badge-info">Admin to Admin</span>
+                                <div class="small mt-1">{{ $supportRequest->creator?->name }} → {{ $supportRequest->recipient?->name }}</div>
+                            @else
+                                <span class="badge badge-primary">Customer to Admin</span>
+                                <div class="small mt-1">{{ $supportRequest->user?->display_member_no ?: 'N/A' }}</div>
+                            @endif
                         </td>
                         <td>
                             <div class="font-weight-bold">{{ $supportRequest->subject }}</div>
                             <div class="text-muted small">{{ \Illuminate\Support\Str::limit($supportRequest->message, 90) }}</div>
+                            @if ($supportRequest->unread_messages_count)
+                                <span class="badge badge-danger mt-1">{{ $supportRequest->unread_messages_count }} unread</span>
+                            @endif
                         </td>
                         <td>{{ ucfirst($supportRequest->category) }}</td>
                         <td>
@@ -93,13 +105,13 @@
                         </td>
                         <td>
                             <a href="{{ route('support-requests.show', $supportRequest) }}" class="btn btn-sm btn-outline-primary">
-                                View
+                                Open Chat
                             </a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No support requests match the selected filters.</td>
+                            <td colspan="7" class="text-center text-muted py-4">No complaint conversations match the selected filters.</td>
                     </tr>
                 @endforelse
                 </tbody>

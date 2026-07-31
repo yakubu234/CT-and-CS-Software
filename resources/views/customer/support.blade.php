@@ -59,6 +59,7 @@
                             <th>Subject</th>
                             <th>Category</th>
                             <th>Status</th>
+                            <th>Action</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -71,6 +72,9 @@
                                     @if ($supportRequest->admin_response)
                                         <div class="small mt-2"><strong>Response:</strong> {{ $supportRequest->admin_response }}</div>
                                     @endif
+                                    @if ($supportRequest->unread_messages_count)
+                                        <span class="badge badge-danger mt-1">{{ $supportRequest->unread_messages_count }} unread</span>
+                                    @endif
                                 </td>
                                 <td>{{ ucfirst($supportRequest->category) }}</td>
                                 <td>
@@ -79,10 +83,11 @@
                                         <div class="small text-muted mt-1">{{ $supportRequest->resolved_at->format('d M Y') }}</div>
                                     @endif
                                 </td>
+                                <td><a href="{{ route('customer.support.show', $supportRequest) }}" class="btn btn-sm btn-outline-primary">Open Chat</a></td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No support requests submitted yet.</td>
+                                <td colspan="5" class="text-center text-muted py-4">No support requests submitted yet.</td>
                             </tr>
                         @endforelse
                         </tbody>

@@ -1,105 +1,84 @@
 @extends('layouts.admin')
 
-@section('title', 'Support Request')
-@section('page_title', 'Support Request')
+@section('title', 'Complaint Conversation')
+@section('page_title', 'Complaint Conversation')
 
 @section('content')
+    @php
+        $isStaffConversation = $supportRequest->conversation_type === 'admin_admin';
+        $statusClass = in_array($supportRequest->status, ['resolved', 'closed'], true) ? 'success' : ($supportRequest->status === 'in_progress' ? 'info' : 'warning');
+    @endphp
     <div class="row">
-        <div class="col-lg-5 mb-3">
-            <div class="card card-outline card-primary h-100">
+        <div class="col-lg-4 mb-3">
+            <div class="card card-outline card-primary">
                 <div class="card-header">
-                    <h3 class="card-title">Request Details</h3>
-                    <div class="card-tools">
-                        <x-browser-back-button :fallback="route('support-requests.index')" />
-                    </div>
+                    <h3 class="card-title">Complaint Details</h3>
+                    <div class="card-tools"><x-browser-back-button :fallback="route('support-requests.index')" /></div>
                 </div>
                 <div class="card-body">
+                    <h5>{{ $supportRequest->subject }}</h5>
                     <dl class="row mb-0">
-                        <dt class="col-sm-4">Member</dt>
-                        <dd class="col-sm-8">
-                            <div class="font-weight-bold">{{ $supportRequest->user?->name ?: 'N/A' }}</div>
-                            <div class="text-muted small">{{ $supportRequest->user?->display_member_no ?: 'N/A' }}</div>
-                            @if ($supportRequest->user)
-                                <a href="{{ route('members.show', $supportRequest->user) }}" class="btn btn-sm btn-outline-primary mt-2">
-                                    View Member
-                                </a>
-                            @endif
-                        </dd>
-
-                        <dt class="col-sm-4">Branch</dt>
-                        <dd class="col-sm-8">{{ $supportRequest->branch?->name ?: 'N/A' }}</dd>
-
-                        <dt class="col-sm-4">Category</dt>
-                        <dd class="col-sm-8">{{ ucfirst($supportRequest->category) }}</dd>
-
-                        <dt class="col-sm-4">Submitted</dt>
-                        <dd class="col-sm-8">{{ optional($supportRequest->created_at)->format('d M Y h:i A') }}</dd>
-
-                        <dt class="col-sm-4">Status</dt>
-                        <dd class="col-sm-8">
-                            <span class="badge badge-{{
-                                $supportRequest->status === 'resolved' || $supportRequest->status === 'closed'
-                                    ? 'success'
-                                    : ($supportRequest->status === 'in_progress' ? 'info' : 'warning')
-                            }}">
-                                {{ str_replace('_', ' ', ucfirst($supportRequest->status)) }}
-                            </span>
-                        </dd>
-
-                        @if ($supportRequest->resolved_at)
-                            <dt class="col-sm-4">Resolved</dt>
-                            <dd class="col-sm-8">{{ $supportRequest->resolved_at->format('d M Y h:i A') }}</dd>
-                        @endif
+                        <dt class="col-sm-5">Type</dt>
+                        <dd class="col-sm-7">{{ $isStaffConversation ? 'Admin to Admin' : 'Customer to Admin' }}</dd>
+                        <dt class="col-sm-5">From</dt>
+                        <dd class="col-sm-7">{{ $supportRequest->creator?->name ?: $supportRequest->user?->name ?: 'N/A' }}</dd>
+                        <dt class="col-sm-5">To</dt>
+                        <dd class="col-sm-7">{{ $isStaffConversation ? ($supportRequest->recipient?->name ?: 'N/A') : 'Branch Administrators' }}</dd>
+                        <dt class="col-sm-5">Branch</dt>
+                        <dd class="col-sm-7">{{ $supportRequest->branch?->name ?: 'N/A' }}</dd>
+                        <dt class="col-sm-5">Category</dt>
+                        <dd class="col-sm-7">{{ ucfirst($supportRequest->category) }}</dd>
+                        <dt class="col-sm-5">Priority</dt>
+                        <dd class="col-sm-7"><span class="badge badge-{{ $supportRequest->priority === 'urgent' ? 'danger' : ($supportRequest->priority === 'high' ? 'warning' : 'secondary') }}">{{ ucfirst($supportRequest->priority) }}</span></dd>
+                        <dt class="col-sm-5">Status</dt>
+                        <dd class="col-sm-7"><span class="badge badge-{{ $statusClass }}">{{ str_replace('_', ' ', ucfirst($supportRequest->status)) }}</span></dd>
                     </dl>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-lg-7 mb-3">
-            <div class="card card-outline card-primary h-100">
-                <div class="card-header">
-                    <h3 class="card-title">{{ $supportRequest->subject }}</h3>
-                </div>
-                <div class="card-body">
-                    <div class="mb-4">
-                        <div class="text-muted small mb-1">Member Message</div>
-                        <div class="border rounded p-3 bg-light">{{ $supportRequest->message }}</div>
-                    </div>
-
+                <div class="card-footer">
                     <form method="POST" action="{{ route('support-requests.update', $supportRequest) }}">
                         @csrf
                         @method('PUT')
-
                         <div class="form-group">
-                            <label for="status">Status</label>
-                            <select name="status" id="status" class="form-control @error('status') is-invalid @enderror" required>
+                            <label for="status">Update Status</label>
+                            <select name="status" id="status" class="form-control" required>
                                 @foreach ($statusOptions as $value => $label)
                                     <option value="{{ $value }}" @selected(old('status', $supportRequest->status) === $value)>{{ $label }}</option>
                                 @endforeach
                             </select>
-                            @error('status')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
                         </div>
+                        <button class="btn btn-primary btn-block" type="submit">Save Status</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
+        <div class="col-lg-8 mb-3">
+            <div class="card card-outline card-primary">
+                <div class="card-header"><h3 class="card-title">Conversation</h3></div>
+                <div class="card-body" style="max-height: 560px; overflow-y: auto;">
+                    @forelse ($supportRequest->messages as $message)
+                        @php($mine = (int) $message->sender_id === (int) auth()->id())
+                        <div class="d-flex mb-3 {{ $mine ? 'justify-content-end' : 'justify-content-start' }}">
+                            <div class="rounded p-3 {{ $mine ? 'bg-primary text-white' : 'bg-light border' }}" style="max-width: 82%;">
+                                <div class="small font-weight-bold mb-1">{{ $message->sender?->name ?: 'Cooperative Support' }}</div>
+                                <div style="white-space: pre-wrap;">{{ $message->message }}</div>
+                                <div class="small mt-2 {{ $mine ? 'text-white-50' : 'text-muted' }}">{{ optional($message->created_at)->format('d M Y, h:i A') }}</div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-muted text-center">No messages in this conversation.</p>
+                    @endforelse
+                </div>
+                <div class="card-footer">
+                    <form method="POST" action="{{ route('support-requests.reply', $supportRequest) }}">
+                        @csrf
                         <div class="form-group">
-                            <label for="admin_response">Response To Member</label>
-                            <textarea
-                                name="admin_response"
-                                id="admin_response"
-                                rows="6"
-                                class="form-control @error('admin_response') is-invalid @enderror"
-                                placeholder="Write the response the member will see in their portal."
-                            >{{ old('admin_response', $supportRequest->admin_response) }}</textarea>
-                            @error('admin_response')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label for="message">Reply</label>
+                            <textarea name="message" id="message" rows="4" class="form-control @error('message') is-invalid @enderror" required>{{ old('message') }}</textarea>
+                            @error('message')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-
-                        <button type="submit" class="btn btn-primary">
-                            Save Response
-                        </button>
-                        <a href="{{ route('support-requests.index') }}" class="btn btn-outline-secondary">Back to Requests</a>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane mr-1"></i> Send Reply</button>
+                        <a href="{{ route('support-requests.index') }}" class="btn btn-outline-secondary">Back</a>
                     </form>
                 </div>
             </div>

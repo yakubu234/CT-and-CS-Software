@@ -445,7 +445,7 @@ return [
                     'permissions' => ['members.view', 'members.manage'],
                 ],
                 [
-                    'text' => 'Support requests',
+                    'text' => 'Complaints & Chat',
                     'url' => 'support-requests',
                     'icon' => 'far fa-circle',
                     'active' => ['support-requests', 'support-requests/*'],

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -273,10 +274,19 @@ class CustomerPortalController extends Controller
         return view('customer.support', [
             'customer' => $customer,
             'requests' => $this->applyDateRange(
-                CustomerSupportRequest::query()->where('user_id', $customer->id),
+                CustomerSupportRequest::query()
+                    ->withCount(['messages as unread_messages_count' => function (Builder $query) use ($customer): void {
+                        $query->whereNull('read_at')
+                            ->where(function (Builder $messageQuery) use ($customer): void {
+                                $messageQuery->whereNull('sender_id')->orWhere('sender_id', '!=', $customer->id);
+                            });
+                    }])
+                    ->where('conversation_type', 'customer_admin')
+                    ->where('user_id', $customer->id),
                 $request,
                 'created_at'
             )
+                    ->latest('last_message_at')
                     ->latest('id')
                     ->paginate(10)
                     ->withQueryString(),
@@ -294,16 +304,76 @@ class CustomerPortalController extends Controller
             'message' => ['required', 'string', 'max:5000'],
         ]);
 
-        CustomerSupportRequest::create([
-            ...$validated,
-            'user_id' => $customer->id,
-            'branch_id' => $customer->branch_id,
-            'status' => 'open',
-        ]);
+        DB::transaction(function () use ($validated, $customer): void {
+            $supportRequest = CustomerSupportRequest::create([
+                ...$validated,
+                'user_id' => $customer->id,
+                'branch_id' => $customer->branch_id,
+                'created_by' => $customer->id,
+                'conversation_type' => 'customer_admin',
+                'priority' => 'normal',
+                'status' => 'open',
+                'last_message_at' => now(),
+            ]);
+
+            $supportRequest->messages()->create([
+                'sender_id' => $customer->id,
+                'message' => $validated['message'],
+            ]);
+        });
 
         return redirect()
             ->route('customer.support')
             ->with('status', 'Your support request has been submitted.');
+    }
+
+    public function showSupport(Request $request, CustomerSupportRequest $supportRequest): View
+    {
+        $customer = $this->customer($request);
+        abort_unless(
+            $supportRequest->conversation_type === 'customer_admin'
+            && (int) $supportRequest->user_id === (int) $customer->id,
+            404
+        );
+
+        $supportRequest->load(['messages.sender']);
+        $supportRequest->messages()
+            ->whereNull('read_at')
+            ->where(function (Builder $query) use ($customer): void {
+                $query->whereNull('sender_id')->orWhere('sender_id', '!=', $customer->id);
+            })
+            ->update(['read_at' => now()]);
+
+        return view('customer.support-show', compact('customer', 'supportRequest'));
+    }
+
+    public function replySupport(Request $request, CustomerSupportRequest $supportRequest): RedirectResponse
+    {
+        $customer = $this->customer($request);
+        abort_unless(
+            $supportRequest->conversation_type === 'customer_admin'
+            && (int) $supportRequest->user_id === (int) $customer->id,
+            404
+        );
+
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        DB::transaction(function () use ($supportRequest, $customer, $validated): void {
+            $supportRequest->messages()->create([
+                'sender_id' => $customer->id,
+                'message' => $validated['message'],
+            ]);
+            $supportRequest->update([
+                'status' => 'open',
+                'resolved_at' => null,
+                'last_message_at' => now(),
+            ]);
+        });
+
+        return redirect()->route('customer.support.show', $supportRequest)
+            ->with('status', 'Your reply has been sent.');
     }
 
     protected function customer(Request $request): User

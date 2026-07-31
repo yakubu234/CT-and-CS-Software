@@ -44,7 +44,7 @@ return [
         ],
         'content_support' => [
             'label' => 'Blog & Customer Support',
-            'tables' => ['blog_posts', 'customer_support_requests'],
+            'tables' => ['blog_posts', 'customer_support_requests', 'support_request_messages'],
         ],
         'administration' => [
             'label' => 'Roles & Application Settings',
