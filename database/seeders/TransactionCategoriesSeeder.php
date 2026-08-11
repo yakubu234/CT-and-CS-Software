@@ -32,6 +32,7 @@ class TransactionCategoriesSeeder extends Seeder
             ['name' => 'Building Fund', 'related_to' => 'cr', 'status' => 1, 'note' => null, 'created_at' => '2025-01-21 18:01:21', 'updated_at' => '2025-01-21 18:01:21', 'type_to_transaction' => 'expenses'],
             ['name' => 'sales of Stationary', 'related_to' => 'cr', 'status' => 1, 'note' => null, 'created_at' => '2025-01-21 18:02:02', 'updated_at' => '2025-01-21 18:02:02', 'type_to_transaction' => 'expenses'],
             ['name' => 'Administrative Charges', 'related_to' => 'cr', 'status' => 1, 'note' => null, 'created_at' => '2025-01-21 18:02:30', 'updated_at' => '2025-01-21 18:02:30', 'type_to_transaction' => 'expenses'],
+            ['name' => 'Historical Loan Interest', 'related_to' => 'cr', 'status' => 1, 'note' => 'Historical loan interest received before detailed repayment records were captured.', 'created_at' => now(), 'updated_at' => now(), 'type_to_transaction' => 'expenses'],
         ];
 
         foreach ($data as $category) {

@@ -107,7 +107,7 @@
                     <strong>{{ \Carbon\Carbon::parse($filters['end_date'])->format('d M Y') }}</strong>
                 </div>
                 <div class="interest-report-meta">
-                    This report focuses on interest already collected plus any carried-forward interest still outstanding per member.
+                    This report includes interest collected through member loan repayments and branch-level Historical Loan Interest entries.
                 </div>
                 <div class="interest-report-note">
                     <i class="fas fa-file-excel"></i>
@@ -133,6 +133,21 @@
                     <div class="interest-report-summary-value text-primary">
                         &#8358;{{ number_format((float) $summary['interest_brought_forward'], 2) }}
                     </div>
+                </div>
+            </div>
+            <div class="interest-report-summary-card">
+                <div class="card-body">
+                    <div class="interest-report-summary-title">
+                        <i class="fas fa-landmark"></i>
+                        <span>Historical Loan Interest</span>
+                    </div>
+                    <div class="interest-report-summary-value text-warning">
+                        &#8358;{{ number_format((float) $summary['historical_interest_total'], 2) }}
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        B/F: &#8358;{{ number_format((float) $summary['historical_interest_brought_forward'], 2) }}
+                        &middot; Current: &#8358;{{ number_format((float) $summary['historical_interest_current'], 2) }}
+                    </small>
                 </div>
             </div>
             <div class="interest-report-summary-card">

@@ -16,6 +16,8 @@ use stdClass;
 
 class InterestReportService
 {
+    private const HISTORICAL_INTEREST_TYPE = 'Historical Loan Interest';
+
     public function build(Branch $branch, Request $request): array
     {
         [$startDate, $endDate] = $this->resolveDateRange($request);
@@ -25,18 +27,15 @@ class InterestReportService
             ->orderBy('member_no')
             ->orderBy('users.id');
 
-        $summary = $this->aggregateSummary((clone $membersQuery)->reorder());
+        $summary = $this->formatSummary(
+            $this->aggregateSummary((clone $membersQuery)->reorder()),
+            $this->historicalInterestTotals($branch, $startDate, $endDate)
+        );
         $members = TableListing::paginate($membersQuery, $request);
 
         return [
             'members' => $members,
-            'summary' => [
-                'interest_brought_forward' => round((float) ($summary->interest_brought_forward ?? 0), 2),
-                'interest_current' => round((float) ($summary->interest_current ?? 0), 2),
-                'interest_total' => round((float) ($summary->interest_total ?? 0), 2),
-                'outstanding_interest' => round((float) ($summary->outstanding_interest ?? 0), 2),
-                'member_count' => (int) ($summary->member_count ?? 0),
-            ],
+            'summary' => $summary,
             'filters' => [
                 'start_date' => $startDate?->toDateString(),
                 'end_date' => $endDate->toDateString(),
@@ -56,18 +55,15 @@ class InterestReportService
             ->orderBy('member_no')
             ->orderBy('users.id');
 
-        $summary = $this->aggregateSummary((clone $membersQuery)->reorder());
+        $summary = $this->formatSummary(
+            $this->aggregateSummary((clone $membersQuery)->reorder()),
+            $this->historicalInterestTotals($branch, $startDate, $endDate)
+        );
         $members = $membersQuery->get()->map(fn ($member) => $this->formatMemberSummaryRow($member, $branch))->values();
 
         return [
             'branch' => $branch,
-            'summary' => [
-                'interest_brought_forward' => round((float) ($summary->interest_brought_forward ?? 0), 2),
-                'interest_current' => round((float) ($summary->interest_current ?? 0), 2),
-                'interest_total' => round((float) ($summary->interest_total ?? 0), 2),
-                'outstanding_interest' => round((float) ($summary->outstanding_interest ?? 0), 2),
-                'member_count' => (int) ($summary->member_count ?? 0),
-            ],
+            'summary' => $summary,
             'filters' => [
                 'start_date' => $startDate?->format('Y-m-d'),
                 'end_date' => $endDate->format('Y-m-d'),
@@ -284,6 +280,57 @@ class InterestReportService
                     ->whereDate('loan_details.release_date', '<=', $endDate->toDateString());
             })
             ->selectRaw('COUNT(*)');
+    }
+
+    protected function historicalInterestTotals(Branch $branch, ?Carbon $startDate, Carbon $endDate): array
+    {
+        $baseQuery = DB::table('transactions')
+            ->where('branch_id', $branch->id)
+            ->where('is_branch', true)
+            ->where('tracking_id', 'expenses')
+            ->where('type', self::HISTORICAL_INTEREST_TYPE)
+            ->whereRaw('LOWER(dr_cr) = ?', ['cr'])
+            ->whereNull('deleted_at')
+            ->whereDate('trans_date', '<=', $endDate->toDateString());
+
+        $broughtForward = 0.0;
+        if ($startDate) {
+            $broughtForward = (float) (clone $baseQuery)
+                ->whereDate('trans_date', '<', $startDate->toDateString())
+                ->sum('amount');
+        }
+
+        $currentQuery = clone $baseQuery;
+        if ($startDate) {
+            $currentQuery->whereDate('trans_date', '>=', $startDate->toDateString());
+        }
+
+        return [
+            'brought_forward' => round($broughtForward, 2),
+            'current' => round((float) $currentQuery->sum('amount'), 2),
+            'total' => round((float) $baseQuery->sum('amount'), 2),
+        ];
+    }
+
+    protected function formatSummary(stdClass $loanSummary, array $historical): array
+    {
+        $loanBroughtForward = round((float) ($loanSummary->interest_brought_forward ?? 0), 2);
+        $loanCurrent = round((float) ($loanSummary->interest_current ?? 0), 2);
+        $loanTotal = round((float) ($loanSummary->interest_total ?? 0), 2);
+
+        return [
+            'interest_brought_forward' => round($loanBroughtForward + $historical['brought_forward'], 2),
+            'interest_current' => round($loanCurrent + $historical['current'], 2),
+            'interest_total' => round($loanTotal + $historical['total'], 2),
+            'loan_interest_brought_forward' => $loanBroughtForward,
+            'loan_interest_current' => $loanCurrent,
+            'loan_interest_total' => $loanTotal,
+            'historical_interest_brought_forward' => $historical['brought_forward'],
+            'historical_interest_current' => $historical['current'],
+            'historical_interest_total' => $historical['total'],
+            'outstanding_interest' => round((float) ($loanSummary->outstanding_interest ?? 0), 2),
+            'member_count' => (int) ($loanSummary->member_count ?? 0),
+        ];
     }
 
     protected function aggregateSummary(Builder $query): stdClass

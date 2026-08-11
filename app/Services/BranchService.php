@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -94,9 +95,9 @@ class BranchService
         return $this->generateAccountNumber($product);
     }
 
-    public function create(array $data): Branch
+    public function create(array $data, ?User $creator = null): Branch
     {
-        return DB::transaction(function () use ($data): Branch {
+        return DB::transaction(function () use ($data, $creator): Branch {
             $branch = Branch::create([
                 'name' => $data['branch_name'],
                 'prefix' => $data['branch_prefix'],
@@ -146,6 +147,8 @@ class BranchService
 
             $this->syncBranchExcos($branch, $data['excos'] ?? []);
 
+            $this->grantCreatorBranchAccess($creator, $branch);
+
             return $branch->load(['branchUser', 'excos']);
         });
     }
@@ -180,14 +183,27 @@ class BranchService
         });
     }
 
-    public function delete(Branch $branch): void
+    public function archive(Branch $branch): void
     {
         DB::transaction(function () use ($branch): void {
             $branch->update([
                 'status' => 0,
             ]);
 
+            $branch->branchUser?->update(['status' => 0]);
+
             $branch->delete();
+        });
+    }
+
+    public function restore(Branch $branch): void
+    {
+        DB::transaction(function () use ($branch): void {
+            abort_unless($branch->trashed(), 422, 'This branch is already active.');
+
+            $branch->restore();
+            $branch->update(['status' => 1]);
+            $branch->branchUser?->update(['status' => 1]);
         });
     }
 
@@ -285,13 +301,52 @@ class BranchService
         return $email;
     }
 
+    protected function grantCreatorBranchAccess(?User $creator, Branch $branch): void
+    {
+        if (! $creator || $creator->user_type === 'customer' || $creator->branch_account) {
+            return;
+        }
+
+        $assignedBranches = $creator->assigned_branch;
+
+        // A null/blank assignment means unrestricted access, so no explicit list is needed.
+        if ($assignedBranches === null || $assignedBranches === '') {
+            return;
+        }
+
+        $decoded = json_decode($assignedBranches, true);
+        $values = json_last_error() === JSON_ERROR_NONE
+            ? (is_array($decoded) ? $decoded : [$decoded])
+            : (preg_split('/[\s,]+/', $assignedBranches, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+
+        $branchIds = collect($values)
+            ->push($creator->branch_id)
+            ->push($branch->id)
+            ->filter(static fn ($value): bool => is_numeric($value))
+            ->map(static fn ($value): int => (int) $value)
+            ->filter(static fn (int $value): bool => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $creator->forceFill([
+            'assigned_branch' => json_encode($branchIds),
+        ])->save();
+    }
+
     protected function storeOptionalFile(?UploadedFile $file, string $path, ?string $existingPath = null): ?string
     {
         if (! $file) {
             return $existingPath;
         }
 
-        return $file->store($path, 'public');
+        $storedPath = $file->store($path, 'public');
+
+        if ($existingPath && $existingPath !== $storedPath) {
+            Storage::disk('public')->delete($existingPath);
+        }
+
+        return $storedPath;
     }
 
     protected function syncBranchExcos(Branch $branch, array $excos): void

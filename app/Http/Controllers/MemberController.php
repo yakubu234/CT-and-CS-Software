@@ -205,6 +205,64 @@ class MemberController extends Controller
             ->with('status', "{$member->name} has been updated successfully.");
     }
 
+    public function updatePhoto(Request $request, User $member): RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id,
+            404
+        );
+
+        $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+        ], [
+            'photo.required' => 'Please take a photo or choose one from your device.',
+            'photo.image' => 'The selected file must be a valid image.',
+            'photo.max' => 'The member photo must not be larger than 5 MB.',
+        ]);
+
+        $oldPhoto = $member->profile_picture;
+        $newPhoto = $request->file('photo')->store('members/pictures', 'public');
+
+        $member->forceFill(['profile_picture' => $newPhoto])->save();
+
+        if ($oldPhoto && $oldPhoto !== $newPhoto) {
+            Storage::disk('public')->delete($oldPhoto);
+        }
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('status', "{$member->name}'s photo has been updated successfully.");
+    }
+
+    public function destroyPhoto(Request $request, User $member): RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id,
+            404
+        );
+
+        $oldPhoto = $member->profile_picture;
+        $member->forceFill(['profile_picture' => null])->save();
+
+        if ($oldPhoto) {
+            Storage::disk('public')->delete($oldPhoto);
+        }
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('status', "{$member->name}'s photo has been removed.");
+    }
+
     public function updatePassword(Request $request, User $member): RedirectResponse
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
@@ -288,15 +346,80 @@ class MemberController extends Controller
             404
         );
 
-        MemberDocument::create([
-            'user_id' => $member->id,
-            'name' => $request->validated('name'),
-            'document' => $request->file('document')->store('members/documents', 'public'),
-        ]);
+        foreach ($request->validated('documents') as $index => $documentData) {
+            MemberDocument::create([
+                'user_id' => $member->id,
+                'name' => $documentData['name'],
+                'document_type' => $documentData['document_type'],
+                'document' => $request->file("documents.{$index}.file")->store('members/documents', 'public'),
+            ]);
+        }
 
         return redirect()
             ->route('members.show', $member)
-            ->with('status', 'Document added successfully.');
+            ->with('status', count($request->validated('documents')) . ' document(s) uploaded successfully.');
+    }
+
+    public function updateDocument(Request $request, User $member, MemberDocument $memberDocument): RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id
+            && (int) $memberDocument->user_id === (int) $member->id,
+            404
+        );
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:191'],
+            'document_type' => ['required', 'string', 'max:100'],
+            'document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx', 'max:10240'],
+        ]);
+
+        $oldPath = $memberDocument->document;
+        if ($request->hasFile('document')) {
+            $validated['document'] = $request->file('document')->store('members/documents', 'public');
+        } else {
+            unset($validated['document']);
+        }
+
+        $memberDocument->update($validated);
+
+        if ($request->hasFile('document') && $oldPath && $oldPath !== $memberDocument->document) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('status', 'Document updated successfully.');
+    }
+
+    public function destroyDocument(Request $request, User $member, MemberDocument $memberDocument): RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id
+            && (int) $memberDocument->user_id === (int) $member->id,
+            404
+        );
+
+        $path = $memberDocument->document;
+        $memberDocument->delete();
+
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+
+        return redirect()
+            ->route('members.show', $member)
+            ->with('status', 'Document deleted successfully.');
     }
 
     public function viewDocument(Request $request, User $member, MemberDocument $memberDocument): StreamedResponse

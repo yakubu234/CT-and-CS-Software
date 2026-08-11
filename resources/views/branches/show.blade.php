@@ -5,6 +5,8 @@
 
 @php
     $storageUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::url($path) : null;
+    $hasBranchLogo = $branch->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($branch->photo);
+    $hasBranchSignature = $branch->signature && \Illuminate\Support\Facades\Storage::disk('public')->exists($branch->signature);
     $branchAccount = $branch->branchUser?->savingsAccounts?->firstWhere('is_branch_acount', true);
 @endphp
 
@@ -209,11 +211,20 @@
             {{ session('status') }}
         </div>
     @endif
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0 pl-3">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <div class="row mb-3">
         <div class="col-md-8">
             <div class="d-flex align-items-center">
-                @if ($branch->photo)
+                @if ($hasBranchLogo)
                     <img src="{{ $storageUrl($branch->photo) }}" alt="{{ $branch->name }}" class="img-circle elevation-1 mr-3" style="width: 68px; height: 68px; object-fit: cover;">
                 @else
                     <div class="bg-light border rounded-circle d-inline-flex align-items-center justify-content-center mr-3" style="width: 68px; height: 68px;">
@@ -232,6 +243,60 @@
                 Edit branch
             </a>
             <x-browser-back-button :fallback="route('branches.index')" class="btn btn-light" />
+        </div>
+    </div>
+
+    <div class="card card-outline card-secondary mb-4">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-palette mr-1"></i> Branch Branding</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                @foreach ([
+                    'logo' => ['label' => 'Branch Logo', 'path' => $branch->photo, 'available' => $hasBranchLogo, 'fit' => 'contain'],
+                    'signature' => ['label' => 'Branch Signature', 'path' => $branch->signature, 'available' => $hasBranchSignature, 'fit' => 'contain'],
+                ] as $brandingType => $branding)
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="border rounded p-3 h-100">
+                            <h5>{{ $branding['label'] }}</h5>
+                            @if ($branding['available'])
+                                <a href="{{ $storageUrl($branding['path']) }}" target="_blank" rel="noopener" class="d-block text-center bg-light border rounded p-2 mb-3" title="View {{ strtolower($branding['label']) }}">
+                                    <img src="{{ $storageUrl($branding['path']) }}" alt="{{ $branch->name }} {{ strtolower($branding['label']) }}" style="width:100%;height:150px;object-fit:{{ $branding['fit'] }};">
+                                </a>
+                            @else
+                                <div class="d-flex align-items-center justify-content-center bg-light border rounded mb-3 text-muted" style="height:170px;">
+                                    <span><i class="fas fa-image mr-1"></i> No {{ strtolower($branding['label']) }} uploaded</span>
+                                </div>
+                            @endif
+
+                            <form action="{{ route('branches.branding.update', [$branch, $brandingType]) }}" method="POST" enctype="multipart/form-data">
+                                @csrf
+                                @method('PUT')
+                                <div class="custom-file mb-2">
+                                    <input type="file" name="branding_file" id="branch-{{ $brandingType }}-file" class="custom-file-input" accept="image/jpeg,image/png,image/webp" required data-branding-preview="branch-{{ $brandingType }}-preview">
+                                    <label class="custom-file-label" for="branch-{{ $brandingType }}-file">Choose image</label>
+                                </div>
+                                <img id="branch-{{ $brandingType }}-preview" alt="Selected {{ strtolower($branding['label']) }} preview" class="img-thumbnail d-none mb-2" style="max-height:140px;max-width:100%;">
+                                <div>
+                                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-upload mr-1"></i> {{ $branding['available'] ? 'Replace' : 'Upload' }}</button>
+                                    @if ($branding['available'])
+                                        <a href="{{ $storageUrl($branding['path']) }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="fas fa-eye mr-1"></i> View</a>
+                                    @endif
+                                </div>
+                                <small class="form-text text-muted">JPEG, PNG or WebP; maximum 5 MB.</small>
+                            </form>
+
+                            @if ($branding['available'])
+                                <form action="{{ route('branches.branding.destroy', [$branch, $brandingType]) }}" method="POST" class="mt-2" onsubmit="return confirm('Delete this {{ strtolower($branding['label']) }}?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-outline-danger btn-sm"><i class="fas fa-trash mr-1"></i> Delete</button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
 
@@ -515,3 +580,25 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.querySelectorAll('[data-branding-preview]').forEach(function (input) {
+            input.addEventListener('change', function () {
+                const file = this.files && this.files[0];
+                const preview = document.getElementById(this.dataset.brandingPreview);
+                const label = this.nextElementSibling;
+
+                if (label && file) label.textContent = file.name;
+                if (! file || ! preview) return;
+
+                const reader = new FileReader();
+                reader.addEventListener('load', function (event) {
+                    preview.src = event.target.result;
+                    preview.classList.remove('d-none');
+                });
+                reader.readAsDataURL(file);
+            });
+        });
+    </script>
+@endpush

@@ -74,26 +74,28 @@
             <div class="form-group col-md-6">
                 <label for="photo">Branch logo</label>
                 <div class="custom-file">
-                    <input type="file" id="photo" name="photo" class="custom-file-input @error('photo') is-invalid @enderror" accept="image/*" data-preview-target="photo-preview">
+                    <input type="file" id="photo" name="photo" class="custom-file-input @error('photo') is-invalid @enderror" accept="image/jpeg,image/png,image/webp" data-preview-target="photo-preview">
                     <label class="custom-file-label" for="photo">Choose branch logo</label>
                 </div>
                 <div class="mt-3 {{ !($branchFormData['photo_url'] ?? null) ? 'd-none' : '' }}" id="photo-preview-wrapper">
                     <div class="small text-muted mb-2">Selected branch logo preview</div>
                     <img id="photo-preview" src="{{ $branchFormData['photo_url'] ?? '' }}" alt="Branch logo preview" class="img-thumbnail" style="max-height: 180px; width: auto;">
                 </div>
-                <small class="form-text text-muted">Optional. You can upload this later.</small>
+                @error('photo')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                <small class="form-text text-muted">Optional. JPEG, PNG or WebP; maximum 5 MB.</small>
             </div>
             <div class="form-group col-md-6">
                 <label for="signature">Branch signature</label>
                 <div class="custom-file">
-                    <input type="file" id="signature" name="signature" class="custom-file-input @error('signature') is-invalid @enderror" accept="image/*" data-preview-target="signature-preview">
+                    <input type="file" id="signature" name="signature" class="custom-file-input @error('signature') is-invalid @enderror" accept="image/jpeg,image/png,image/webp" data-preview-target="signature-preview">
                     <label class="custom-file-label" for="signature">Choose branch signature</label>
                 </div>
                 <div class="mt-3 {{ !($branchFormData['signature_url'] ?? null) ? 'd-none' : '' }}" id="signature-preview-wrapper">
                     <div class="small text-muted mb-2">Selected branch signature preview</div>
                     <img id="signature-preview" src="{{ $branchFormData['signature_url'] ?? '' }}" alt="Branch signature preview" class="img-thumbnail" style="max-height: 180px; width: auto;">
                 </div>
-                <small class="form-text text-muted">Optional. You can upload this later.</small>
+                @error('signature')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                <small class="form-text text-muted">Optional. JPEG, PNG or WebP; maximum 5 MB.</small>
             </div>
         </div>
     </div>
@@ -167,6 +169,25 @@
 @push('scripts')
     <script>
         (function () {
+            document.querySelectorAll('[data-preview-target]').forEach(function (input) {
+                input.addEventListener('change', function () {
+                    const file = this.files && this.files[0];
+                    const preview = document.getElementById(this.dataset.previewTarget);
+                    const wrapper = preview ? document.getElementById(preview.id + '-wrapper') : null;
+                    const label = this.nextElementSibling;
+
+                    if (label && file) label.textContent = file.name;
+                    if (! file || ! preview || ! wrapper) return;
+
+                    const reader = new FileReader();
+                    reader.addEventListener('load', function (event) {
+                        preview.src = event.target.result;
+                        wrapper.classList.remove('d-none');
+                    });
+                    reader.readAsDataURL(file);
+                });
+            });
+
             const excoList = document.getElementById('exco-list');
             const addButton = document.getElementById('add-exco');
 

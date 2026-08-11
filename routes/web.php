@@ -93,11 +93,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/branches/switch', [BranchSwitchController::class, 'store'])->name('branches.switch.store');
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::get('/branches/create', [BranchController::class, 'create'])->name('branches.create');
+    Route::get('/branches/archived', [BranchController::class, 'archived'])->name('branches.archived');
+    Route::patch('/branches/archived/{branchId}/restore', [BranchController::class, 'restore'])->name('branches.restore');
     Route::get('/branches/{branch}', [BranchController::class, 'show'])->name('branches.show');
     Route::get('/branches/{branch}/edit', [BranchController::class, 'edit'])->name('branches.edit');
     Route::post('/branches', [BranchController::class, 'store'])->name('branches.store');
     Route::put('/branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
-    Route::delete('/branches/{branch}', [BranchController::class, 'destroy'])->name('branches.destroy');
+    Route::put('/branches/{branch}/branding/{type}', [BranchController::class, 'updateBranding'])
+        ->whereIn('type', ['logo', 'signature'])
+        ->name('branches.branding.update');
+    Route::delete('/branches/{branch}/branding/{type}', [BranchController::class, 'destroyBranding'])
+        ->whereIn('type', ['logo', 'signature'])
+        ->name('branches.branding.destroy');
+    Route::patch('/branches/{branch}/archive', [BranchController::class, 'archive'])->name('branches.archive');
 
     Route::get('/loans/custom-fields', [LoanCustomFieldController::class, 'index'])->name('loans.custom-fields.index');
     Route::get('/loans/custom-fields/create', [LoanCustomFieldController::class, 'create'])->name('loans.custom-fields.create');
@@ -153,9 +161,13 @@ Route::middleware('auth')->group(function () {
         ->name('members.id-card');
     Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->name('members.edit');
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
+    Route::put('/members/{member}/photo', [MemberController::class, 'updatePhoto'])->name('members.photo.update');
+    Route::delete('/members/{member}/photo', [MemberController::class, 'destroyPhoto'])->name('members.photo.destroy');
     Route::put('/members/{member}/password', [MemberController::class, 'updatePassword'])->name('members.password.update');
     Route::post('/members/{member}/documents', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::get('/members/{member}/documents/{memberDocument}', [MemberController::class, 'viewDocument'])->name('members.documents.view');
+    Route::put('/members/{member}/documents/{memberDocument}', [MemberController::class, 'updateDocument'])->name('members.documents.update');
+    Route::delete('/members/{member}/documents/{memberDocument}', [MemberController::class, 'destroyDocument'])->name('members.documents.destroy');
     Route::patch('/members/{member}/archive', [MemberController::class, 'archive'])->name('members.archive');
 
     Route::get('/support-requests', [CustomerSupportRequestController::class, 'index'])->name('support-requests.index');

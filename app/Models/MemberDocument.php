@@ -10,6 +10,7 @@ class MemberDocument extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'document_type',
         'document',
     ];
 

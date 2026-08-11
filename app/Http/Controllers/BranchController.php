@@ -13,6 +13,7 @@ use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BranchController extends Controller
 {
@@ -48,6 +49,23 @@ class BranchController extends Controller
         return view('branches.index', [
             'branches' => $branches,
         ]);
+    }
+
+    public function archived(Request $request): View
+    {
+        $branches = TableListing::paginate(
+            TableListing::applySearch(
+                Branch::onlyTrashed()
+                    ->with(['branchUser'])
+                    ->withCount('excos')
+                    ->latest('deleted_at'),
+                $request->string('search')->toString(),
+                ['name', 'prefix', 'id_prefix', 'contact_email', 'contact_phone', 'address', 'registration_number']
+            ),
+            $request
+        );
+
+        return view('branches.archived', compact('branches'));
     }
 
     public function create(): View
@@ -92,11 +110,11 @@ class BranchController extends Controller
 
     public function store(StoreBranchRequest $request): RedirectResponse
     {
-        $branch = $this->branchService->create($request->validated());
+        $branch = $this->branchService->create($request->validated(), $request->user());
 
         return redirect()
             ->route('branches.index')
-            ->with('status', "{$branch->name} has been created with its branch account and exco records.");
+            ->with('status', "{$branch->name} has been created and added to your accessible branches.");
     }
 
     public function update(UpdateBranchRequest $request, Branch $branch): RedirectResponse
@@ -108,13 +126,71 @@ class BranchController extends Controller
             ->with('status', "{$branch->name} has been updated successfully.");
     }
 
-    public function destroy(Branch $branch): RedirectResponse
+    public function updateBranding(Request $request, Branch $branch, string $type): RedirectResponse
+    {
+        abort_unless(in_array($type, ['logo', 'signature'], true), 404);
+
+        $request->validate([
+            'branding_file' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+        ], [
+            'branding_file.required' => 'Please select an image to upload.',
+            'branding_file.image' => 'The selected file must be a valid image.',
+            'branding_file.mimes' => 'Please upload a JPEG, PNG, or WebP image.',
+            'branding_file.max' => 'The image must not be larger than 5 MB.',
+        ]);
+
+        $column = $type === 'logo' ? 'photo' : 'signature';
+        $directory = $type === 'logo' ? 'branches/logos' : 'branches/signatures';
+        $oldPath = $branch->{$column};
+        $newPath = $request->file('branding_file')->store($directory, 'public');
+
+        $branch->update([$column => $newPath]);
+
+        if ($oldPath && $oldPath !== $newPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return redirect()
+            ->route('branches.show', $branch)
+            ->with('status', 'Branch ' . $type . ' uploaded successfully.');
+    }
+
+    public function destroyBranding(Branch $branch, string $type): RedirectResponse
+    {
+        abort_unless(in_array($type, ['logo', 'signature'], true), 404);
+
+        $column = $type === 'logo' ? 'photo' : 'signature';
+        $oldPath = $branch->{$column};
+
+        $branch->update([$column => null]);
+
+        if ($oldPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return redirect()
+            ->route('branches.show', $branch)
+            ->with('status', 'Branch ' . $type . ' deleted successfully.');
+    }
+
+    public function archive(Branch $branch): RedirectResponse
     {
         $branchName = $branch->name;
-        $this->branchService->delete($branch);
+        $this->branchService->archive($branch);
 
         return redirect()
             ->route('branches.index')
-            ->with('status', "{$branchName} has been moved out of the active branch list.");
+            ->with('status', "{$branchName} has been archived successfully.");
+    }
+
+    public function restore(int $branchId): RedirectResponse
+    {
+        $branch = Branch::onlyTrashed()->with('branchUser')->findOrFail($branchId);
+        $branchName = $branch->name;
+        $this->branchService->restore($branch);
+
+        return redirect()
+            ->route('branches.index')
+            ->with('status', "{$branchName} has been restored successfully.");
     }
 }

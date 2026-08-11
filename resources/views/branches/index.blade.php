@@ -30,6 +30,9 @@
                 <i class="fas fa-plus mr-1"></i>
                 Create branch
             </a>
+            <a href="{{ route('branches.archived') }}" class="btn btn-outline-secondary btn-block">
+                <i class="fas fa-archive mr-1"></i> Archived branches
+            </a>
         </div>
     </div>
 
@@ -107,12 +110,12 @@
                                     <i class="fas fa-edit mr-1"></i>
                                     Edit
                                 </a>
-                                <form action="{{ route('branches.destroy', $branch) }}" method="POST" class="d-inline" onsubmit="return confirm('Move this branch out of the active branch list?');">
+                                <form action="{{ route('branches.archive', $branch) }}" method="POST" class="d-inline" onsubmit="return confirm('Archive this branch? Its records will be preserved and it can be restored later.');">
                                     @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-trash mr-1"></i>
-                                        Delete
+                                    @method('PATCH')
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-archive mr-1"></i>
+                                        Archive
                                     </button>
                                 </form>
                             </td>
