@@ -408,14 +408,14 @@
                         <p>Mon - Sat: 9:00am - 06:00pm. Sunday CLOSED</p>
                         <ul class="oreo-contact-list">
                             <li><strong>Phone:</strong> +234 815 127 3635, +234 806 095 7070</li>
-                            <li><strong>Email:</strong> info@oreoluwapo.org.ng</li>
+                            <li><strong>Email:</strong> info@oreoluwapoilarocoop.com.ng</li>
                             <li><strong>Address:</strong> Udoji Road, along Odo-Aje Road, opposite Okobo Joint, Ilaro, Ogun State.</li>
                             <li><strong>RCN:</strong> 14043</li>
                         </ul>
                         <div class="slider_btn">
                             <div class="witr_btn_style">
                                 <div class="witr_btn_sinner">
-                                    <a class="witr_btn" href="mailto:info@oreoluwapo.org.ng">Send Email</a>
+                                    <a class="witr_btn" href="mailto:info@oreoluwapoilarocoop.com.ng">Send Email</a>
                                 </div>
                             </div>
                         </div>

@@ -20,7 +20,7 @@
                         <p>
                             <span><i class="fas fa-map-marker-alt"></i>Udoji Road, along Odo-Aje Road, opposite Okobo Joint, Ilaro, Ogun State.</span>
                             <a href="tel:+2348151273635"><i class="fas fa-phone-alt"></i>+234 815 127 3635</a>
-                            <a href="mailto:info@oreoluwapo.org.ng"><i class="fas fa-envelope"></i>info@oreoluwapo.org.ng</a>
+                            <a href="mailto:info@oreoluwapoilarocoop.com.ng"><i class="fas fa-envelope"></i>info@oreoluwapoilarocoop.com.ng</a>
                         </p>
                     </div>
                 </div>

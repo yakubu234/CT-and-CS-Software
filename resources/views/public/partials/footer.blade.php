@@ -55,7 +55,7 @@
                                             <i class="fa fa-envelope"></i>
                                         </div>
                                         <div class="footer-sociala-info">
-                                            <p>info@oreoluwapo.org.ng</p>
+                                            <p>info@oreoluwapoilarocoop.com.ng</p>
                                         </div>
                                     </div>
                                 </div>
