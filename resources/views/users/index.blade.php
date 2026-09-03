@@ -10,10 +10,16 @@
                 <h3 class="card-title mb-0">Admin Users</h3>
                 <small class="text-muted d-block mt-1">Manage administrator accounts and assign admin roles.</small>
             </div>
-            <a href="{{ route('users.create') }}" class="btn btn-primary mt-2 mt-md-0">
-                <i class="fas fa-user-plus mr-1"></i>
-                New User
-            </a>
+            <div class="mt-2 mt-md-0">
+                <a href="{{ route('users.archived') }}" class="btn btn-outline-secondary mr-1">
+                    <i class="fas fa-archive mr-1"></i>
+                    Archived Users
+                </a>
+                <a href="{{ route('users.create') }}" class="btn btn-primary">
+                    <i class="fas fa-user-plus mr-1"></i>
+                    New User
+                </a>
+            </div>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('users.index') }}" class="mb-3">

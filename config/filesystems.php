@@ -43,7 +43,10 @@ return [
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
-            'throw' => false,
+            // Never allow an upload to appear successful when the server
+            // could not write the file. Callers can then avoid persisting a
+            // database path that points to a missing file.
+            'throw' => true,
             'report' => false,
         ],
 

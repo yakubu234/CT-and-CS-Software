@@ -7,7 +7,7 @@
     @php
         $hasMemberPhoto = $member->profile_picture
             && \Illuminate\Support\Facades\Storage::disk('public')->exists($member->profile_picture);
-        $memberPhotoUrl = $hasMemberPhoto ? asset('storage/' . $member->profile_picture) : null;
+        $memberPhotoUrl = $hasMemberPhoto ? \App\Support\PublicImageUrl::for($member->profile_picture) : null;
     @endphp
     <div class="row">
         <div class="col-lg-4">
@@ -94,9 +94,9 @@
                         <hr>
                         <div>
                             <strong class="d-block mb-2">Signature Preview</strong>
-                            <a href="{{ asset('storage/' . $member->signature) }}" target="_blank" rel="noopener noreferrer">
+                            <a href="{{ \App\Support\PublicImageUrl::for($member->signature) }}" target="_blank" rel="noopener noreferrer">
                                 <img
-                                    src="{{ asset('storage/' . $member->signature) }}"
+                                    src="{{ \App\Support\PublicImageUrl::for($member->signature) }}"
                                     alt="{{ $member->name }} signature"
                                     class="img-thumbnail"
                                     style="max-width: 260px;"
@@ -314,12 +314,12 @@
                         <p class="text-muted mb-0">No custom field values saved for this member.</p>
                     @else
                         <div class="row">
-                            @foreach ($customFields as $field)
+                            @foreach ($customFields as $fieldId => $field)
                                 <div class="col-md-6 mb-3">
                                     <strong>{{ $field['label'] ?? 'Custom Field' }}</strong>
                                     <div class="mt-1">
                                         @if (($field['type'] ?? null) === 'file' && ! empty($field['value']))
-                                            <a href="{{ asset('storage/' . $field['value']) }}" target="_blank">View File</a>
+                                            <a href="{{ route('members.custom-fields.file', [$member->id, $fieldId]) }}" target="_blank">View File</a>
                                         @else
                                             {{ $field['value'] ?? 'N/A' }}
                                         @endif

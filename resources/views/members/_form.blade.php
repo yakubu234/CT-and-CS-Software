@@ -207,7 +207,7 @@
                 <div class="mt-2">
                     <img
                         id="signature-preview"
-                        src="{{ old('signature_preview', isset($member) && $member->signature ? asset('storage/' . $member->signature) : '') }}"
+                        src="{{ old('signature_preview', isset($member) && $member->signature ? \App\Support\PublicImageUrl::for($member->signature) : '') }}"
                         alt="Signature preview"
                         style="max-width: 220px; {{ isset($member) && $member->signature ? '' : 'display:none;' }}"
                         class="img-thumbnail"
@@ -229,7 +229,7 @@
                 <div class="mt-2">
                     <img
                         id="picture-preview"
-                        src="{{ old('picture_preview', isset($member) && $member->profile_picture ? asset('storage/' . $member->profile_picture) : '') }}"
+                        src="{{ old('picture_preview', isset($member) && $member->profile_picture ? \App\Support\PublicImageUrl::for($member->profile_picture) : '') }}"
                         alt="Picture preview"
                         style="max-width: 220px; {{ isset($member) && $member->profile_picture ? '' : 'display:none;' }}"
                         class="img-thumbnail"

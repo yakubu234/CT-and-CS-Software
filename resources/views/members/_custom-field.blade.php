@@ -41,7 +41,7 @@
             <input type="file" name="custom_fields[{{ $field->id }}]" id="custom_field_{{ $field->id }}" class="form-control-file">
             @if ($resolvedValue)
                 <div class="mt-2">
-                    <a href="{{ asset('storage/' . $resolvedValue) }}" target="_blank">View current file</a>
+                    <a href="{{ route('members.custom-fields.file', [$member->id, $field->id]) }}" target="_blank">View current file</a>
                 </div>
             @endif
         @else

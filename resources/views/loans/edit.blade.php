@@ -261,7 +261,7 @@
                                         @if ($existingValue)
                                             <small class="form-text text-muted">
                                                 Current file:
-                                                <a href="{{ asset('storage/' . $existingValue) }}" target="_blank">View file</a>
+                                                <a href="{{ route('loans.requests.custom-fields.file', [$loanDetail, $field->id]) }}" target="_blank">View file</a>
                                             </small>
                                         @endif
                                     @else

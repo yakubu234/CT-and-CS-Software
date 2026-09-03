@@ -33,6 +33,7 @@ use App\Http\Controllers\SmsMessageController;
 use App\Http\Controllers\SmsSettingsController;
 use App\Http\Controllers\SmsTemplateController;
 use App\Http\Controllers\PublicBlogController;
+use App\Http\Controllers\PublicImageController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\TransactionCategoryController;
 use App\Http\Controllers\TransactionController;
@@ -41,6 +42,9 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PublicSiteController::class, 'home'])->name('home');
+Route::get('/media/{path}', PublicImageController::class)
+    ->where('path', '.*')
+    ->name('media.image');
 Route::get('/about-us', [PublicSiteController::class, 'about'])->name('about');
 Route::get('/our-history', [PublicSiteController::class, 'history'])->name('history');
 Route::get('/blogs', [PublicBlogController::class, 'index'])->name('blogs.index');
@@ -166,6 +170,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/members/{member}/password', [MemberController::class, 'updatePassword'])->name('members.password.update');
     Route::post('/members/{member}/documents', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::get('/members/{member}/documents/{memberDocument}', [MemberController::class, 'viewDocument'])->name('members.documents.view');
+    Route::get('/members/{memberId}/custom-fields/{fieldId}/file', [MemberController::class, 'customFieldFile'])
+        ->whereNumber('memberId')
+        ->whereNumber('fieldId')
+        ->name('members.custom-fields.file');
     Route::put('/members/{member}/documents/{memberDocument}', [MemberController::class, 'updateDocument'])->name('members.documents.update');
     Route::delete('/members/{member}/documents/{memberDocument}', [MemberController::class, 'destroyDocument'])->name('members.documents.destroy');
     Route::patch('/members/{member}/archive', [MemberController::class, 'archive'])->name('members.archive');
@@ -277,6 +285,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::get('/users/archived', [UserController::class, 'archived'])->name('users.archived');
+    Route::patch('/users/archived/{userId}/restore', [UserController::class, 'restore'])->name('users.restore');
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');

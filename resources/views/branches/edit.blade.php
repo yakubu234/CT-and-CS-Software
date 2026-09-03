@@ -4,7 +4,7 @@
 @section('page_title', 'Edit Branch')
 
 @php
-    $storageUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::url($path) : null;
+    $storageUrl = fn (?string $path) => \App\Support\PublicImageUrl::for($path);
     $existingExcos = $branch->excos->map(function ($exco) use ($designations) {
         return [
             'member_id' => $exco->id,

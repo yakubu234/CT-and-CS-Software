@@ -67,7 +67,7 @@ class BlogPost extends Model
                 : asset($this->featured_image);
         }
 
-        return asset('storage/' . ltrim($this->featured_image, '/'));
+        return \App\Support\PublicImageUrl::for($this->featured_image);
     }
 
     public function getExcerptTextAttribute(): string

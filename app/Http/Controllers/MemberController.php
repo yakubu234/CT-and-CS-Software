@@ -445,4 +445,36 @@ class MemberController extends Controller
             $request->boolean('download') ? 'attachment' : 'inline'
         );
     }
+
+    public function customFieldFile(Request $request, int $memberId, int $fieldId): StreamedResponse
+    {
+        $member = User::withTrashed()->with('detail')->findOrFail($memberId);
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+
+        abort_unless(
+            $branch
+            && ! $member->branch_account
+            && $member->user_type === 'customer'
+            && (string) $member->branch_id === (string) $branch->id,
+            404
+        );
+
+        $field = ($member->detail?->custom_fields ?? [])[$fieldId] ?? null;
+        abort_unless(
+            is_array($field)
+            && ($field['type'] ?? null) === 'file'
+            && is_string($field['value'] ?? null),
+            404
+        );
+
+        $path = $field['value'];
+        abort_unless(Storage::disk('public')->exists($path), 404, 'The uploaded file could not be found.');
+
+        return Storage::disk('public')->response(
+            $path,
+            basename($path),
+            [],
+            $request->boolean('download') ? 'attachment' : 'inline'
+        );
+    }
 }

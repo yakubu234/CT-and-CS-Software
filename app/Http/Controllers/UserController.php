@@ -42,6 +42,28 @@ class UserController extends Controller
         ]);
     }
 
+    public function archived(Request $request): View
+    {
+        $users = TableListing::paginate(
+            TableListing::applySearch(
+                User::onlyTrashed()
+                    ->with(['role', 'branch'])
+                    ->where('user_type', '!=', 'customer')
+                    ->where('branch_account', false)
+                    ->where('society_exco', false)
+                    ->where('former_exco', false)
+                    ->latest('deleted_at'),
+                $request->string('search')->toString(),
+                ['name', 'last_name', 'email', 'member_no', 'designation']
+            ),
+            $request
+        );
+
+        return view('users.archived', [
+            'users' => $users,
+        ]);
+    }
+
     public function create(): View
     {
         return view('users.create', [
@@ -142,6 +164,21 @@ class UserController extends Controller
         return redirect()
             ->route('users.index')
             ->with('status', "{$name} has been archived successfully.");
+    }
+
+    public function restore(int $userId): RedirectResponse
+    {
+        $user = User::onlyTrashed()->findOrFail($userId);
+
+        abort_unless($user->user_type !== 'customer' && ! $user->branch_account && ! $user->society_exco && ! $user->former_exco, 404);
+
+        $name = $user->name;
+        $user->restore();
+        $user->update(['status' => 1]);
+
+        return redirect()
+            ->route('users.archived')
+            ->with('status', "{$name} has been restored and reactivated successfully.");
     }
 
     protected function normalizeAssignedBranches(int|string $primaryBranchId, array $assignedBranchIds): array

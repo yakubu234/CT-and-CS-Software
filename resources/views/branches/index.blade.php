@@ -4,7 +4,7 @@
 @section('page_title', 'Branches')
 
 @php
-    $storageUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::url($path) : null;
+    $storageUrl = fn (?string $path) => \App\Support\PublicImageUrl::for($path);
 @endphp
 
 @section('content')

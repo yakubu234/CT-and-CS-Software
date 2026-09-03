@@ -4,7 +4,7 @@
 @section('page_title', 'Branch Details')
 
 @php
-    $storageUrl = fn (?string $path) => $path ? \Illuminate\Support\Facades\Storage::url($path) : null;
+    $storageUrl = fn (?string $path) => \App\Support\PublicImageUrl::for($path);
     $hasBranchLogo = $branch->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($branch->photo);
     $hasBranchSignature = $branch->signature && \Illuminate\Support\Facades\Storage::disk('public')->exists($branch->signature);
     $branchAccount = $branch->branchUser?->savingsAccounts?->firstWhere('is_branch_acount', true);
