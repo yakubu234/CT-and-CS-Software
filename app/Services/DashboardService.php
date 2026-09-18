@@ -202,7 +202,7 @@ class DashboardService
 
     protected function branchLedgerBalance(Branch $branch): float
     {
-        return $this->balanceSyncService->branchLedgerBalance($branch);
+        return $this->balanceSyncService->branchLedgerBalanceAt($branch, now()->endOfDay());
     }
 
     protected function cashFlowChart(Branch $branch): array

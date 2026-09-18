@@ -633,6 +633,13 @@ return [
                     'active' => ['reports/society-report'],
                     'permissions' => ['reports.view', 'reports.manage'],
                 ],
+                [
+                    'text' => 'Inactive Members Financial',
+                    'url' => 'reports/inactive-members',
+                    'icon' => 'far fa-circle',
+                    'active' => ['reports/inactive-members'],
+                    'permissions' => ['reports.view', 'reports.manage'],
+                ],
             ],
         ],
         [

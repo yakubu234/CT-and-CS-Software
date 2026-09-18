@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Models\Branch;
 use App\Models\Transaction;
+use App\Services\BalanceSyncService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\DB;
 
 class SocietyReportService
 {
+    public function __construct(protected BalanceSyncService $balanceSyncService)
+    {
+    }
+
     public function build(Branch $branch, Request $request): array
     {
         [$startDate, $endDate] = $this->resolveDateRange($request);
@@ -30,7 +35,9 @@ class SocietyReportService
         $currentTotal = round($broughtForward + $productSubtotal, 2);
         $loanExpenseDebit = round($expenses['total_debit'] + $loans['total_debit'], 2);
         $loanExpenseCredit = round($expenses['total_credit'] + $loans['total_credit'], 2);
-        $finalTotal = round(($currentTotal + $loanExpenseCredit) - $loanExpenseDebit, 2);
+        $breakdownTotal = round(($currentTotal + $loanExpenseCredit) - $loanExpenseDebit, 2);
+        $finalTotal = $this->balanceSyncService->branchLedgerBalanceAt($branch, $endDate);
+        $unclassifiedMovement = round($finalTotal - $breakdownTotal, 2);
         $reconciliation = [
             'opening_balance' => $broughtForward,
             'member_account_credit' => $memberAccountCredit,
@@ -42,6 +49,7 @@ class SocietyReportService
             'principal_repayments' => $principalRepayments['total_credit'],
             'interest_repayments' => $interestRepayments['total_credit'],
             'closing_balance' => $finalTotal,
+            'unclassified_movement' => $unclassifiedMovement,
         ];
 
         return [
@@ -55,6 +63,7 @@ class SocietyReportService
                 'loan_expense_debit' => $loanExpenseDebit,
                 'loan_expense_credit' => $loanExpenseCredit,
                 'final_total' => $finalTotal,
+                'unclassified_movement' => $unclassifiedMovement,
             ],
             'reconciliation' => $reconciliation,
             'warnings' => $this->warnings($branch, $reconciliation),
@@ -78,7 +87,6 @@ class SocietyReportService
             ->where('transactions.branch_id', $branch->id)
             ->where('transactions.is_branch', false)
             ->whereNull('transactions.deleted_at')
-            ->whereNull('savings_accounts.disabled_at')
             ->where('transactions.trans_date', '<=', $endDate);
 
         if ($startDate) {
@@ -113,20 +121,9 @@ class SocietyReportService
 
     protected function broughtForward(Branch $branch, ?Carbon $startDate): float
     {
-        if (! $startDate) {
-            return 0.0;
-        }
-
-        $productNet = $this->productRows($branch, null, $startDate->copy()->subSecond())->sum('balance');
-        $expenseNet = $this->branchFlow($branch, null, $startDate->copy()->subSecond(), fn (Builder $query) => $this->expenseScope($query));
-        $loanNet = $this->branchFlow($branch, null, $startDate->copy()->subSecond(), fn (Builder $query) => $this->loanScope($query));
-
-        return round(
-            (float) $productNet
-            + ((float) $expenseNet['total_credit'] - (float) $expenseNet['total_debit'])
-            + ((float) $loanNet['total_credit'] - (float) $loanNet['total_debit']),
-            2
-        );
+        return $startDate
+            ? $this->balanceSyncService->branchLedgerBalanceAt($branch, $startDate->copy()->subSecond())
+            : 0.0;
     }
 
     protected function branchFlow(Branch $branch, ?Carbon $startDate, Carbon $endDate, callable $scope): array

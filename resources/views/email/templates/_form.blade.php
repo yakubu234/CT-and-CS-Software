@@ -13,6 +13,7 @@
                     <option value="{{ $value }}" @selected(old('category', $emailTemplate->category ?? '') === $value)>{{ $label }}</option>
                 @endforeach
             </select>
+            <small class="form-text text-muted">The category selects the system event. Saving a template does not send an email. General Notice templates are available in campaigns.</small>
         </div>
     </div>
     <div class="col-md-3">
@@ -49,9 +50,10 @@
                 <strong>Available Placeholders</strong>
             </div>
             <div class="card-body">
-                @foreach ($placeholderHints as $hint)
-                    <span class="badge badge-secondary mb-1">{{ $hint }}</span>
+                @foreach ($placeholderHints as $hint => $meaning)
+                    <div class="mb-2"><code>{{ $hint }}</code> — {{ $meaning }}</div>
                 @endforeach
+                <small class="text-muted">Use double braces exactly as shown. The values come from the recipient's member record and branch. Reset and verification links are available only in their respective automatic templates.</small>
             </div>
         </div>
     </div>

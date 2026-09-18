@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Services\BranchService;
 use App\Services\Email\EmailCampaignService;
+use App\Services\Email\EmailAutomationService;
 use App\Services\Sms\SmsAutomationService;
 use App\Services\Sms\SmsCampaignService;
 use Illuminate\Foundation\Inspiring;
@@ -344,12 +345,16 @@ Artisan::command('sms:process-pending', function (SmsCampaignService $campaignSe
     $this->line("Automation messages processed: {$automaticMessages}");
 })->purpose('Process queued SMS campaigns and date-based SMS automations.');
 
-Artisan::command('email:process-pending', function (EmailCampaignService $campaignService) {
+Artisan::command('email:process-pending', function (EmailCampaignService $campaignService, EmailAutomationService $automationService) {
     $queuedMessages = $campaignService->processScheduledMessages();
+    $reminders = $automationService->processRepaymentReminders();
 
     $this->info('Email processing complete.');
     $this->line("Queued campaign messages processed: {$queuedMessages}");
+    $this->line("Repayment reminders generated: {$reminders}");
 })->purpose('Process queued and scheduled email campaigns.');
+
+Schedule::command('email:process-pending')->everyFiveMinutes()->withoutOverlapping();
 
 Artisan::command('data-backups:run', function (AutomaticBackupRunner $runner) {
     $backups = $runner->run();

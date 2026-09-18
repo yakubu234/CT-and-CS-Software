@@ -107,15 +107,19 @@ class EmailTemplateController extends Controller
     protected function placeholderHints(): array
     {
         return [
-            '{{member_name}}',
-            '{{member_no}}',
-            '{{first_name}}',
-            '{{last_name}}',
-            '{{branch_name}}',
-            '{{email}}',
-            '{{society_name}}',
-            '{{month_label}}',
-            '{{reference_code}}',
+            '{{member_name}}' => 'Member’s full name',
+            '{{member_no}}' => 'Member number',
+            '{{first_name}}' => 'First name',
+            '{{last_name}}' => 'Last name',
+            '{{branch_name}}' => 'Member’s branch',
+            '{{email}}' => 'Registered email address',
+            '{{society_name}}' => 'Oreoluwapo CT&CU',
+            '{{month_label}}' => 'Current month and year',
+            '{{reference_code}}' => 'Member number for registration, loan ID for loan emails, or campaign reference',
+            '{{loan_amount}}' => 'Approved loan amount (loan approval only)',
+            '{{due_date}}' => 'Repayment due date (reminder only)',
+            '{{reset_url}}' => 'Secure password setup or reset link (Member Registration and Password Reset only)',
+            '{{verification_url}}' => 'Signed email verification link (Account Verification only)',
         ];
     }
 }

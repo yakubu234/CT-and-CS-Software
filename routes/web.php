@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\MemberPasswordResetController;
+use App\Http\Controllers\Auth\MemberEmailVerificationController;
+use App\Http\Controllers\Auth\MemberVerificationRequestController;
 use App\Http\Controllers\Auth\StaffLoginOtpController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountTypeController;
@@ -49,8 +52,16 @@ Route::get('/about-us', [PublicSiteController::class, 'about'])->name('about');
 Route::get('/our-history', [PublicSiteController::class, 'history'])->name('history');
 Route::get('/blogs', [PublicBlogController::class, 'index'])->name('blogs.index');
 Route::get('/blogs/{blogPost:slug}', [PublicBlogController::class, 'show'])->name('blogs.show');
+Route::get('/email/verify-member/{member}/{hash}', MemberEmailVerificationController::class)
+    ->middleware('signed')->name('member-email.verify');
 
 Route::middleware('guest')->group(function () {
+    Route::get('/email/verification-request', [MemberVerificationRequestController::class, 'create'])->name('member-email.request');
+    Route::post('/email/verification-request', [MemberVerificationRequestController::class, 'store'])->middleware('throttle:3,1')->name('member-email.resend');
+    Route::get('/password/forgot', [MemberPasswordResetController::class, 'requestForm'])->name('member-password.request');
+    Route::post('/password/forgot', [MemberPasswordResetController::class, 'requestReset'])->middleware('throttle:3,1')->name('member-password.email');
+    Route::get('/password/reset/{token}', [MemberPasswordResetController::class, 'resetForm'])->name('member-password.reset');
+    Route::post('/password/reset', [MemberPasswordResetController::class, 'reset'])->middleware('throttle:6,1')->name('member-password.update');
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login.store');
     Route::get('/login/otp', [StaffLoginOtpController::class, 'create'])->name('staff-otp.create');
@@ -274,6 +285,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/income-expense-report/export', [ReportController::class, 'exportIncomeExpenseReport'])->name('reports.income-expense-report.export');
     Route::get('/reports/society-report', [ReportController::class, 'societyReport'])->name('reports.society-report');
     Route::get('/reports/society-report/export', [ReportController::class, 'exportSocietyReport'])->name('reports.society-report.export');
+    Route::get('/reports/inactive-members', [ReportController::class, 'inactiveMembers'])->name('reports.inactive-members');
+    Route::get('/reports/inactive-members/export', [ReportController::class, 'exportInactiveMembers'])->name('reports.inactive-members.export');
     Route::get('/reports/interest-report', [ReportController::class, 'interestReport'])->name('reports.interest-report');
     Route::get('/reports/interest-report/export', [ReportController::class, 'exportInterestReport'])->name('reports.interest-report.export');
     Route::get('/data-backups', [DataBackupController::class, 'index'])->name('data-backups.index');

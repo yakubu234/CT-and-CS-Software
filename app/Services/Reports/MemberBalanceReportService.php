@@ -89,11 +89,11 @@ class MemberBalanceReportService
     public function memberOptions(Branch $branch)
     {
         return User::query()
+            ->withTrashed()
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
             ->where('users.branch_id', $branch->id)
             ->where('users.branch_account', false)
             ->where('users.user_type', 'customer')
-            ->whereNull('users.deleted_at')
             ->orderBy('users.name')
             ->orderBy('users.last_name')
             ->get([
@@ -121,11 +121,11 @@ class MemberBalanceReportService
         Carbon $endDate,
     ): Builder {
         $query = User::query()
+            ->withTrashed()
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
             ->where('users.branch_id', $branch->id)
             ->where('users.branch_account', false)
             ->where('users.user_type', 'customer')
-            ->whereNull('users.deleted_at')
             ->select([
                 'users.id',
                 'users.name',

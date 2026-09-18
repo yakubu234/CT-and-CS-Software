@@ -74,6 +74,9 @@
                 </div>
             </form>
 
+            <div class="text-center mt-3"><a href="{{ route('member-password.request') }}">Forgot your member password?</a></div>
+            <div class="text-center mt-2"><a href="{{ route('member-email.request') }}">Resend member verification email</a></div>
+
             <div class="alert alert-light border mt-4 mb-0">
                 <strong>Welcome:</strong> staff and members can sign in from this same page.
             </div>

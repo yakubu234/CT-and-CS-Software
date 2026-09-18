@@ -7,6 +7,7 @@ use App\Models\EmailCampaign;
 use App\Models\EmailMessage;
 use App\Models\EmailTemplate;
 use App\Models\User;
+use App\Services\ActiveBranchService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,7 @@ class EmailCampaignService
         protected EmailTemplateRenderer $renderer,
         protected EmailSettingsService $settings,
         protected EmailDispatchService $dispatchService,
+        protected ActiveBranchService $activeBranchService,
     ) {
     }
 
@@ -41,6 +43,8 @@ class EmailCampaignService
                 'scheduled_at' => ! empty($payload['scheduled_at']) ? Carbon::parse($payload['scheduled_at']) : null,
                 'filters' => [
                     'member_ids' => array_values($payload['member_ids'] ?? []),
+                    'allowed_branch_ids' => array_values($payload['allowed_branch_ids'] ?? []),
+                    'designation' => $payload['designation'] ?? null,
                 ],
                 'meta' => [
                     'created_via' => 'dashboard',
@@ -51,8 +55,15 @@ class EmailCampaignService
 
             $this->queueCampaignMessages($campaign);
 
+            if (! $campaign->messages()->exists()) {
+                $campaign->update(['status' => EmailCampaign::STATUS_FAILED, 'meta' => ['created_via' => 'dashboard', 'error' => 'No eligible recipients matched the selected audience.']]);
+                return $campaign->fresh(['branch', 'template', 'messages']);
+            }
+
             if (! $campaign->scheduled_at) {
-                $this->processCampaign($campaign);
+                DB::afterCommit(function () use ($campaign): void {
+                    $this->processCampaign($campaign->fresh());
+                });
             }
 
             return $campaign->fresh(['branch', 'template', 'messages']);
@@ -65,6 +76,7 @@ class EmailCampaignService
 
         foreach ($this->resolveRecipients($campaign) as $recipient) {
             $context = $this->contextForUser($recipient, $campaign->branch);
+            $context['reference_code'] = 'CAMPAIGN-' . $campaign->id;
 
             EmailMessage::create([
                 'campaign_id' => $campaign->id,
@@ -99,10 +111,14 @@ class EmailCampaignService
                 $pending = true;
             }
 
-            if ($result->status === EmailMessage::STATUS_FAILED) {
+            if (in_array($result->status, [EmailMessage::STATUS_FAILED, EmailMessage::STATUS_SKIPPED], true)) {
                 $failed = true;
             }
         }
+
+        $failed = $failed || $campaign->messages()
+            ->whereIn('status', [EmailMessage::STATUS_FAILED, EmailMessage::STATUS_SKIPPED])
+            ->exists();
 
         $campaign->update([
             'status' => $pending
@@ -144,7 +160,7 @@ class EmailCampaignService
             }
 
             $hasPending = $campaign->messages->contains(fn (EmailMessage $message): bool => $message->status === EmailMessage::STATUS_PENDING);
-            $hasFailed = $campaign->messages->contains(fn (EmailMessage $message): bool => $message->status === EmailMessage::STATUS_FAILED);
+            $hasFailed = $campaign->messages->contains(fn (EmailMessage $message): bool => in_array($message->status, [EmailMessage::STATUS_FAILED, EmailMessage::STATUS_SKIPPED], true));
 
             $campaign->update([
                 'status' => $hasPending
@@ -159,32 +175,36 @@ class EmailCampaignService
 
     protected function resolveRecipients(EmailCampaign $campaign): Collection
     {
+        $allowedBranchIds = $campaign->filters['allowed_branch_ids']
+            ?? $this->activeBranchService->availableBranches(User::query()->find($campaign->created_by))->pluck('id')->all();
         $query = User::query()
             ->with(['detail', 'branch'])
             ->where('branch_account', false)
             ->whereNull('deleted_at')
             ->whereNotNull('email')
-            ->where(function ($builder): void {
-                $builder->where('user_type', 'customer')
-                    ->orWhere('society_exco', true)
-                    ->orWhere('former_exco', true);
-            })
+            ->where('status', 1)
+            ->where('user_type', 'customer')
+            ->whereIn('branch_id', $allowedBranchIds)
             ->orderBy('name');
 
         if ($campaign->branch_id) {
             $query->where('branch_id', $campaign->branch_id);
         }
 
+        if ($campaign->audience_type === 'branch_members' && ! empty($campaign->filters['designation'])) {
+            $query->where('designation', $campaign->filters['designation']);
+        }
+
         $memberIds = $campaign->filters['member_ids'] ?? [];
 
-        if ($campaign->audience_type === 'selected_members' && $memberIds !== []) {
+        if ($campaign->audience_type === 'selected_members') {
             $query->whereIn('id', $memberIds);
         }
 
         return $query->get();
     }
 
-    protected function contextForUser(User $user, ?Branch $branch): array
+    public function contextForUser(User $user, ?Branch $branch): array
     {
         return [
             'member_name' => $user->name,

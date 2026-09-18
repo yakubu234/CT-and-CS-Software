@@ -12,6 +12,7 @@ use App\Exports\SocietyReportExport;
 use App\Services\ActiveBranchService;
 use App\Services\Exports\ExcelDownloadService;
 use App\Services\Reports\IncomeExpenseReportService;
+use App\Services\Reports\InactiveMemberFinancialReportService;
 use App\Services\Reports\InterestReportService;
 use App\Services\Reports\LoanDueReportService;
 use App\Services\Reports\MemberBalanceReportService;
@@ -33,6 +34,7 @@ class ReportController extends Controller
         protected InterestReportService $interestReportService,
         protected SocietyLedgerReportService $societyLedgerReportService,
         protected SocietyReportService $societyReportService,
+        protected InactiveMemberFinancialReportService $inactiveMemberFinancialReportService,
         protected ExcelDownloadService $excelDownloadService,
     ) {
         $this->middleware('module:reports');
@@ -309,6 +311,39 @@ class ReportController extends Controller
             'warnings' => $report['warnings'],
             'filters' => $report['filters'],
         ]);
+    }
+
+    public function inactiveMembers(Request $request): View|RedirectResponse
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')->withErrors(['branch' => 'Please select an active branch before viewing reports.']);
+        }
+
+        return view('reports.inactive-members', [
+            'branch' => $branch,
+            ...$this->inactiveMemberFinancialReportService->build($branch, $request),
+        ]);
+    }
+
+    public function exportInactiveMembers(Request $request)
+    {
+        $branch = $this->activeBranchService->ensureActiveBranch($request->user());
+        if (! $branch) {
+            return redirect()->route('branches.switch.index')->withErrors(['branch' => 'Please select an active branch before exporting reports.']);
+        }
+
+        $report = $this->inactiveMemberFinancialReportService->build($branch, $request);
+        $filename = preg_replace('/[^A-Za-z0-9 _-]/', '', $branch->name) . ' Inactive Members Financial Report.csv';
+
+        return response()->streamDownload(function () use ($report): void {
+            $stream = fopen('php://output', 'w');
+            fputcsv($stream, ['Member ID', 'Member No', 'Name', 'Savings', 'Shares', 'Building Fund', 'Authentication', 'Deposits', 'Other Accounts', 'Account Total', 'Loan Amount', 'Loan Repayment', 'Outstanding Loan', 'Net Position']);
+            foreach ($report['rows'] as $row) {
+                fputcsv($stream, [$row['id'], $row['member_no'], $row['name'], $row['savings'], $row['shares'], $row['building_fund'], $row['authentication'], $row['deposits'], json_encode($row['other']), $row['account_total'], $row['loan_amount'], $row['loan_repayment'], $row['outstanding_loan'], $row['net_position']]);
+            }
+            fclose($stream);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function exportSocietyReport(Request $request)

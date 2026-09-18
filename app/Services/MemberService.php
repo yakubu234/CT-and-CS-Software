@@ -7,10 +7,14 @@ use App\Models\CustomField;
 use App\Models\MemberDocument;
 use App\Models\User;
 use App\Models\UserDetail;
+use App\Models\EmailTemplate;
+use App\Models\EmailSmtpAccount;
+use App\Services\Email\EmailAutomationService;
 use App\Support\MemberNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class MemberService
@@ -41,6 +45,8 @@ class MemberService
     {
         return DB::transaction(function () use ($data, $branch): User {
             $memberNumber = $this->reserveNextMemberNumber($branch);
+            $verificationRequired = EmailTemplate::query()->where('category', 'account_verification')->where('status', true)->exists()
+                && EmailSmtpAccount::query()->where('is_active', true)->exists();
 
             $member = User::create([
                 'name' => $data['first_name'],
@@ -57,7 +63,8 @@ class MemberService
                 'former_exco' => false,
                 'user_level' => null,
                 'branch_account' => false,
-                'is_verified' => true,
+                'is_verified' => ! $verificationRequired,
+                'email_verification_required_at' => $verificationRequired ? now() : null,
                 'signature' => $this->storeOptionalFile($data['signature'] ?? null, 'members/signatures'),
                 'member_no' => $memberNumber,
                 'designation' => 'Member',
@@ -81,6 +88,22 @@ class MemberService
 
             $this->syncDocuments($member, $data, false);
             $this->branchService->ensureMemberAccounts($member);
+
+            DB::afterCommit(function () use ($member, $verificationRequired): void {
+                try {
+                    app(EmailAutomationService::class)->memberRegistered($member->fresh(['detail', 'branch']));
+                } catch (\Throwable $exception) {
+                    Log::error('Member registration email could not be prepared', ['member_id' => $member->id, 'error' => $exception->getMessage()]);
+                }
+
+                if ($verificationRequired) {
+                    try {
+                        app(EmailAutomationService::class)->accountVerificationRequested($member->fresh(['detail', 'branch']));
+                    } catch (\Throwable $exception) {
+                        Log::error('Member verification email could not be prepared', ['member_id' => $member->id, 'error' => $exception->getMessage()]);
+                    }
+                }
+            });
 
             return $member->load(['detail', 'documents', 'savingsAccounts']);
         });

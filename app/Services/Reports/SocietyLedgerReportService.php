@@ -48,6 +48,7 @@ class SocietyLedgerReportService
         $memberId = (int) $request->integer('member_id');
 
         $members = User::query()
+            ->withTrashed()
             ->with(['detail', 'branch'])
             ->where('branch_id', $branch->id)
             ->where('user_type', 'customer')
@@ -75,6 +76,7 @@ class SocietyLedgerReportService
     public function memberOptions(Branch $branch): Collection
     {
         return User::query()
+            ->withTrashed()
             ->with('detail')
             ->where('branch_id', $branch->id)
             ->where('user_type', 'customer')
@@ -91,7 +93,7 @@ class SocietyLedgerReportService
     protected function transactionsQuery(Branch $branch, Request $request, ?Carbon $startDate, Carbon $endDate): Builder
     {
         return Transaction::query()
-            ->with(['user.detail', 'account.product'])
+            ->with(['user' => fn (Builder $query) => $query->withTrashed()->with('detail'), 'account.product'])
             ->where('branch_id', $branch->id)
             ->where('is_branch', false)
             ->whereNull('deleted_at')
@@ -105,7 +107,7 @@ class SocietyLedgerReportService
                     $builder->where('description', 'like', $search)
                         ->orWhere('type', 'like', $search)
                         ->orWhereHas('user', function (Builder $userQuery) use ($search): void {
-                            $userQuery->where('name', 'like', $search)
+                            $userQuery->withTrashed()->where('name', 'like', $search)
                                 ->orWhere('last_name', 'like', $search)
                                 ->orWhere('member_no', 'like', $search);
                         })
@@ -241,6 +243,7 @@ class SocietyLedgerReportService
     {
         $memberId = (int) $request->integer('member_id');
         $memberQuery = User::query()
+            ->withTrashed()
             ->with(['detail', 'branch'])
             ->where('branch_id', $branch->id)
             ->where('user_type', 'customer')

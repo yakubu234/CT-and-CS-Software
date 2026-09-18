@@ -7,7 +7,7 @@
     <div class="card card-outline card-primary">
         <div class="card-body">
             <div class="alert alert-light border">
-                Current branch default: <strong>{{ $currentBranch?->name ?: 'No active branch selected' }}</strong>
+                <strong>Manual General Notice / Campaign:</strong> choose one or more active members, a branch, or all accessible branches. Addresses are pulled from member profiles; you do not enter email addresses. Only active General Notice templates appear here. Current branch default: <strong>{{ $currentBranch?->name ?: 'No active branch selected' }}</strong>
             </div>
 
             <form method="POST" action="{{ route('email.campaigns.store') }}">
@@ -24,7 +24,7 @@
                         <div class="form-group">
                             <label for="branch_id">Target Branch</label>
                             <select name="branch_id" id="branch_id" class="form-control select2" data-placeholder="Choose branch">
-                                <option value="">All accessible branches</option>
+                                <option value="">All accessible branches (active members)</option>
                                 @foreach ($branches as $branch)
                                     <option value="{{ $branch->id }}" @selected((string) old('branch_id', $currentBranch?->id) === (string) $branch->id)>{{ $branch->name }}</option>
                                 @endforeach
@@ -48,9 +48,21 @@
                         <div class="form-group">
                             <label for="audience_type">Audience</label>
                             <select name="audience_type" id="audience_type" class="form-control select2">
-                                <option value="branch_members" @selected(old('audience_type', 'branch_members') === 'branch_members')>All members in target branch</option>
-                                <option value="selected_members" @selected(old('audience_type') === 'selected_members')>Selected individual members</option>
+                                <option value="branch_members" @selected(old('audience_type', 'branch_members') === 'branch_members')>All active members in selected branch(es)</option>
+                                <option value="selected_members" @selected(old('audience_type') === 'selected_members')>One or several selected members</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6 audience-designation">
+                        <div class="form-group">
+                            <label for="designation">Member Group / Designation</label>
+                            <select name="designation" id="designation" class="form-control select2">
+                                <option value="">All groups</option>
+                                @foreach ($designationOptions as $designation)
+                                    <option value="{{ $designation }}" @selected(old('designation') === $designation)>{{ $designation }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted">Applies when sending to all active members in the selected branch(es).</small>
                         </div>
                     </div>
                     <div class="col-12 audience-selected-members d-none">
@@ -75,7 +87,7 @@
                         <div class="form-group">
                             <label for="body">Email Body</label>
                             <textarea name="body" id="body" rows="10" class="form-control">{{ old('body') }}</textarea>
-                            <small class="text-muted">HTML is supported. Templates can use placeholders like <code>{{ '{{member_name}}' }}</code>, <code>{{ '{{branch_name}}' }}</code>, and <code>{{ '{{member_no}}' }}</code>.</small>
+                            <small class="text-muted">HTML is supported. Templates can use placeholders like <code>&#123;&#123;member_name&#125;&#125;</code>, <code>&#123;&#123;branch_name&#125;&#125;</code>, and <code>&#123;&#123;member_no&#125;&#125;</code>.</small>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -101,12 +113,14 @@
         (() => {
             const audience = document.getElementById('audience_type');
             const memberWrap = document.querySelector('.audience-selected-members');
+            const designationWrap = document.querySelector('.audience-designation');
             const template = document.getElementById('template_id');
             const subject = document.getElementById('subject');
             const body = document.getElementById('body');
 
             const toggleMemberWrap = () => {
                 memberWrap?.classList.toggle('d-none', audience?.value !== 'selected_members');
+                designationWrap?.classList.toggle('d-none', audience?.value === 'selected_members');
             };
 
             const fillTemplate = () => {

@@ -117,22 +117,64 @@
                                 <th>Product</th>
                                 <th>Account Number</th>
                                 <th>Balance</th>
+                                <th>Total Contributions</th>
+                                <th>Total Withdrawals</th>
                             </tr>
                             </thead>
                             <tbody>
                             @forelse ($member->savingsAccounts as $account)
+                                @php
+                                    $activity = $accountActivity->get($account->id);
+                                    $historicalBalance = (float) $account->opening_balance + (float) ($activity?->credits ?? 0) - (float) ($activity?->debits ?? 0);
+                                @endphp
                                 <tr>
-                                    <td>{{ $account->product?->type ?: 'N/A' }}</td>
+                                    <td>{{ $account->product?->name ?: $account->product?->type ?: 'N/A' }}</td>
                                     <td>{{ $account->account_number }}</td>
-                                    <td>{{ number_format((float) $account->balance, 2) }}</td>
+                                    <td>{{ number_format($archived ? $historicalBalance : (float) $account->balance, 2) }}</td>
+                                    <td>{{ number_format((float) ($accountActivity->get($account->id)?->credits ?? 0), 2) }}</td>
+                                    <td>{{ number_format((float) ($accountActivity->get($account->id)?->debits ?? 0), 2) }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="text-center text-muted">No accounts found.</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted">No accounts found.</td></tr>
                             @endforelse
                             </tbody>
                         </table>
                     </div>
                 </div>
+            </div>
+
+            <div class="card" id="member-transactions">
+                <div class="card-header"><h3 class="card-title">Account Transaction History</h3></div>
+                <div class="card-body table-responsive p-0">
+                    <table class="table table-bordered table-striped table-sm mb-0">
+                        <thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Description</th><th class="text-right">Credit</th><th class="text-right">Debit</th></tr></thead>
+                        <tbody>@forelse ($accountTransactions as $transaction)<tr>
+                            <td>{{ $transaction->trans_date?->format('d M Y') }}</td>
+                            <td>{{ $transaction->account?->product?->name ?: $transaction->account?->product?->type ?: 'N/A' }}<br><small>{{ $transaction->account?->account_number }}</small></td>
+                            <td>{{ $transaction->type ?: 'Transaction' }}</td>
+                            <td>{{ $transaction->description ?: $transaction->note ?: '—' }}</td>
+                            <td class="text-right">{{ strtolower((string) $transaction->dr_cr) === 'cr' ? number_format((float) $transaction->amount, 2) : '—' }}</td>
+                            <td class="text-right">{{ strtolower((string) $transaction->dr_cr) === 'dr' ? number_format((float) $transaction->amount, 2) : '—' }}</td>
+                        </tr>@empty<tr><td colspan="6" class="text-center text-muted">No account transactions found.</td></tr>@endforelse</tbody>
+                    </table>
+                </div>
+                <div class="card-footer">{{ $accountTransactions->links() }}</div>
+            </div>
+
+            <div class="card" id="member-loan-payments">
+                <div class="card-header"><h3 class="card-title">Loan Repayment and Interest History</h3></div>
+                <div class="card-body table-responsive p-0">
+                    <table class="table table-bordered table-striped table-sm mb-0">
+                        <thead><tr><th>Date</th><th>Loan</th><th class="text-right">Principal Repaid</th><th class="text-right">Interest Paid</th></tr></thead>
+                        <tbody>@forelse ($loanPayments as $payment)<tr>
+                            <td>{{ $payment->paid_at?->format('d M Y') }}</td>
+                            <td>{{ $payment->loan?->loan_id ?: 'N/A' }}</td>
+                            <td class="text-right">{{ number_format((float) $payment->repayment_amount, 2) }}</td>
+                            <td class="text-right">{{ number_format((float) $payment->interest_paid, 2) }}</td>
+                        </tr>@empty<tr><td colspan="4" class="text-center text-muted">No loan repayments found.</td></tr>@endforelse</tbody>
+                    </table>
+                </div>
+                <div class="card-footer">{{ $loanPayments->links() }}</div>
             </div>
 
             <div class="card">

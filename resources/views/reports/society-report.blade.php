@@ -8,6 +8,7 @@
         <div class="card-header">
             <h3 class="card-title">{{ strtoupper($branch->name) }}</h3>
             <div class="card-tools">
+                <a href="{{ route('reports.inactive-members') }}" class="btn btn-sm btn-outline-primary mr-2">Inactive Members</a>
                 <a href="{{ route('reports.society-report.export', request()->query()) }}" class="btn btn-sm btn-success">
                     <i class="fas fa-file-excel mr-1"></i> Export Excel
                 </a>
@@ -102,6 +103,9 @@
                     &#8358;{{ number_format((float) $reconciliation['closing_balance'], 2) }}
                 </div>
             </div>
+            @if (abs((float) $reconciliation['unclassified_movement']) >= 0.01)
+                <div class="alert alert-warning mt-3 mb-0">Breakdown reconciliation adjustment: &#8358;{{ number_format((float) $reconciliation['unclassified_movement'], 2) }}. The categories above do not fully match the branch ledger; the closing balance uses the same ledger as the Society Purse.</div>
+            @endif
         </div>
     </div>
 

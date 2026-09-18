@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Sms\SmsAutomationService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -202,6 +203,11 @@ class LoanService
             $this->syncLoanAggregate($loan->fresh());
 
             DB::afterCommit(function () use ($detail): void {
+                try {
+                    app(\App\Services\Email\EmailAutomationService::class)->loanApproved($detail->fresh(['borrower.detail', 'borrower.branch', 'loan']));
+                } catch (\Throwable $exception) {
+                    Log::error('Loan approval email could not be prepared', ['loan_detail_id' => $detail->id, 'error' => $exception->getMessage()]);
+                }
                 app(SmsAutomationService::class)->handleLoanApproved($detail->fresh(['borrower.detail', 'borrower.branch', 'loan']));
             });
 

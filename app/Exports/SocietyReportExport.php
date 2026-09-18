@@ -46,6 +46,7 @@ class SocietyReportExport implements FromArray, ShouldAutoSize, WithEvents
             ['Loan Disbursements', $this->reconciliation['loan_disbursements']],
             ['Principal Repayments', $this->reconciliation['principal_repayments']],
             ['Interest Repayments', $this->reconciliation['interest_repayments']],
+            ['Breakdown Reconciliation Adjustment', $this->reconciliation['unclassified_movement']],
             ['Closing Balance', $this->reconciliation['closing_balance']],
             [],
             ['Date', 'Details', 'Debit', 'Credit', 'Balance'],
@@ -100,7 +101,7 @@ class SocietyReportExport implements FromArray, ShouldAutoSize, WithEvents
             AfterSheet::class => function (AfterSheet $event): void {
                 $sheet = $event->sheet->getDelegate();
                 $lastRow = count($this->array());
-                $headerRow = 16;
+                $headerRow = 17;
 
                 $sheet->mergeCells('A1:E1');
                 $sheet->mergeCells('A2:E2');
@@ -124,7 +125,7 @@ class SocietyReportExport implements FromArray, ShouldAutoSize, WithEvents
                     ],
                 ]);
 
-                foreach (range(6, 14) as $row) {
+                foreach (range(6, 15) as $row) {
                     $sheet->getStyle("B{$row}")
                         ->getNumberFormat()
                         ->setFormatCode('#,##0.00');
@@ -154,9 +155,9 @@ class SocietyReportExport implements FromArray, ShouldAutoSize, WithEvents
                         ->setFormatCode('#,##0.00');
                 }
 
-                $sheet->getStyle('A17:E17')->getFont()->setBold(true);
+                $sheet->getStyle('A18:E18')->getFont()->setBold(true);
                 $sheet->getStyle('A' . ($lastRow - 1) . ':E' . ($lastRow - 1))->getFont()->setBold(true);
-                $sheet->freezePane('A17');
+                $sheet->freezePane('A18');
             },
         ];
     }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\SavingsAccount;
 use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use RuntimeException;
 
@@ -96,6 +97,21 @@ class BalanceSyncService
                 strtolower((string) $transaction->dr_cr),
                 (float) $transaction->amount
             );
+        }
+
+        return round($balance, 2);
+    }
+
+    public function branchLedgerBalanceAt(Branch $branch, Carbon $endDate): float
+    {
+        $balance = $this->branchOpeningBalance($branch, $endDate);
+
+        foreach ($this->branchLedgerTransactions($branch) as $transaction) {
+            if ($transaction->trans_date && $transaction->trans_date->gt($endDate)) {
+                continue;
+            }
+
+            $balance = $this->applyDirection($balance, strtolower((string) $transaction->dr_cr), (float) $transaction->amount);
         }
 
         return round($balance, 2);
@@ -242,18 +258,17 @@ class BalanceSyncService
             ->get();
     }
 
-    protected function branchOpeningBalance(Branch $branch): float
+    protected function branchOpeningBalance(Branch $branch, ?Carbon $endDate = null): float
     {
         return round(
             (float) SavingsAccount::query()
                 ->where('is_branch_acount', false)
-                ->where('status', 1)
-                ->whereNull('disabled_at')
+                ->when($endDate, fn ($query) => $query->where('created_at', '<=', $endDate))
                 ->whereHas('user', function ($query) use ($branch): void {
                     $query->where('branch_id', (string) $branch->id)
                         ->where('branch_account', false)
                         ->where('user_type', 'customer')
-                        ->whereNull('deleted_at');
+                        ->withTrashed();
                 })
                 ->sum('opening_balance'),
             2

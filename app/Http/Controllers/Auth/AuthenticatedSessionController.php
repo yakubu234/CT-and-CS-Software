@@ -54,6 +54,9 @@ class AuthenticatedSessionController extends Controller
         }
 
         if ($user->user_type === 'customer') {
+            if ($user->email_verification_required_at && ! $user->is_verified) {
+                return back()->withInput($request->only('login'))->withErrors(['login' => 'Please verify your registered email address before signing in.']);
+            }
             Auth::login($user, $remember);
             $request->session()->regenerate();
             $this->activeBranchService->ensureActiveBranch($user);

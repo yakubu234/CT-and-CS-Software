@@ -8,6 +8,8 @@ use App\Http\Requests\UpdateMemberRequest;
 use App\Models\CustomField;
 use App\Models\MemberDocument;
 use App\Models\Designation;
+use App\Models\LoanPayment;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ActiveBranchService;
 use App\Services\MemberService;
@@ -154,9 +156,43 @@ class MemberController extends Controller
             },
         ]);
 
+        $accountTransactions = Transaction::query()
+            ->with('account.product')
+            ->where('user_id', $member->id)
+            ->where('branch_id', $branch->id)
+            ->where('is_branch', false)
+            ->whereNull('deleted_at')
+            ->latest('trans_date')
+            ->latest('id')
+            ->paginate(20, ['*'], 'transactions_page')
+            ->withQueryString();
+
+        $accountActivity = Transaction::query()
+            ->where('user_id', $member->id)
+            ->where('branch_id', $branch->id)
+            ->where('is_branch', false)
+            ->where('tracking_id', 'regular')
+            ->whereNull('deleted_at')
+            ->whereNotNull('savings_account_id')
+            ->groupBy('savings_account_id')
+            ->selectRaw("savings_account_id, SUM(CASE WHEN LOWER(dr_cr) = 'cr' THEN amount ELSE 0 END) as credits, SUM(CASE WHEN LOWER(dr_cr) = 'dr' THEN amount ELSE 0 END) as debits")
+            ->get()->keyBy('savings_account_id');
+
+        $loanPayments = LoanPayment::query()
+            ->with('loan')
+            ->whereHas('loan', fn ($query) => $query->where('borrower_id', $member->id)->where('branch_id', $branch->id))
+            ->whereNull('deleted_at')
+            ->latest('paid_at')
+            ->latest('id')
+            ->paginate(20, ['*'], 'payments_page')
+            ->withQueryString();
+
         return view('members.show', [
             'member' => $member,
             'archived' => $archived,
+            'accountTransactions' => $accountTransactions,
+            'accountActivity' => $accountActivity,
+            'loanPayments' => $loanPayments,
         ]);
     }
 

@@ -13,6 +13,10 @@
         ])
 
         <div class="card-body">
+            <div class="alert alert-info">
+                <strong>How templates are used:</strong> Member Registration sends after a new member is saved; Loan Application &amp; Approval sends when a loan is approved; Repayment Reminder sends three days before an approved loan is due if principal remains. Account Verification sends a signed link after registration when its template and an SMTP account are active. Password Reset sends when an active member requests a reset from the login page. General Notice is sent by staff through Email Campaigns. All recipient addresses come from member profiles. An active template is required for each automatic email. If several active templates share a category, the newest is used.
+            </div>
+            <p class="text-muted">Sending requires an active SMTP account in Email Settings. Email Messages shows pending, sent, failed, or skipped status. Scheduled emails and repayment reminders require the application scheduler to be running.</p>
             <div class="mb-3">
                 <a href="{{ route('email.templates.create') }}" class="btn btn-primary">
                     <i class="fas fa-plus mr-1"></i>

@@ -16,23 +16,23 @@ class EmailTemplateSeeder extends Seeder
                 'category' => 'member_registration',
                 'description' => 'Welcome email for newly registered cooperative members.',
                 'subject' => 'Welcome to {{society_name}}, {{first_name}}',
-                'body' => '<p>Dear {{member_name}},</p><p>Your membership registration with {{society_name}} has been completed successfully.</p><p><strong>Member No:</strong> {{member_no}}<br><strong>Branch:</strong> {{branch_name}}</p><p>Thank you.</p>',
+                'body' => '<p>Dear {{member_name}},</p><p>Your membership registration with {{society_name}} has been completed successfully.</p><p><strong>Member No:</strong> {{member_no}}<br><strong>Branch:</strong> {{branch_name}}</p><p><a href="{{reset_url}}">Set your portal password</a></p><p>Thank you.</p>',
             ],
             [
                 'name' => 'Loan Application Update',
                 'slug' => 'loan-application-update',
                 'category' => 'loan_updates',
-                'description' => 'General loan application or approval update.',
-                'subject' => 'Loan application update from {{society_name}}',
-                'body' => '<p>Dear {{member_name}},</p><p>This is an update about your loan application with {{society_name}}.</p><p>Please contact your branch, {{branch_name}}, if you need more information.</p>',
+                'description' => 'Sent when a member loan is approved.',
+                'subject' => 'Your loan {{reference_code}} has been approved',
+                'body' => '<p>Dear {{member_name}},</p><p>Your loan application {{reference_code}} for ₦{{loan_amount}} has been approved.</p><p>Please contact your branch, {{branch_name}}, for disbursement details.</p>',
             ],
             [
                 'name' => 'Repayment Reminder',
                 'slug' => 'repayment-reminder',
                 'category' => 'repayment_reminders',
-                'description' => 'Reminder for upcoming or overdue loan repayments.',
+                'description' => 'Sent three days before an approved loan is due when a balance remains.',
                 'subject' => 'Loan repayment reminder',
-                'body' => '<p>Dear {{member_name}},</p><p>This is a reminder to review your loan repayment obligation with {{society_name}}.</p><p>Branch: {{branch_name}}</p>',
+                'body' => '<p>Dear {{member_name}},</p><p>Your loan {{reference_code}} has a repayment due on {{due_date}}. Please review your repayment obligation with {{society_name}}.</p><p>Branch: {{branch_name}}</p>',
             ],
             [
                 'name' => 'Account Verification',
@@ -40,7 +40,7 @@ class EmailTemplateSeeder extends Seeder
                 'category' => 'account_verification',
                 'description' => 'Account verification and official confirmation email.',
                 'subject' => 'Account verification for {{society_name}}',
-                'body' => '<p>Dear {{member_name}},</p><p>Your account verification reference is <strong>{{reference_code}}</strong>.</p><p>If you did not request this, please contact {{branch_name}}.</p>',
+                'body' => '<p>Dear {{member_name}},</p><p>Please verify your registered email address: <a href="{{verification_url}}">Verify email address</a>.</p><p>If you did not request this, please contact {{branch_name}}.</p>',
             ],
             [
                 'name' => 'General Official Notice',
@@ -50,10 +50,18 @@ class EmailTemplateSeeder extends Seeder
                 'subject' => 'Official notice from {{society_name}}',
                 'body' => '<p>Dear {{member_name}},</p><p>This is an official communication from {{society_name}}.</p><p>Regards,<br>{{branch_name}}</p>',
             ],
+            [
+                'name' => 'Member Password Reset',
+                'slug' => 'member-password-reset',
+                'category' => 'password_resets',
+                'description' => 'Secure link for a member who requests a password reset.',
+                'subject' => 'Reset your {{society_name}} password',
+                'body' => '<p>Dear {{member_name}},</p><p>Use this link to reset your password: <a href="{{reset_url}}">Reset password</a>.</p><p>If you did not request this, ignore this email.</p>',
+            ],
         ];
 
         foreach ($templates as $template) {
-            EmailTemplate::query()->updateOrCreate(
+            EmailTemplate::query()->firstOrCreate(
                 ['slug' => $template['slug']],
                 array_merge($template, ['status' => true])
             );
