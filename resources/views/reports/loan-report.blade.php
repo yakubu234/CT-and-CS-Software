@@ -123,7 +123,7 @@
                     <strong>{{ \Carbon\Carbon::parse($filters['end_date'])->format('d M Y') }}</strong>
                 </div>
                 <div class="loan-report-meta">
-                    Loan portfolio view for this branch. Repayment and interest figures follow the selected period, while outstanding is shown as at the period end date.
+                    Loan portfolio view for this branch. Total disbursed is cumulative through the end date. Loans issued, repayments, and interest follow the selected period; outstanding is shown as at the end date. The per-loan Additional Loan column shows later approved amounts beyond that loan's first approved amount, regardless of the selected start date.
                 </div>
                 <div class="loan-report-kpi-note">
                     <i class="fas fa-layer-group"></i>

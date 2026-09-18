@@ -55,6 +55,10 @@
                         <li class="list-group-item"><b>Designation</b> <span class="float-right">{{ $member->designation ?: 'Member' }}</span></li>
                     </ul>
 
+                    <a href="{{ route('members.statement', $member->id) }}" class="btn btn-outline-primary btn-block mb-2">
+                        <i class="fas fa-file-invoice mr-1"></i> Statement Report
+                    </a>
+
                     @if ($archived)
                         <form action="{{ route('members.restore', $member->id) }}" method="POST">
                             @csrf

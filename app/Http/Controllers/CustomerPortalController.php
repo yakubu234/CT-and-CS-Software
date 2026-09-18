@@ -11,6 +11,7 @@ use App\Models\MemberDocument;
 use App\Models\SmsMessage;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\MemberStatementService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -187,11 +188,11 @@ class CustomerPortalController extends Controller
             foreach ($transactions as $transaction) {
                 fputcsv($handle, [
                     optional($transaction->trans_date)->format('Y-m-d'),
-                    $transaction->account?->account_number,
-                    $transaction->account?->product?->type,
+                    $transaction->account?->account_number ?: 'Loan ledger',
+                    $transaction->account?->product?->type ?: ($transaction->type ?: 'Other'),
                     $transaction->description ?: $transaction->note ?: 'Transaction',
                     $transaction->method,
-                    strtoupper((string) $transaction->dr_cr),
+                    app(MemberStatementService::class)->memberDirection($transaction),
                     number_format((float) $transaction->amount, 2, '.', ''),
                 ]);
             }
@@ -501,10 +502,8 @@ class CustomerPortalController extends Controller
 
     protected function transactionsQuery(User $customer): Builder
     {
-        return Transaction::query()
-            ->with('account.product')
-            ->where('user_id', $customer->id)
-            ->where('is_branch', false)
+        return app(MemberStatementService::class)->query($customer)
+            ->reorder()
             ->latest('trans_date')
             ->latest('id');
     }

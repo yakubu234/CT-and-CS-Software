@@ -81,10 +81,11 @@
                 @forelse ($transactions as $transaction)
                     <tr>
                         <td>{{ optional($transaction->trans_date)->format('d M Y') ?: 'N/A' }}</td>
-                        <td>{{ $transaction->account?->account_number ?: 'N/A' }}<br><small class="text-muted">{{ $transaction->account?->product?->type ?: 'N/A' }}</small></td>
+                        <td>{{ $transaction->account?->account_number ?: 'Loan ledger' }}<br><small class="text-muted">{{ $transaction->account?->product?->type ?: ($transaction->type ?: 'Other') }}</small></td>
                         <td>{{ $transaction->description ?: $transaction->note ?: 'Transaction' }}</td>
                         <td>{{ $transaction->method ?: 'N/A' }}</td>
-                        <td><span class="badge badge-{{ strtolower($transaction->dr_cr) === 'cr' ? 'success' : 'danger' }}">{{ strtoupper($transaction->dr_cr) }}</span></td>
+                        @php($direction = app(\App\Services\MemberStatementService::class)->memberDirection($transaction))
+                        <td><span class="badge badge-{{ $direction === 'CR' ? 'success' : 'danger' }}">{{ $direction }}</span></td>
                         <td class="text-right money-value">&#8358;{{ number_format((float) $transaction->amount, 2) }}</td>
                     </tr>
                 @empty

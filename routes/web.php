@@ -27,6 +27,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanCustomFieldController;
 use App\Http\Controllers\LoanPaymentController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberStatementController;
 use App\Http\Controllers\MemberIdCardController;
 use App\Http\Controllers\MemberCustomFieldController;
 use App\Http\Controllers\ReportController;
@@ -169,6 +170,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
     Route::get('/members/archived', [MemberController::class, 'archived'])->name('members.archived');
     Route::get('/members/archived/{memberId}', [MemberController::class, 'archivedShow'])->name('members.archived.show');
+    Route::get('/members/{memberId}/statement', [MemberStatementController::class, 'show'])->whereNumber('memberId')->name('members.statement');
+    Route::get('/members/{memberId}/statement/pdf', [MemberStatementController::class, 'pdf'])->whereNumber('memberId')->name('members.statement.pdf');
+    Route::post('/members/{memberId}/statement/email', [MemberStatementController::class, 'email'])->whereNumber('memberId')->name('members.statement.email');
     Route::patch('/members/archived/{memberId}/restore', [MemberController::class, 'restore'])->name('members.restore');
     Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
     Route::get('/members/{member}/id-card', [MemberIdCardController::class, 'admin'])

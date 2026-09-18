@@ -34,9 +34,9 @@ class LoanReportExport implements FromArray, ShouldAutoSize, WithEvents
             [],
             ['Summary'],
             ['Total Disbursed', $this->summary['total_disbursed'] ?? 0],
+            ['Loan Issued / Disbursed In Period', $this->summary['issued_in_period'] ?? 0],
             ['Paid In Period', $this->summary['principal_paid_period'] ?? 0],
             ['Interest In Period', $this->summary['interest_paid_period'] ?? 0],
-            ['Additional Loans', $this->summary['additional_loans'] ?? 0],
             ['Outstanding', $this->summary['outstanding_amount'] ?? 0],
             [],
             [

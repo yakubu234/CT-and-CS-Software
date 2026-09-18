@@ -62,7 +62,7 @@ class LoanReportService
                 'total_disbursed' => round((float) ($summary->total_disbursed ?? 0), 2),
                 'principal_paid_period' => round((float) ($summary->principal_paid_period ?? 0), 2),
                 'interest_paid_period' => round((float) ($summary->interest_paid_period ?? 0), 2),
-                'additional_loans' => round((float) ($summary->additional_loans ?? 0), 2),
+                'issued_in_period' => round((float) ($summary->issued_in_period ?? 0), 2),
                 'outstanding_amount' => round((float) ($summary->outstanding_amount ?? 0), 2),
                 'loan_count' => (int) ($summary->loan_count ?? 0),
                 'active_count' => (int) ($summary->active_count ?? 0),
@@ -180,6 +180,7 @@ class LoanReportService
         $query->selectSub($this->lastApprovedDueDateSubQuery($endDate), 'due_date');
         $query->selectSub($this->firstApprovedAmountSubQuery($endDate), 'original_amount');
         $query->selectSub($this->totalApprovedAmountSubQuery($endDate), 'total_disbursed_amount');
+        $query->selectSub($this->issuedInPeriodSubQuery($startDate, $endDate), 'issued_in_period');
         $query->selectSub($this->principalPaidPeriodSubQuery($startDate, $endDate), 'principal_paid_period');
         $query->selectSub($this->interestPaidPeriodSubQuery($startDate, $endDate), 'interest_paid_period');
         $query->selectSub($this->principalPaidTotalSubQuery($endDate), 'principal_paid_total');
@@ -231,6 +232,21 @@ class LoanReportService
             ->where('loan_details.decision_status', LoanDetail::STATUS_APPROVED)
             ->whereDate('loan_details.release_date', '<=', $endDate->toDateString())
             ->selectRaw('COALESCE(SUM(loan_details.applied_amount), 0)');
+    }
+
+    protected function issuedInPeriodSubQuery(?Carbon $startDate, Carbon $endDate): \Illuminate\Database\Query\Builder
+    {
+        $query = DB::table('loan_details')
+            ->whereColumn('loan_details.loan_id', 'loans.id')
+            ->where('loan_details.decision_status', LoanDetail::STATUS_APPROVED)
+            ->whereDate('loan_details.release_date', '<=', $endDate->toDateString())
+            ->selectRaw('COALESCE(SUM(loan_details.applied_amount), 0)');
+
+        if ($startDate) {
+            $query->whereDate('loan_details.release_date', '>=', $startDate->toDateString());
+        }
+
+        return $query;
     }
 
     protected function principalPaidPeriodSubQuery(?Carbon $startDate, Carbon $endDate): \Illuminate\Database\Query\Builder
@@ -291,7 +307,7 @@ class LoanReportService
                 COALESCE(SUM(total_disbursed_amount), 0) as total_disbursed,
                 COALESCE(SUM(principal_paid_period), 0) as principal_paid_period,
                 COALESCE(SUM(interest_paid_period), 0) as interest_paid_period,
-                COALESCE(SUM(GREATEST(COALESCE(total_disbursed_amount, 0) - COALESCE(original_amount, 0), 0)), 0) as additional_loans,
+                COALESCE(SUM(issued_in_period), 0) as issued_in_period,
                 COALESCE(SUM(GREATEST(COALESCE(total_disbursed_amount, 0) - COALESCE(principal_paid_total, 0), 0)), 0) as outstanding_amount
             ')
             ->first();
@@ -302,7 +318,7 @@ class LoanReportService
             'total_disbursed' => 0,
             'principal_paid_period' => 0,
             'interest_paid_period' => 0,
-            'additional_loans' => 0,
+            'issued_in_period' => 0,
             'outstanding_amount' => 0,
         ];
     }
@@ -317,6 +333,12 @@ class LoanReportService
                 'tone' => 'text-primary',
             ],
             [
+                'label' => 'Loan Issued / Disbursed In Period',
+                'icon' => 'fas fa-layer-group',
+                'value' => (float) ($summary->issued_in_period ?? 0),
+                'tone' => 'text-warning',
+            ],
+            [
                 'label' => 'Paid In Period',
                 'icon' => 'fas fa-money-bill-wave',
                 'value' => (float) ($summary->principal_paid_period ?? 0),
@@ -327,12 +349,6 @@ class LoanReportService
                 'icon' => 'fas fa-percent',
                 'value' => (float) ($summary->interest_paid_period ?? 0),
                 'tone' => 'text-info',
-            ],
-            [
-                'label' => 'Additional Loans',
-                'icon' => 'fas fa-layer-group',
-                'value' => (float) ($summary->additional_loans ?? 0),
-                'tone' => 'text-warning',
             ],
             [
                 'label' => 'Outstanding',
