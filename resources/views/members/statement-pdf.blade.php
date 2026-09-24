@@ -5,6 +5,7 @@ body{font-family:DejaVu Sans,sans-serif;font-size:10px;color:#222}h1{font-size:1
 <div>{{ $member->branch?->address }} @if($member->branch?->contact_phone) | {{ $member->branch->contact_phone }} @endif @if($member->branch?->contact_email) | {{ $member->branch->contact_email }} @endif</div>
 <h2>Official Member Statement</h2>
 <div class="details"><strong>Member:</strong> {{ $member->name }} &nbsp; <strong>Member number:</strong> {{ $member->display_member_no ?: 'N/A' }}<br><strong>Period:</strong> {{ $statement['start'] ?: 'First transaction' }} to {{ $statement['end'] ?: 'Present' }} &nbsp; <strong>Issued:</strong> {{ now()->format('d M Y') }}<br><strong>Opening balance:</strong> ₦{{ number_format($statement['opening'], 2) }} &nbsp; <strong>Closing balance:</strong> ₦{{ number_format($statement['closing'], 2) }}</div>
+<div class="muted" style="margin-bottom:10px">Loan interest payments are recorded as PAID and do not reduce the principal and member account closing balance.</div>
 <table><thead><tr><th>Date</th><th>Account</th><th>Particulars</th><th>Type</th><th class="number">Amount (₦)</th><th class="number">Balance (₦)</th></tr></thead><tbody>
 @forelse($statement['rows'] as $row)
     @php($transaction = $row['transaction'])

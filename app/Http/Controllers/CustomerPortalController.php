@@ -12,6 +12,7 @@ use App\Models\SmsMessage;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\MemberStatementService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class CustomerPortalController extends Controller
 {
@@ -119,6 +121,21 @@ class CustomerPortalController extends Controller
             'transactions' => $transactions,
             'filters' => $request->only(['account_id', 'type', 'start_date', 'end_date']),
         ]);
+    }
+
+    public function downloadStatement(Request $request): Response
+    {
+        $customer = $this->customer($request);
+        $accounts = $this->memberAccounts($customer);
+        $transactions = $this->filteredTransactionsQuery($customer, $request, $accounts)->get();
+
+        return Pdf::loadView('customer.statement-pdf', [
+            'customer' => $customer->loadMissing(['detail', 'branch']),
+            'transactions' => $transactions,
+            'filters' => $request->only(['account_id', 'type', 'start_date', 'end_date']),
+        ])->setPaper('a4')->download(
+            'member-statement-' . ($customer->display_member_no ?: $customer->id) . '.pdf'
+        );
     }
 
     public function loans(Request $request): View

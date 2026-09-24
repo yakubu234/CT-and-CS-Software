@@ -28,6 +28,7 @@
                 <form method="POST" action="{{ route('members.statement.email', ['memberId' => $member->id] + $filters) }}" onsubmit="return confirm('Email this official statement to {{ $member->email }}?')">@csrf<button class="btn btn-outline-success" @disabled(! filter_var($member->email, FILTER_VALIDATE_EMAIL))>Email registered address</button></form>
             </div>
             <p><strong>Opening balance:</strong> ₦{{ number_format($statement['opening'], 2) }} &nbsp; <strong>Closing balance:</strong> ₦{{ number_format($statement['closing'], 2) }}</p>
+            <p class="text-muted small">Loan interest payments remain in the transaction history as PAID. They do not reduce the closing balance because the corresponding interest charge is tracked separately from this principal and member account balance.</p>
             <div class="table-responsive"><table class="table table-bordered table-sm">
                 <thead><tr><th>Date</th><th>Account</th><th>Particulars</th><th>Type</th><th class="text-right">Amount</th><th class="text-right">Running balance</th></tr></thead>
                 <tbody>@forelse ($statement['rows'] as $row)

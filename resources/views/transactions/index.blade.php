@@ -144,7 +144,7 @@
                         <tr>
                             <td>
                                 <div>{{ optional($transaction->trans_date)->format('D, d M Y') ?: 'N/A' }}</div>
-                                <div class="transaction-meta">{{ optional($transaction->trans_date)->format('h:i A') ?: '12:00 AM' }}</div>
+                                <div class="transaction-meta">{{ $transaction->created_at?->copy()->timezone(config('app.display_timezone', 'Africa/Lagos'))->format('h:i A') ?: 'N/A' }}</div>
                             </td>
                             <td>{{ $transaction->user?->name ?: 'N/A' }}</td>
                             <td>{{ $transaction->user?->display_member_no ?: 'N/A' }}</td>

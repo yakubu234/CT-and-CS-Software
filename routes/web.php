@@ -81,6 +81,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/password/change', [CustomerPortalController::class, 'updatePassword'])->name('password.update');
         Route::get('/accounts', [CustomerPortalController::class, 'accounts'])->name('accounts');
         Route::get('/statement', [CustomerPortalController::class, 'statement'])->name('statement');
+        Route::get('/statement/download', [CustomerPortalController::class, 'downloadStatement'])->name('statement.download');
         Route::get('/loans', [CustomerPortalController::class, 'loans'])->name('loans');
         Route::get('/repayments', [CustomerPortalController::class, 'repayments'])->name('repayments');
         Route::get('/transactions', [CustomerPortalController::class, 'transactions'])->name('transactions');
@@ -246,6 +247,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/email/templates/{emailTemplate}', [EmailTemplateController::class, 'update'])->name('email.templates.update');
     Route::delete('/email/templates/{emailTemplate}', [EmailTemplateController::class, 'destroy'])->name('email.templates.destroy');
     Route::get('/email/campaigns', [EmailCampaignController::class, 'index'])->name('email.campaigns.index');
+    Route::get('/email/campaigns/members/search', [EmailCampaignController::class, 'searchMembers'])->name('email.campaigns.members.search');
     Route::get('/email/campaigns/create', [EmailCampaignController::class, 'create'])->name('email.campaigns.create');
     Route::post('/email/campaigns', [EmailCampaignController::class, 'store'])->name('email.campaigns.store');
     Route::get('/email/campaigns/{emailCampaign}', [EmailCampaignController::class, 'show'])->name('email.campaigns.show');

@@ -6,7 +6,7 @@
 @section('content')
 <div class="card card-outline card-primary">
     <div class="card-header"><h3 class="card-title">{{ $branch->name }}</h3>
-        <div class="card-tools"><a class="btn btn-sm btn-success" href="{{ route('reports.inactive-members.export', request()->query()) }}"><i class="fas fa-download mr-1"></i> Download CSV</a></div>
+        <div class="card-tools"><a class="btn btn-sm btn-success" href="{{ route('reports.inactive-members.export', request()->query()) }}"><i class="fas fa-file-excel mr-1"></i> Export Excel</a></div>
     </div>
     <div class="card-body">
         <form method="GET" action="{{ route('reports.inactive-members') }}" class="form-row align-items-end">

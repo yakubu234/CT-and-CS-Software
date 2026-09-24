@@ -67,6 +67,12 @@ class LoanPaymentService
 
         $paidDate = $paidAt ? Carbon::parse($paidAt)->startOfDay() : now()->startOfDay();
         $currentBalance = round((float) ($loan->balanace ?? 0), 2);
+        if ($excludePayment
+            && (int) $excludePayment->loan_id === (int) $loan->id
+            && ! $excludePayment->trashed()
+        ) {
+            $currentBalance = round($currentBalance + (float) ($excludePayment->repayment_amount ?? 0), 2);
+        }
         $pendingCarryForwards = $loan->payments
             ->filter(function (LoanPayment $payment) use ($excludePayment): bool {
                 if ($excludePayment && (int) $payment->id === (int) $excludePayment->id) {

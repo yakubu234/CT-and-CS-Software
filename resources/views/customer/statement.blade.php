@@ -5,6 +5,11 @@
 @section('page_subtitle', 'Filter, print, and review your account activity.')
 
 @section('page_actions')
+    @unless (request()->routeIs('customer.transactions'))
+        <a href="{{ route('customer.statement.download', $filters) }}" class="btn btn-outline-danger">
+            <i class="fas fa-file-pdf mr-1"></i> Download PDF
+        </a>
+    @endunless
     <a href="{{ route('customer.transactions.export', request()->query()) }}" class="btn btn-outline-success">
         <i class="fas fa-file-csv mr-1"></i> Export
     </a>
@@ -85,7 +90,7 @@
                         <td>{{ $transaction->description ?: $transaction->note ?: 'Transaction' }}</td>
                         <td>{{ $transaction->method ?: 'N/A' }}</td>
                         @php($direction = app(\App\Services\MemberStatementService::class)->memberDirection($transaction))
-                        <td><span class="badge badge-{{ $direction === 'CR' ? 'success' : 'danger' }}">{{ $direction }}</span></td>
+                        <td><span class="badge badge-{{ $direction === 'CR' ? 'success' : ($direction === 'PAID' ? 'info' : 'danger') }}">{{ $direction }}</span></td>
                         <td class="text-right money-value">&#8358;{{ number_format((float) $transaction->amount, 2) }}</td>
                     </tr>
                 @empty

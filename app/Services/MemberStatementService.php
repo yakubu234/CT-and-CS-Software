@@ -79,6 +79,10 @@ class MemberStatementService
 
     public function memberDirection(Transaction $transaction): string
     {
+        if ($this->isInterestPayment($transaction)) {
+            return 'PAID';
+        }
+
         $credit = strtolower((string) $transaction->dr_cr) === 'cr';
         if ($transaction->is_branch && in_array($transaction->tracking_id, ['loan', 'loan_repayment'], true)) {
             $credit = ! $credit;
@@ -89,8 +93,19 @@ class MemberStatementService
 
     private function signedAmount(Transaction $transaction): float
     {
+        if ($this->isInterestPayment($transaction)) {
+            return 0.0;
+        }
+
         return $this->memberDirection($transaction) === 'CR'
             ? (float) $transaction->amount
             : -(float) $transaction->amount;
+    }
+
+    private function isInterestPayment(Transaction $transaction): bool
+    {
+        return $transaction->is_branch
+            && $transaction->tracking_id === 'loan_repayment'
+            && str_contains(mb_strtolower((string) $transaction->type), 'interest');
     }
 }

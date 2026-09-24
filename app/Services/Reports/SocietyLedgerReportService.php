@@ -93,7 +93,7 @@ class SocietyLedgerReportService
     protected function transactionsQuery(Branch $branch, Request $request, ?Carbon $startDate, Carbon $endDate): Builder
     {
         return Transaction::query()
-            ->with(['user' => fn (Builder $query) => $query->withTrashed()->with('detail'), 'account.product'])
+            ->with(['user' => fn ($query) => $query->withTrashed()->with('detail'), 'account.product'])
             ->where('branch_id', $branch->id)
             ->where('is_branch', false)
             ->whereNull('deleted_at')

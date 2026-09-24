@@ -497,7 +497,7 @@
                         <div class="transaction-audit-label text-success">Created By</div>
                         <div class="transaction-audit-value">
                             {{ $transaction->creator?->name ?: 'N/A' }}<br>
-                            <span class="text-muted font-weight-normal">{{ optional($transaction->created_at)->format('D, d M Y h:i A') ?: 'N/A' }}</span>
+                            <span class="text-muted font-weight-normal">{{ $transaction->created_at?->copy()->timezone(config('app.display_timezone', 'Africa/Lagos'))->format('D, d M Y h:i A') ?: 'N/A' }}</span>
                         </div>
                     </div>
 
@@ -506,7 +506,7 @@
                         <div class="transaction-audit-value">
                             @if ($transaction->updater)
                                 {{ $transaction->updater->name }}<br>
-                                <span class="text-muted font-weight-normal">{{ optional($transaction->updated_at)->format('D, d M Y h:i A') ?: 'N/A' }}</span>
+                                <span class="text-muted font-weight-normal">{{ $transaction->updated_at?->copy()->timezone(config('app.display_timezone', 'Africa/Lagos'))->format('D, d M Y h:i A') ?: 'N/A' }}</span>
                             @else
                                 N/A
                             @endif

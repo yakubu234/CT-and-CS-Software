@@ -9,6 +9,7 @@ use App\Services\ActiveBranchService;
 use App\Services\Email\EmailCampaignService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -47,6 +48,7 @@ class EmailCampaignController extends Controller
             'branches' => $branches,
             'members' => User::query()
                 ->with('detail', 'branch')
+                ->whereIn('id', collect(old('member_ids', []))->map(fn ($id) => (int) $id)->filter())
                 ->where('branch_account', false)
                 ->whereNull('deleted_at')
                 ->whereNotNull('email')
@@ -59,6 +61,50 @@ class EmailCampaignController extends Controller
             'designationOptions' => User::query()->whereIn('branch_id', $branches->pluck('id'))
                 ->where('user_type', 'customer')->where('status', 1)->whereNull('deleted_at')
                 ->whereNotNull('designation')->distinct()->orderBy('designation')->pluck('designation'),
+        ]);
+    }
+
+    public function searchMembers(Request $request): JsonResponse
+    {
+        $allowedBranchIds = $this->activeBranchService->availableBranches($request->user())->pluck('id')->all();
+        $branchId = $request->filled('branch_id') ? (int) $request->input('branch_id') : null;
+
+        if ($branchId && ! in_array($branchId, array_map('intval', $allowedBranchIds), true)) {
+            abort(404);
+        }
+
+        $search = trim((string) $request->input('q'));
+        if (mb_strlen($search) < 2) {
+            return response()->json(['results' => [], 'pagination' => ['more' => false]]);
+        }
+
+        $members = User::query()
+            ->with('detail')
+            ->where('branch_account', false)
+            ->whereNull('deleted_at')
+            ->whereNotNull('email')
+            ->where('email', '<>', '')
+            ->where('status', 1)
+            ->where('user_type', 'customer')
+            ->whereIn('branch_id', $allowedBranchIds)
+            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
+            ->where(function ($query) use ($search): void {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('last_name', 'like', '%' . $search . '%')
+                    ->orWhere('member_no', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhereHas('detail', fn ($detail) => $detail->where('member_no', 'like', '%' . $search . '%'));
+            })
+            ->orderBy('name')
+            ->orderBy('last_name')
+            ->simplePaginate(20);
+
+        return response()->json([
+            'results' => collect($members->items())->map(fn (User $member): array => [
+                'id' => $member->id,
+                'text' => ($member->display_member_no ?: 'N/A') . ' - ' . $member->name . ' (' . $member->email . ')',
+            ])->values(),
+            'pagination' => ['more' => $members->hasMorePages()],
         ]);
     }
 

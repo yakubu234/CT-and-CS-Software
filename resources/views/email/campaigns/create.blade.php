@@ -75,6 +75,7 @@
                                     </option>
                                 @endforeach
                             </select>
+                            <small class="text-muted">Type at least two characters of the member's name, number, or email. Results are loaded as you search.</small>
                         </div>
                     </div>
                     <div class="col-12">
@@ -117,6 +118,33 @@
             const template = document.getElementById('template_id');
             const subject = document.getElementById('subject');
             const body = document.getElementById('body');
+            const branch = document.getElementById('branch_id');
+            const $memberSelect = window.jQuery ? window.jQuery('#member_ids') : null;
+
+            if ($memberSelect?.length && typeof window.jQuery.fn.select2 === 'function') {
+                if ($memberSelect.hasClass('select2-hidden-accessible')) {
+                    $memberSelect.select2('destroy');
+                }
+
+                $memberSelect.select2({
+                    theme: 'bootstrap4',
+                    width: '100%',
+                    placeholder: 'Search active members',
+                    minimumInputLength: 2,
+                    ajax: {
+                        url: @json(route('email.campaigns.members.search')),
+                        dataType: 'json',
+                        delay: 300,
+                        data: params => ({
+                            q: params.term || '',
+                            page: params.page || 1,
+                            branch_id: branch?.value || '',
+                        }),
+                        processResults: data => data,
+                        cache: true,
+                    },
+                });
+            }
 
             const toggleMemberWrap = () => {
                 memberWrap?.classList.toggle('d-none', audience?.value !== 'selected_members');
@@ -141,6 +169,7 @@
 
             audience?.addEventListener('change', toggleMemberWrap);
             template?.addEventListener('change', fillTemplate);
+            branch?.addEventListener('change', () => $memberSelect?.val(null).trigger('change'));
             toggleMemberWrap();
         })();
     </script>
