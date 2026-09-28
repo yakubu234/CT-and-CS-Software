@@ -18,7 +18,7 @@ class AutomaticBackupRunner
     {
         $configuration = $this->settings->get();
 
-        if (! $configuration['enabled']) {
+        if (! $configuration['enabled'] || ! $this->settings->isGoogleConnected()) {
             return [];
         }
 

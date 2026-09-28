@@ -24,6 +24,8 @@
                             <li><a href="{{ route('history') }}">Our History</a></li>
                             <li><a href="{{ route('home') }}#leaders">Our Leadership</a></li>
                             <li><a href="{{ route('blogs.index') }}">Blogs</a></li>
+                            <li><a href="{{ route('terms') }}">Terms &amp; Conditions</a></li>
+                            <li><a href="{{ route('privacy') }}">Privacy Policy</a></li>
                             <li><a href="{{ route('login') }}">Login</a></li>
                         </ul>
                     </div>
@@ -105,7 +107,8 @@
                             <li><a href="{{ route('home') }}">Home</a></li>
                             <li><a href="{{ route('about') }}">About</a></li>
                             <li><a href="{{ route('history') }}">History</a></li>
-                            <li><a href="{{ route('blogs.index') }}">Blogs</a></li>
+                            <li><a href="{{ route('terms') }}">Terms</a></li>
+                            <li><a href="{{ route('privacy') }}">Privacy</a></li>
                         </ul>
                     </div>
                 </div>

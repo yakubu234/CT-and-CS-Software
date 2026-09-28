@@ -3,10 +3,7 @@
 namespace App\Services\DataBackup;
 
 use App\Models\Setting;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 
 class BackupSettingsService
 {
@@ -18,9 +15,13 @@ class BackupSettingsService
             'enabled' => false,
             'formats' => ['csv'],
             'modules' => array_keys(config('data_backup.modules', [])),
-            'drive_folder_id' => '',
             'recipient_emails' => [],
-            'service_account_email' => '',
+            'google_refresh_token' => '',
+            'google_account_email' => '',
+            'google_account_name' => '',
+            'google_connected_at' => null,
+            'google_folder_id' => '',
+            'google_folder_name' => '',
         ];
 
         $value = Setting::query()->where('name', self::KEY)->value('value');
@@ -44,43 +45,59 @@ class BackupSettingsService
         }
     }
 
-    public function update(array $configuration, ?UploadedFile $credentials = null): array
+    public function update(array $configuration): array
     {
         $current = $this->get();
 
-        if ($credentials) {
-            $json = json_decode($credentials->getContent(), true);
+        $configuration = array_replace($current, $configuration);
 
-            if (! is_array($json) || ($json['type'] ?? null) !== 'service_account' || empty($json['client_email']) || empty($json['private_key'])) {
-                throw new RuntimeException('The uploaded file is not a valid Google service-account JSON credential.');
-            }
+        return $this->persist($configuration);
+    }
 
-            Storage::disk(config('data_backup.storage_disk'))->put(
-                config('data_backup.credentials_path'),
-                Crypt::encryptString($credentials->getContent())
-            );
-            $configuration['service_account_email'] = $json['client_email'];
-        } else {
-            $configuration['service_account_email'] = $current['service_account_email'];
-        }
+    public function storeGoogleConnection(array $connection): array
+    {
+        $configuration = array_replace($this->get(), [
+            'google_refresh_token' => $connection['refresh_token'],
+            'google_account_email' => $connection['account_email'] ?? '',
+            'google_account_name' => $connection['account_name'] ?? '',
+            'google_connected_at' => now()->toIso8601String(),
+            'google_folder_id' => $connection['folder_id'],
+            'google_folder_name' => $connection['folder_name'],
+        ]);
 
+        return $this->persist($configuration);
+    }
+
+    public function clearGoogleConnection(): array
+    {
+        $configuration = array_replace($this->get(), [
+            'enabled' => false,
+            'google_refresh_token' => '',
+            'google_account_email' => '',
+            'google_account_name' => '',
+            'google_connected_at' => null,
+            'google_folder_id' => '',
+            'google_folder_name' => '',
+        ]);
+
+        return $this->persist($configuration);
+    }
+
+    public function isGoogleConnected(): bool
+    {
+        $configuration = $this->get();
+
+        return $configuration['google_refresh_token'] !== ''
+            && $configuration['google_folder_id'] !== '';
+    }
+
+    private function persist(array $configuration): array
+    {
         Setting::query()->updateOrCreate(
             ['name' => self::KEY],
             ['value' => Crypt::encryptString(json_encode($configuration, JSON_THROW_ON_ERROR))]
         );
 
         return $configuration;
-    }
-
-    public function credentials(): array
-    {
-        $disk = Storage::disk(config('data_backup.storage_disk'));
-        $path = config('data_backup.credentials_path');
-
-        if (! $disk->exists($path)) {
-            throw new RuntimeException('Upload Google service-account credentials first.');
-        }
-
-        return json_decode(Crypt::decryptString($disk->get($path)), true, flags: JSON_THROW_ON_ERROR);
     }
 }

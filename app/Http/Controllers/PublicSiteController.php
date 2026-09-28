@@ -29,4 +29,14 @@ class PublicSiteController extends Controller
     {
         return view('public.history');
     }
+
+    public function terms(): View
+    {
+        return view('public.terms');
+    }
+
+    public function privacy(): View
+    {
+        return view('public.privacy');
+    }
 }

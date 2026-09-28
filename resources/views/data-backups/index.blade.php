@@ -68,15 +68,18 @@
         <div class="col-lg-7">
             <div class="card card-info">
                 <div class="card-header"><h3 class="card-title">Automatic Google Drive backup</h3></div>
-                <form id="automatic-backup-settings" method="POST" action="{{ route('data-backups.settings.update') }}" enctype="multipart/form-data">
+                <form id="automatic-backup-settings" method="POST" action="{{ route('data-backups.settings.update') }}">
                     @csrf
                     @method('PUT')
                     <div class="card-body">
                         <div class="custom-control custom-switch mb-3">
                             <input type="checkbox" class="custom-control-input" id="enabled" name="enabled" value="1"
-                                   @checked(old('enabled', $settings['enabled']))>
+                                   @checked(old('enabled', $settings['enabled'])) @disabled(! $settings['google_refresh_token'])>
                             <label class="custom-control-label" for="enabled">Run automatically every 6 hours</label>
                         </div>
+                        @if (! $settings['google_refresh_token'])
+                            <small class="form-text text-warning mb-3">Connect Google Drive before enabling automatic backups.</small>
+                        @endif
 
                         <div class="form-group">
                             <label>Formats</label>
@@ -106,24 +109,27 @@
                         </div>
 
                         <hr>
-                        <div class="form-group">
-                            <label for="credentials">Google service-account JSON</label>
-                            <input class="form-control-file" type="file" id="credentials" name="credentials" accept=".json,application/json">
-                            @if ($settings['service_account_email'])
-                                <small class="form-text text-success">Configured: {{ $settings['service_account_email'] }}</small>
+                        <div class="form-group mb-4">
+                            <label>Google Drive connection</label>
+                            @if ($settings['google_refresh_token'])
+                                <div class="alert alert-success mb-2">
+                                    <strong>Connected</strong>
+                                    @if ($settings['google_account_email'])
+                                        as {{ $settings['google_account_email'] }}
+                                    @endif
+                                    <div class="small mt-1">
+                                        Folder: {{ $settings['google_folder_name'] ?: 'System Backups' }}
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">OAuth credentials are encrypted. Scheduled backups can refresh access without another sign-in.</small>
+                            @else
+                                <div class="alert alert-secondary mb-2">
+                                    No Google account is connected. A dedicated backup account is recommended.
+                                </div>
+                                <a class="btn btn-outline-danger" href="{{ route('data-backups.google.connect') }}">
+                                    <i class="fab fa-google-drive mr-1"></i> Connect Google Drive
+                                </a>
                             @endif
-                            <small class="form-text text-muted">Stored encrypted outside the public directory. Upload again only when changing credentials.</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="drive_folder_id">Destination Google Shared Drive folder ID</label>
-                            <input class="form-control" type="text" id="drive_folder_id" name="drive_folder_id"
-                                   value="{{ old('drive_folder_id', $settings['drive_folder_id']) }}" placeholder="The value after /folders/ in the Drive URL">
-                            @if ($settings['service_account_email'])
-                                <small class="form-text text-warning">
-                                    Share this Shared Drive folder with <strong>{{ $settings['service_account_email'] }}</strong> as Content manager.
-                                </small>
-                            @endif
-                            <small class="form-text text-muted">Google service accounts cannot own files. Use a folder inside a Google Workspace Shared Drive.</small>
                         </div>
                         <div class="form-group">
                             <label for="recipient_emails">Gmail recipients</label>
@@ -135,10 +141,18 @@
                 </form>
                     <div class="card-footer d-flex flex-wrap">
                         <button class="btn btn-info mr-2 mb-1" type="submit" form="automatic-backup-settings"><i class="fas fa-save mr-1"></i> Save automatic settings</button>
-                        <form method="POST" action="{{ route('data-backups.drive.test') }}">
-                            @csrf
-                            <button class="btn btn-outline-secondary mb-1" type="submit"><i class="fab fa-google-drive mr-1"></i> Test Drive backup</button>
-                        </form>
+                        @if ($settings['google_refresh_token'])
+                            <form method="POST" action="{{ route('data-backups.drive.test') }}" class="mr-2">
+                                @csrf
+                                <button class="btn btn-outline-secondary mb-1" type="submit"><i class="fab fa-google-drive mr-1"></i> Test connection</button>
+                            </form>
+                            <form method="POST" action="{{ route('data-backups.google.disconnect') }}"
+                                  onsubmit="return confirm('Disconnect Google Drive and disable automatic backups?');">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn btn-outline-danger mb-1" type="submit"><i class="fas fa-unlink mr-1"></i> Disconnect</button>
+                            </form>
+                        @endif
                     </div>
             </div>
         </div>

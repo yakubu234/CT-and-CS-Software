@@ -60,5 +60,11 @@ return [
 
     'storage_disk' => 'local',
     'storage_directory' => 'backups',
-    'credentials_path' => 'backup-secrets/google-service-account.json',
+
+    'google' => [
+        'client_id' => env('GOOGLE_DRIVE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_DRIVE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_DRIVE_REDIRECT_URI'),
+        'folder_name' => env('GOOGLE_DRIVE_FOLDER_NAME', 'System Backups'),
+    ],
 ];

@@ -51,6 +51,8 @@ Route::get('/media/{path}', PublicImageController::class)
     ->name('media.image');
 Route::get('/about-us', [PublicSiteController::class, 'about'])->name('about');
 Route::get('/our-history', [PublicSiteController::class, 'history'])->name('history');
+Route::get('/terms-and-conditions', [PublicSiteController::class, 'terms'])->name('terms');
+Route::get('/privacy-policy', [PublicSiteController::class, 'privacy'])->name('privacy');
 Route::get('/blogs', [PublicBlogController::class, 'index'])->name('blogs.index');
 Route::get('/blogs/{blogPost:slug}', [PublicBlogController::class, 'show'])->name('blogs.show');
 Route::get('/email/verify-member/{member}/{hash}', MemberEmailVerificationController::class)
@@ -298,6 +300,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/data-backups', [DataBackupController::class, 'index'])->name('data-backups.index');
     Route::post('/data-backups', [DataBackupController::class, 'store'])->name('data-backups.store');
     Route::get('/data-backups/statuses', [DataBackupController::class, 'statuses'])->name('data-backups.statuses');
+    Route::get('/data-backups/google/connect', [DataBackupController::class, 'connectGoogle'])->name('data-backups.google.connect');
+    Route::get('/data-backups/google/callback', [DataBackupController::class, 'googleCallback'])->name('data-backups.google.callback');
+    Route::delete('/data-backups/google/disconnect', [DataBackupController::class, 'disconnectGoogle'])->name('data-backups.google.disconnect');
     Route::get('/data-backups/{dataBackup}/download', [DataBackupController::class, 'download'])->name('data-backups.download');
     Route::put('/data-backups/settings', [DataBackupController::class, 'updateSettings'])->name('data-backups.settings.update');
     Route::post('/data-backups/test-drive', [DataBackupController::class, 'testDrive'])->name('data-backups.drive.test');

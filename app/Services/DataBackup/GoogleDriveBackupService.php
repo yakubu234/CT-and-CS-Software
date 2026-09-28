@@ -3,7 +3,6 @@
 namespace App\Services\DataBackup;
 
 use App\Models\DataBackup;
-use Google\Client;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use Google\Service\Drive\Permission;
@@ -12,23 +11,22 @@ use RuntimeException;
 
 class GoogleDriveBackupService
 {
-    public function __construct(protected BackupSettingsService $settings)
-    {
+    public function __construct(
+        protected BackupSettingsService $settings,
+        protected GoogleDriveOAuthService $oauth,
+    ) {
     }
 
     public function upload(DataBackup $backup): DataBackup
     {
         $configuration = $this->settings->get();
-        $folderId = trim((string) $configuration['drive_folder_id']);
+        $folderId = trim((string) $configuration['google_folder_id']);
 
         if ($folderId === '') {
-            throw new RuntimeException('A Google Drive destination folder ID is required.');
+            throw new RuntimeException('Google Drive is not connected or its backup folder is missing.');
         }
 
-        $client = new Client();
-        $client->setAuthConfig($this->settings->credentials());
-        $client->setScopes([Drive::DRIVE]);
-        $drive = new Drive($client);
+        $drive = new Drive($this->oauth->authorizedClient());
         $disk = Storage::disk(config('data_backup.storage_disk'));
 
         $file = $drive->files->create(
@@ -46,7 +44,6 @@ class GoogleDriveBackupService
                 },
                 'uploadType' => 'multipart',
                 'fields' => 'id,webViewLink',
-                'supportsAllDrives' => true,
             ]
         );
 
@@ -58,7 +55,7 @@ class GoogleDriveBackupService
                     'role' => 'reader',
                     'emailAddress' => $email,
                 ]),
-                ['sendNotificationEmail' => true, 'supportsAllDrives' => true]
+                ['sendNotificationEmail' => true]
             );
         }
 
@@ -68,5 +65,31 @@ class GoogleDriveBackupService
         ]);
 
         return $backup->refresh();
+    }
+
+    public function testConnection(): void
+    {
+        $configuration = $this->settings->get();
+        $folderId = trim((string) $configuration['google_folder_id']);
+
+        if ($folderId === '') {
+            throw new RuntimeException('Google Drive is not connected.');
+        }
+
+        $drive = new Drive($this->oauth->authorizedClient());
+        $file = $drive->files->create(
+            new DriveFile([
+                'name' => 'backup-connection-test-' . now()->format('Ymd-His') . '.txt',
+                'parents' => [$folderId],
+            ]),
+            [
+                'data' => 'Google Drive backup connection test completed at ' . now()->toIso8601String(),
+                'mimeType' => 'text/plain',
+                'uploadType' => 'multipart',
+                'fields' => 'id',
+            ]
+        );
+
+        $drive->files->delete($file->getId());
     }
 }
