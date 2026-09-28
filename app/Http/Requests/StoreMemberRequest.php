@@ -18,7 +18,8 @@ class StoreMemberRequest extends FormRequest
         $rules = [
             'first_name' => ['required', 'string', 'max:191'],
             'last_name' => ['required', 'string', 'max:191'],
-            'email' => ['required', 'email', 'max:191', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:191'],
+            'link_existing' => ['nullable', 'boolean'],
             'occupation' => ['nullable', 'string', 'max:191'],
             'mobile' => ['required', 'string', 'max:50'],
             'date_of_birth' => ['nullable', 'date'],

@@ -75,6 +75,11 @@
     @stack('styles')
 </head>
 <body class="hold-transition sidebar-mini layout-fixed customer-shell">
+@php
+    $portalBranchService = app(\App\Services\ActiveMemberBranchService::class);
+    $portalMemberships = $portalBranchService->memberships(auth()->user());
+    $portalActiveMembership = $portalBranchService->current(auth()->user());
+@endphp
 <div class="wrapper">
     <nav class="main-header navbar navbar-expand navbar-white navbar-light">
         <ul class="navbar-nav">
@@ -85,11 +90,26 @@
             </li>
         </ul>
         <ul class="navbar-nav ml-auto">
-            <li class="nav-item d-none d-md-flex align-items-center mr-2">
-                <span class="customer-branch-chip">
+            <li class="nav-item dropdown d-flex align-items-center mr-2">
+                <a class="customer-branch-chip dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-code-branch"></i>
-                    {{ auth()->user()->branch?->name ?? 'No Branch' }}
-                </span>
+                    {{ $portalActiveMembership?->branch?->name ?? 'No Society' }}
+                </a>
+                @if ($portalMemberships->count() > 1)
+                    <div class="dropdown-menu dropdown-menu-right">
+                        <h6 class="dropdown-header">Switch society</h6>
+                        @foreach ($portalMemberships as $membership)
+                            <form method="POST" action="{{ route('customer.branch.switch') }}">
+                                @csrf
+                                <input type="hidden" name="membership_id" value="{{ $membership->id }}">
+                                <button class="dropdown-item {{ $portalActiveMembership?->id === $membership->id ? 'active' : '' }}" type="submit">
+                                    {{ $membership->branch->name }}
+                                    <small class="d-block">{{ $membership->member_number }}</small>
+                                </button>
+                            </form>
+                        @endforeach
+                    </div>
+                @endif
             </li>
             <li class="nav-item dropdown">
                 <a class="nav-link" data-toggle="dropdown" href="#">

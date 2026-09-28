@@ -33,12 +33,13 @@ class AccountController extends Controller
         $usersQuery = User::query()
             ->with([
                 'detail',
-                'savingsAccounts' => function ($query): void {
+                'savingsAccounts' => function ($query) use ($branch): void {
                     $query->with('product')
+                        ->where('branch_id', $branch->id)
                         ->where('is_branch_acount', false);
                 },
             ])
-            ->where('branch_id', (string) $branch->id)
+            ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', true))
             ->where('branch_account', false)
             ->whereNull('deleted_at')
             ->where(function (Builder $query): void {
@@ -84,9 +85,9 @@ class AccountController extends Controller
                     ])
                     ->where('status', 0)
                     ->where('is_branch_acount', false)
+                    ->where('branch_id', $branch->id)
                     ->whereHas('user', function (Builder $query) use ($branch): void {
                         $query->withTrashed()
-                            ->where('branch_id', (string) $branch->id)
                             ->where('branch_account', false);
                     })
                     ->latest('disabled_at')
@@ -113,7 +114,7 @@ class AccountController extends Controller
             $branch
             && ! $account->is_branch_acount
             && $member
-            && (string) $member->branch_id === (string) $branch->id,
+            && (int) $account->branch_id === (int) $branch->id,
             404
         );
 

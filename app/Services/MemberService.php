@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\CustomField;
 use App\Models\MemberDocument;
+use App\Models\MemberBranchMembership;
 use App\Models\User;
 use App\Models\UserDetail;
 use App\Models\EmailTemplate;
@@ -15,7 +16,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MemberService
 {
@@ -33,6 +36,14 @@ class MemberService
 
     public function memberNumberPreview(?User $member, Branch $branch): string
     {
+        $membershipNumber = $member?->exists && Schema::hasTable('member_branch_memberships')
+            ? $member->branchMemberships()->where('branch_id', $branch->id)->value('member_number')
+            : null;
+
+        if ($membershipNumber) {
+            return $membershipNumber;
+        }
+
         $existingNumber = $this->normalizeExistingMemberNumber(
             $member?->detail?->member_no ?: $member?->member_no,
             $branch
@@ -44,6 +55,49 @@ class MemberService
     public function create(array $data, Branch $branch): User
     {
         return DB::transaction(function () use ($data, $branch): User {
+            $normalizedEmail = Str::lower(trim($data['email']));
+            $normalizedMobile = preg_replace('/\D+/', '', (string) $data['mobile']);
+            $existing = User::query()
+                ->where('user_type', 'customer')
+                ->where('branch_account', false)
+                ->where(function ($query) use ($normalizedEmail, $normalizedMobile): void {
+                    $query->whereRaw('LOWER(email) = ?', [$normalizedEmail]);
+                    if ($normalizedMobile !== '') {
+                        $query->orWhereHas('detail', function ($detail) use ($normalizedMobile): void {
+                            $detail->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '+', ''), '-', ''), '(', '') LIKE ?", ['%' . ltrim($normalizedMobile, '0')]);
+                        });
+                    }
+                })
+                ->first();
+
+            if ($existing) {
+                if (! ($data['link_existing'] ?? false)) {
+                    throw ValidationException::withMessages([
+                        'email' => 'A member with this email or phone already exists. Confirm that this is the same person to add the current society membership.',
+                    ]);
+                }
+
+                if ($existing->branchMemberships()->where('branch_id', $branch->id)->exists()) {
+                    throw ValidationException::withMessages([
+                        'email' => 'This person is already a member of the selected society.',
+                    ]);
+                }
+
+                $membership = MemberBranchMembership::create([
+                    'user_id' => $existing->id,
+                    'branch_id' => $branch->id,
+                    'member_number' => $this->reserveNextMemberNumber($branch),
+                    'is_primary' => false,
+                    'status' => true,
+                    'joined_at' => now(),
+                ]);
+                $this->branchService->ensureMembershipAccounts($existing, $membership);
+                $existing->setRelation('activeMembership', $membership);
+                $existing->setRelation('branch', $branch);
+
+                return $existing;
+            }
+
             $memberNumber = $this->reserveNextMemberNumber($branch);
             $verificationRequired = EmailTemplate::query()->where('category', 'account_verification')->where('status', true)->exists()
                 && EmailSmtpAccount::query()->where('is_active', true)->exists();
@@ -51,7 +105,7 @@ class MemberService
             $member = User::create([
                 'name' => $data['first_name'],
                 'last_name' => $data['last_name'],
-                'email' => $data['email'],
+                'email' => $normalizedEmail,
                 'password' => Hash::make(Str::password(24)),
                 'user_type' => 'customer',
                 'role_id' => null,
@@ -86,8 +140,17 @@ class MemberService
                 'custom_fields' => $this->prepareCustomFieldValues($data['custom_fields'] ?? [], []),
             ]);
 
+            $membership = MemberBranchMembership::create([
+                'user_id' => $member->id,
+                'branch_id' => $branch->id,
+                'member_number' => $memberNumber,
+                'is_primary' => true,
+                'status' => true,
+                'joined_at' => now(),
+            ]);
+
             $this->syncDocuments($member, $data, false);
-            $this->branchService->ensureMemberAccounts($member);
+            $this->branchService->ensureMembershipAccounts($member, $membership);
 
             DB::afterCommit(function () use ($member, $verificationRequired): void {
                 try {
@@ -112,11 +175,11 @@ class MemberService
     public function update(User $member, array $data, Branch $branch): User
     {
         return DB::transaction(function () use ($member, $data, $branch): User {
-            $member->update([
+            $membership = $member->branchMemberships()->where('branch_id', $branch->id)->firstOrFail();
+            $memberPayload = [
                 'name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
-                'branch_id' => (string) $branch->id,
                 'profile_picture' => $this->storeOptionalFile(
                     $data['picture'] ?? null,
                     'members/pictures',
@@ -128,18 +191,17 @@ class MemberService
                     $member->signature
                 ),
                 'designation' => $member->designation ?: 'Member',
-            ]);
+            ];
+            $member->update($memberPayload);
 
             $detail = $member->detail ?: new UserDetail([
                 'user_id' => $member->id,
                 'member_no' => $member->member_no,
             ]);
 
-            $detail->fill([
-                'branch_id' => $branch->id,
+            $detailPayload = [
                 'mobile' => $data['mobile'],
                 'date_of_birth' => $data['date_of_birth'] ?? null,
-                'member_no' => $detail->member_no ?: $member->member_no,
                 'occupation' => $data['occupation'] ?? null,
                 'gender' => $data['gender'] ?? null,
                 'city' => $data['city'] ?? null,
@@ -149,28 +211,32 @@ class MemberService
                     $data['custom_fields'] ?? [],
                     $detail->custom_fields ?? []
                 ),
-            ]);
-            $canonicalMemberNumber = $this->resolveMemberNumber($member, $detail, $branch);
-            $detail->member_no = $canonicalMemberNumber;
+            ];
+            if ($membership->is_primary) {
+                $detailPayload['branch_id'] = $branch->id;
+                $detailPayload['member_no'] = $detail->member_no ?: $membership->member_number;
+            }
+            $detail->fill($detailPayload);
             $detail->save();
 
-            if ($member->member_no !== $canonicalMemberNumber) {
-                $member->update(['member_no' => $canonicalMemberNumber]);
-            }
-
             $this->syncDocuments($member, $data, true);
-            $this->branchService->ensureMemberAccounts($member);
+            $this->branchService->ensureMembershipAccounts($member, $membership);
+
+            $member->setRelation('activeMembership', $membership);
+            $member->setRelation('branch', $branch);
 
             return $member->fresh()->load(['detail', 'documents', 'savingsAccounts']);
         });
     }
 
-    public function archive(User $member): void
+    public function archive(User $member, Branch $branch): void
     {
-        DB::transaction(function () use ($member): void {
+        DB::transaction(function () use ($member, $branch): void {
             $archivedAt = now();
+            $membership = $member->branchMemberships()->where('branch_id', $branch->id)->firstOrFail();
 
             $member->savingsAccounts()
+                ->where('member_branch_membership_id', $membership->id)
                 ->where('is_branch_acount', false)
                 ->where('status', 1)
                 ->update([
@@ -180,23 +246,29 @@ class MemberService
                     'updated_at' => $archivedAt,
                 ]);
 
-            $member->update([
-                'status' => 0,
-            ]);
+            $membership->update(['status' => false]);
 
-            $member->delete();
+            if (! $member->branchMemberships()->where('status', true)->exists()) {
+                $member->update(['status' => 0]);
+                $member->delete();
+            }
         });
     }
 
-    public function restore(User $member): void
+    public function restore(User $member, Branch $branch): void
     {
-        DB::transaction(function () use ($member): void {
-            abort_unless($member->trashed(), 422, 'This member is already active.');
+        DB::transaction(function () use ($member, $branch): void {
+            $membership = $member->branchMemberships()->where('branch_id', $branch->id)->firstOrFail();
+            abort_if($membership->status, 422, 'This society membership is already active.');
 
-            $member->restore();
+            if ($member->trashed()) {
+                $member->restore();
+            }
             $member->update(['status' => 1]);
+            $membership->update(['status' => true]);
 
             $member->savingsAccounts()
+                ->where('member_branch_membership_id', $membership->id)
                 ->whereNotNull('archived_with_member_at')
                 ->update([
                     'status' => 1,

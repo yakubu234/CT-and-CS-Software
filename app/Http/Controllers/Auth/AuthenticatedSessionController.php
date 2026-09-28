@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\ActiveBranchService;
+use App\Services\ActiveMemberBranchService;
 use App\Services\Auth\StaffLoginOtpService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,7 @@ class AuthenticatedSessionController extends Controller
 {
     public function __construct(
         protected ActiveBranchService $activeBranchService,
+        protected ActiveMemberBranchService $activeMemberBranchService,
         protected StaffLoginOtpService $staffLoginOtpService,
     ) {
     }
@@ -59,7 +61,7 @@ class AuthenticatedSessionController extends Controller
             }
             Auth::login($user, $remember);
             $request->session()->regenerate();
-            $this->activeBranchService->ensureActiveBranch($user);
+            $this->activeMemberBranchService->current($user);
 
             if ($user->must_change_password) {
                 return redirect()->intended(route('customer.password.edit'));

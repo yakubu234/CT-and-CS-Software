@@ -13,6 +13,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\CustomerPortalController;
+use App\Http\Controllers\CustomerBranchSwitchController;
 use App\Http\Controllers\CustomerSupportRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataBackupController;
@@ -78,6 +79,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::prefix('customer')->name('customer.')->middleware('customer')->group(function () {
+        Route::post('/branch/switch', CustomerBranchSwitchController::class)->name('branch.switch');
         Route::get('/dashboard', [CustomerPortalController::class, 'dashboard'])->name('dashboard');
         Route::get('/password/change', [CustomerPortalController::class, 'editPassword'])->name('password.edit');
         Route::put('/password/change', [CustomerPortalController::class, 'updatePassword'])->name('password.update');

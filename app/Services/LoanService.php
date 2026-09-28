@@ -40,9 +40,11 @@ class LoanService
     public function createRequest(Branch $branch, User $actor, User $borrower, array $payload): LoanDetail
     {
         return DB::transaction(function () use ($branch, $actor, $borrower, $payload): LoanDetail {
+            $membership = $borrower->branchMemberships()->where('branch_id', $branch->id)->where('status', true)->firstOrFail();
             $loan = Loan::query()
                 ->where('branch_id', $branch->id)
                 ->where('borrower_id', $borrower->id)
+                ->where('member_branch_membership_id', $membership->id)
                 ->first();
 
             if (! $loan) {
@@ -50,6 +52,7 @@ class LoanService
                     'loan_id' => $this->reserveNextLoanNumber($branch),
                     'loan_product_id' => 0,
                     'borrower_id' => $borrower->id,
+                    'member_branch_membership_id' => $membership->id,
                     'first_payment_date' => $payload['due_date'],
                     'release_date' => $payload['release_date'],
                     'applied_amount' => '0',
@@ -144,6 +147,7 @@ class LoanService
             if (! $disbursement) {
                 $disbursement = Transaction::create([
                     'user_id' => $branch->branch_user_id,
+                    'member_branch_membership_id' => $loan->member_branch_membership_id,
                     'trans_date' => $detail->release_date,
                     'savings_account_id' => null,
                     'charge' => 0,

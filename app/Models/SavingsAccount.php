@@ -10,6 +10,8 @@ class SavingsAccount extends Model
     protected $fillable = [
         'account_number',
         'user_id',
+        'member_branch_membership_id',
+        'branch_id',
         'savings_product_id',
         'status',
         'opening_balance',
@@ -42,5 +44,15 @@ class SavingsAccount extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(SavingsProduct::class, 'savings_product_id');
+    }
+
+    public function membership(): BelongsTo
+    {
+        return $this->belongsTo(MemberBranchMembership::class, 'member_branch_membership_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 }

@@ -12,6 +12,7 @@ use App\Models\SmsMessage;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\MemberStatementService;
+use App\Services\ActiveMemberBranchService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +28,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CustomerPortalController extends Controller
 {
+    public function __construct(protected ActiveMemberBranchService $activeMemberBranch)
+    {
+    }
+
     public function document(Request $request, MemberDocument $memberDocument): StreamedResponse
     {
         $customer = $this->customer($request);
@@ -152,7 +157,8 @@ class CustomerPortalController extends Controller
             'loanRequests' => $this->applyDateRange(
                 LoanDetail::query()
                     ->with('loan')
-                    ->where('borrower_id', $customer->id),
+                    ->where('borrower_id', $customer->id)
+                    ->whereHas('loan', fn (Builder $query) => $query->where('member_branch_membership_id', $customer->activeMembership->id)),
                 $request,
                 'created_at'
             )
@@ -173,7 +179,8 @@ class CustomerPortalController extends Controller
                 LoanPayment::query()
                     ->with(['loan', 'detail'])
                     ->whereHas('loan', function (Builder $query) use ($customer): void {
-                        $query->where('borrower_id', $customer->id);
+                        $query->where('borrower_id', $customer->id)
+                            ->where('member_branch_membership_id', $customer->activeMembership->id);
                     }),
                 $request,
                 'paid_at'
@@ -198,8 +205,14 @@ class CustomerPortalController extends Controller
         $accounts = $this->memberAccounts($customer);
         $transactions = $this->filteredTransactionsQuery($customer, $request, $accounts)->get();
 
-        return response()->streamDownload(function () use ($transactions): void {
+        $branch = $customer->activeMembership->branch;
+        $memberNumber = $customer->display_member_no ?: (string) $customer->id;
+
+        return response()->streamDownload(function () use ($transactions, $branch, $memberNumber): void {
             $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Society', $branch->name]);
+            fputcsv($handle, ['Member Number', $memberNumber]);
+            fputcsv($handle, []);
             fputcsv($handle, ['Date', 'Account Number', 'Account Type', 'Description', 'Method', 'Type', 'Amount']);
 
             foreach ($transactions as $transaction) {
@@ -215,7 +228,7 @@ class CustomerPortalController extends Controller
             }
 
             fclose($handle);
-        }, 'member-transactions.csv', [
+        }, 'member-transactions-' . str($branch->name)->slug() . '.csv', [
             'Content-Type' => 'text/csv',
         ]);
     }
@@ -227,7 +240,7 @@ class CustomerPortalController extends Controller
         return view('customer.notifications', [
             'customer' => $customer,
             'emails' => $this->applyDateRange(
-                EmailMessage::query()->where('user_id', $customer->id),
+                EmailMessage::query()->where('user_id', $customer->id)->where('branch_id', $customer->activeMembership->branch_id),
                 $request,
                 'created_at'
             )
@@ -235,7 +248,7 @@ class CustomerPortalController extends Controller
                     ->paginate(15, ['*'], 'emails_page')
                     ->withQueryString(),
             'smsMessages' => $this->applyDateRange(
-                SmsMessage::query()->where('user_id', $customer->id),
+                SmsMessage::query()->where('user_id', $customer->id)->where('branch_id', $customer->activeMembership->branch_id),
                 $request,
                 'created_at'
             )
@@ -275,7 +288,6 @@ class CustomerPortalController extends Controller
         $customer->detail()->updateOrCreate(
             ['user_id' => $customer->id],
             [
-                'branch_id' => $customer->branch_id,
                 'mobile' => $validated['mobile'],
             ]
         );
@@ -300,7 +312,8 @@ class CustomerPortalController extends Controller
                             });
                     }])
                     ->where('conversation_type', 'customer_admin')
-                    ->where('user_id', $customer->id),
+                    ->where('user_id', $customer->id)
+                    ->where('branch_id', $customer->activeMembership->branch_id),
                 $request,
                 'created_at'
             )
@@ -326,7 +339,7 @@ class CustomerPortalController extends Controller
             $supportRequest = CustomerSupportRequest::create([
                 ...$validated,
                 'user_id' => $customer->id,
-                'branch_id' => $customer->branch_id,
+                'branch_id' => $customer->activeMembership->branch_id,
                 'created_by' => $customer->id,
                 'conversation_type' => 'customer_admin',
                 'priority' => 'normal',
@@ -350,7 +363,8 @@ class CustomerPortalController extends Controller
         $customer = $this->customer($request);
         abort_unless(
             $supportRequest->conversation_type === 'customer_admin'
-            && (int) $supportRequest->user_id === (int) $customer->id,
+            && (int) $supportRequest->user_id === (int) $customer->id
+            && (int) $supportRequest->branch_id === (int) $customer->activeMembership->branch_id,
             404
         );
 
@@ -370,7 +384,8 @@ class CustomerPortalController extends Controller
         $customer = $this->customer($request);
         abort_unless(
             $supportRequest->conversation_type === 'customer_admin'
-            && (int) $supportRequest->user_id === (int) $customer->id,
+            && (int) $supportRequest->user_id === (int) $customer->id
+            && (int) $supportRequest->branch_id === (int) $customer->activeMembership->branch_id,
             404
         );
 
@@ -399,6 +414,8 @@ class CustomerPortalController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        abort_unless($this->activeMemberBranch->current($user), 403, 'No active society membership is available for this account.');
+
         return $user;
     }
 
@@ -406,6 +423,7 @@ class CustomerPortalController extends Controller
     {
         return $customer->savingsAccounts()
             ->with('product')
+            ->where('member_branch_membership_id', $customer->activeMembership->id)
             ->where('is_branch_acount', false)
             ->orderBy('id')
             ->get()
@@ -451,6 +469,7 @@ class CustomerPortalController extends Controller
     {
         $loans = Loan::query()
             ->where('borrower_id', $customer->id)
+            ->where('member_branch_membership_id', $customer->activeMembership->id)
             ->whereHas('details', function (Builder $query): void {
                 $query->where('decision_status', LoanDetail::STATUS_APPROVED);
             })
@@ -510,6 +529,7 @@ class CustomerPortalController extends Controller
     {
         return Loan::query()
             ->where('borrower_id', $customer->id)
+            ->where('member_branch_membership_id', $customer->activeMembership->id)
             ->where(function (Builder $query): void {
                 $query->whereRaw('CAST(COALESCE(balanace, 0) AS DECIMAL(15,2)) > 0')
                     ->orWhereRaw('CAST(COALESCE(amount_due, 0) AS DECIMAL(15,2)) > 0')
@@ -563,6 +583,7 @@ class CustomerPortalController extends Controller
         return LoanDetail::query()
             ->with('loan')
             ->where('borrower_id', $customer->id)
+            ->whereHas('loan', fn (Builder $query) => $query->where('member_branch_membership_id', $customer->activeMembership->id))
             ->where('decision_status', LoanDetail::STATUS_APPROVED)
             ->where('repayment_status', false)
             ->whereDate('due_date', '>=', now()->toDateString())

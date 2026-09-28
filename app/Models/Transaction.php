@@ -13,6 +13,7 @@ class Transaction extends Model
 
     protected $fillable = [
         'user_id',
+        'member_branch_membership_id',
         'trans_date',
         'savings_account_id',
         'charge',
@@ -63,6 +64,11 @@ class Transaction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(SavingsAccount::class, 'savings_account_id');
+    }
+
+    public function membership(): BelongsTo
+    {
+        return $this->belongsTo(MemberBranchMembership::class, 'member_branch_membership_id');
     }
 
     public function parent(): BelongsTo

@@ -42,17 +42,19 @@ class MemberController extends Controller
         $members = TableListing::paginate(
             TableListing::applySearch(
                 User::query()
-                    ->with(['detail'])
+                    ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
                     ->where('branch_account', false)
                     ->where('user_type', 'customer')
                     ->whereNull('deleted_at')
-                    ->where('branch_id', (string) $branch->id)
+                    ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', true))
                     ->latest(),
                 $request->string('search')->toString(),
                 ['name', 'last_name', 'email', 'member_no', 'designation']
             ),
             $request
         );
+
+        $this->activateListedMemberships($members->getCollection(), $branch->id);
 
         return view('members.index', [
             'branch' => $branch,
@@ -89,12 +91,12 @@ class MemberController extends Controller
 
         $members = TableListing::paginate(
             TableListing::applySearch(
-                User::onlyTrashed()
-                    ->with(['detail'])
+                User::withTrashed()
+                    ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
                     ->withCount('savingsAccounts')
                     ->where('branch_account', false)
                     ->where('user_type', 'customer')
-                    ->where('branch_id', (string) $branch->id)
+                    ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', false))
                     ->latest('deleted_at'),
                 $request->string('search')->toString(),
                 ['name', 'last_name', 'email', 'member_no', 'designation']
@@ -102,14 +104,28 @@ class MemberController extends Controller
             $request
         );
 
+        $this->activateListedMemberships($members->getCollection(), $branch->id);
+
         return view('members.archived', compact('branch', 'members'));
     }
 
     public function archivedShow(Request $request, int $memberId): View|RedirectResponse
     {
-        $member = User::onlyTrashed()->findOrFail($memberId);
+        $member = User::withTrashed()->findOrFail($memberId);
 
         return $this->showMember($request, $member, true);
+    }
+
+    protected function activateListedMemberships($members, int $branchId): void
+    {
+        $members->each(function (User $member) use ($branchId): void {
+            $membership = $member->branchMemberships->firstWhere('branch_id', $branchId);
+
+            if ($membership) {
+                $member->setRelation('activeMembership', $membership);
+                $member->setRelation('branch', $membership->branch);
+            }
+        });
     }
 
     public function store(StoreMemberRequest $request): RedirectResponse
@@ -142,14 +158,18 @@ class MemberController extends Controller
         abort_unless(
             ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
+
+        $membership = $member->branchMemberships()->with('branch')->where('branch_id', $branch->id)->firstOrFail();
+        $member->setRelation('activeMembership', $membership);
+        $member->setRelation('branch', $branch);
 
         $member->load([
             'detail',
             'documents',
-            'savingsAccounts.product',
+            'savingsAccounts' => fn ($query) => $query->where('member_branch_membership_id', $membership->id)->with('product'),
             'loans' => function ($query) use ($branch): void {
                 $query->where('branch_id', $branch->id)
                     ->latest('id');
@@ -208,11 +228,14 @@ class MemberController extends Controller
         abort_unless(
             ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
         $member->load(['detail', 'documents']);
+        $membership = $member->branchMemberships()->with('branch')->where('branch_id', $branch->id)->firstOrFail();
+        $member->setRelation('activeMembership', $membership);
+        $member->setRelation('branch', $branch);
 
         return view('members.edit', [
             'branch' => $branch,
@@ -230,7 +253,7 @@ class MemberController extends Controller
         abort_unless(
             ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
@@ -249,7 +272,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
@@ -283,7 +306,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
@@ -307,7 +330,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
@@ -337,12 +360,12 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
         $memberName = $member->name;
-        $this->memberService->archive($member);
+        $this->memberService->archive($member, $branch);
 
         return redirect()
             ->route('members.index')
@@ -352,18 +375,18 @@ class MemberController extends Controller
     public function restore(Request $request, int $memberId): RedirectResponse
     {
         $branch = $this->activeBranchService->ensureActiveBranch($request->user());
-        $member = User::onlyTrashed()->findOrFail($memberId);
+        $member = User::withTrashed()->findOrFail($memberId);
 
         abort_unless(
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
         $memberName = $member->name;
-        $this->memberService->restore($member);
+        $this->memberService->restore($member, $branch);
 
         return redirect()
             ->route('members.show', $member)
@@ -378,7 +401,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 
@@ -404,7 +427,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists()
             && (int) $memberDocument->user_id === (int) $member->id,
             404
         );
@@ -441,7 +464,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists()
             && (int) $memberDocument->user_id === (int) $member->id,
             404
         );
@@ -466,7 +489,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists()
             && (int) $memberDocument->user_id === (int) $member->id,
             404
         );
@@ -491,7 +514,7 @@ class MemberController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
 

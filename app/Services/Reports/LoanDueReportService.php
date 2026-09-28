@@ -76,8 +76,9 @@ class LoanDueReportService
     {
         return User::query()
             ->withTrashed()
+            ->join('member_branch_memberships as memberships', 'memberships.user_id', '=', 'users.id')
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
-            ->where('users.branch_id', $branch->id)
+            ->where('memberships.branch_id', $branch->id)
             ->where('users.branch_account', false)
             ->where('users.user_type', 'customer')
             ->orderBy('users.name')
@@ -96,7 +97,7 @@ class LoanDueReportService
                         )
                     ) as display_name
                 "),
-                DB::raw('COALESCE(details.member_no, users.member_no) as member_code'),
+                DB::raw('COALESCE(memberships.member_number, details.member_no, users.member_no) as member_code'),
             ]);
     }
 
@@ -104,6 +105,7 @@ class LoanDueReportService
     {
         $query = Loan::query()
             ->leftJoin('users as borrowers', 'borrowers.id', '=', 'loans.borrower_id')
+            ->leftJoin('member_branch_memberships as memberships', 'memberships.id', '=', 'loans.member_branch_membership_id')
             ->leftJoin('user_details as borrower_details', 'borrower_details.user_id', '=', 'borrowers.id')
             ->where('loans.branch_id', $branch->id)
             ->where('borrowers.branch_account', false)
@@ -119,7 +121,7 @@ class LoanDueReportService
             ->select([
                 'loans.id',
                 'loans.loan_id',
-                DB::raw('COALESCE(borrower_details.member_no, borrowers.member_no) as member_no'),
+                DB::raw('COALESCE(memberships.member_number, borrower_details.member_no, borrowers.member_no) as member_no'),
                 DB::raw('COALESCE(borrower_details.mobile, \'\') as member_phone'),
                 DB::raw("
                     TRIM(

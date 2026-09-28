@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Designation;
 use App\Models\SavingsAccount;
 use App\Models\SavingsProduct;
+use App\Models\MemberBranchMembership;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -87,7 +88,18 @@ class BranchService
 
     public function ensureMemberAccounts(User $user): void
     {
-        $this->createMemberAccounts($user, $user->name);
+        $membership = $user->branchMemberships()
+            ->where('branch_id', (int) $user->branch_id)
+            ->first();
+
+        if ($membership) {
+            $this->createMemberAccounts($user, $user->name, $membership);
+        }
+    }
+
+    public function ensureMembershipAccounts(User $user, MemberBranchMembership $membership): void
+    {
+        $this->createMemberAccounts($user, $user->name, $membership);
     }
 
     public function nextAccountNumberForProduct(SavingsProduct $product): string
@@ -232,7 +244,11 @@ class BranchService
         ]);
     }
 
-    protected function createMemberAccounts(User $user, string $accountHolderName): void
+    protected function createMemberAccounts(
+        User $user,
+        string $accountHolderName,
+        MemberBranchMembership $membership
+    ): void
     {
         $products = SavingsProduct::query()
             ->where('status', 1)
@@ -251,6 +267,7 @@ class BranchService
         foreach ($products as $product) {
             $alreadyExists = SavingsAccount::query()
                 ->where('user_id', $user->id)
+                ->where('member_branch_membership_id', $membership->id)
                 ->where('savings_product_id', $product->id)
                 ->exists();
 
@@ -261,6 +278,8 @@ class BranchService
             SavingsAccount::create([
                 'account_number' => $this->generateAccountNumber($product),
                 'user_id' => $user->id,
+                'member_branch_membership_id' => $membership->id,
+                'branch_id' => $membership->branch_id,
                 'savings_product_id' => $product->id,
                 'status' => 1,
                 'opening_balance' => 0,
@@ -369,7 +388,10 @@ class BranchService
                 'former_designation' => null,
             ]);
 
-            $this->createMemberAccounts($member, $member->name);
+            $membership = $member->branchMemberships()->where('branch_id', $branch->id)->first();
+            if ($membership) {
+                $this->createMemberAccounts($member, $member->name, $membership);
+            }
             $submittedExcoIds[] = $member->id;
         }
 

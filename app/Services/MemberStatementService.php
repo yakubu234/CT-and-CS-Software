@@ -12,13 +12,26 @@ class MemberStatementService
 {
     public function query(User $member): Builder
     {
-        $loanIds = Loan::query()->where('borrower_id', $member->id)->select('id');
+        $membershipId = $member->relationLoaded('activeMembership') ? $member->activeMembership?->id : null;
+        $branchId = $member->relationLoaded('activeMembership') ? $member->activeMembership?->branch_id : $member->branch_id;
+        $loanIds = Loan::query()
+            ->where('borrower_id', $member->id)
+            ->when($membershipId, fn (Builder $query) => $query->where('member_branch_membership_id', $membershipId))
+            ->where('branch_id', $branchId)
+            ->select('id');
 
         return Transaction::query()
             ->with('account.product')
-            ->where(function (Builder $query) use ($member, $loanIds): void {
-                $query->where(function (Builder $memberQuery) use ($member): void {
-                    $memberQuery->where('user_id', $member->id)->where('is_branch', false);
+            ->where('branch_id', $branchId)
+            ->where(function (Builder $query) use ($member, $loanIds, $membershipId): void {
+                $query->where(function (Builder $memberQuery) use ($member, $membershipId): void {
+                    $memberQuery->where('user_id', $member->id)->where('is_branch', false)
+                        ->when($membershipId, function (Builder $scope) use ($membershipId): void {
+                            $scope->where(function (Builder $membershipQuery) use ($membershipId): void {
+                                $membershipQuery->where('member_branch_membership_id', $membershipId)
+                                    ->orWhereHas('account', fn (Builder $account) => $account->where('member_branch_membership_id', $membershipId));
+                            });
+                        });
                 })->orWhere(function (Builder $loanQuery) use ($loanIds): void {
                     $loanQuery->where('is_branch', true)
                         ->whereIn('loan_id', $loanIds)

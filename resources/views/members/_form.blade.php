@@ -127,6 +127,18 @@
         </div>
     </div>
 
+    @if (! $member)
+        <div class="col-12">
+            <div class="custom-control custom-checkbox mb-3">
+                <input class="custom-control-input" type="checkbox" name="link_existing" value="1" id="link_existing" @checked(old('link_existing'))>
+                <label class="custom-control-label" for="link_existing">
+                    If this email or phone already belongs to a member, confirm this is the same person and add membership for {{ $branch->name }}.
+                </label>
+                <small class="form-text text-muted">The existing login will be retained and four new society-specific accounts will be created.</small>
+            </div>
+        </div>
+    @endif
+
     <div class="col-md-6">
         <div class="form-group">
             <label for="date_of_birth">

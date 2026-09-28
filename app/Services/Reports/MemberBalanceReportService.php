@@ -90,8 +90,9 @@ class MemberBalanceReportService
     {
         return User::query()
             ->withTrashed()
+            ->join('member_branch_memberships as memberships', 'memberships.user_id', '=', 'users.id')
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
-            ->where('users.branch_id', $branch->id)
+            ->where('memberships.branch_id', $branch->id)
             ->where('users.branch_account', false)
             ->where('users.user_type', 'customer')
             ->orderBy('users.name')
@@ -110,7 +111,7 @@ class MemberBalanceReportService
                         )
                     ) as display_name
                 "),
-                DB::raw('COALESCE(details.member_no, users.member_no) as member_code'),
+                DB::raw('COALESCE(memberships.member_number, details.member_no, users.member_no) as member_code'),
             ]);
     }
 
@@ -122,8 +123,9 @@ class MemberBalanceReportService
     ): Builder {
         $query = User::query()
             ->withTrashed()
+            ->join('member_branch_memberships as memberships', 'memberships.user_id', '=', 'users.id')
             ->leftJoin('user_details as details', 'details.user_id', '=', 'users.id')
-            ->where('users.branch_id', $branch->id)
+            ->where('memberships.branch_id', $branch->id)
             ->where('users.branch_account', false)
             ->where('users.user_type', 'customer')
             ->select([
@@ -132,7 +134,7 @@ class MemberBalanceReportService
                 'users.last_name',
                 'users.email',
                 'users.profile_picture',
-                DB::raw('COALESCE(details.member_no, users.member_no) as member_no'),
+                DB::raw('COALESCE(memberships.member_number, details.member_no, users.member_no) as member_no'),
                 DB::raw("
                     TRIM(
                         CONCAT(
@@ -191,6 +193,7 @@ class MemberBalanceReportService
             ->join('savings_accounts', 'savings_accounts.id', '=', 'transactions.savings_account_id')
             ->join('savings_products', 'savings_products.id', '=', 'savings_accounts.savings_product_id')
             ->whereColumn('savings_accounts.user_id', 'users.id')
+            ->whereColumn('savings_accounts.member_branch_membership_id', 'memberships.id')
             ->where('savings_accounts.is_branch_acount', false)
             ->where('savings_products.type', $type)
             ->where('transactions.is_branch', false)

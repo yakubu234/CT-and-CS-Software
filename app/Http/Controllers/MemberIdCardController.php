@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\ActiveBranchService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use App\Services\ActiveMemberBranchService;
 use Illuminate\Support\Facades\Storage;
 
 class MemberIdCardController extends Controller
@@ -23,18 +24,25 @@ class MemberIdCardController extends Controller
             $branch
             && ! $member->branch_account
             && $member->user_type === 'customer'
-            && (string) $member->branch_id === (string) $branch->id,
+            && $member->branchMemberships()->where('branch_id', $branch->id)->exists(),
             404
         );
+
+        $membership = $member->branchMemberships()->where('branch_id', $branch->id)->firstOrFail();
+        $member->setRelation('activeMembership', $membership);
+        $member->setRelation('branch', $branch);
 
         return $this->cardView($member);
     }
 
-    public function customer(Request $request): View
+    public function customer(Request $request, ActiveMemberBranchService $activeBranch): View
     {
         $member = $request->user();
+        $membership = $activeBranch->current($member);
 
         abort_unless(
+            $membership
+            &&
             $member
             && ! $member->branch_account
             && $member->user_type === 'customer',

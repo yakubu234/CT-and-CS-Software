@@ -29,13 +29,14 @@ class TransactionService
             $changedBranchTransactionIds = [];
 
             foreach ($entries as $entry) {
-                $account = $this->resolveAccountForMember($member, (int) $entry['savings_account_id']);
+                $account = $this->resolveAccountForMember($member, (int) $entry['savings_account_id'], $branch);
                 $amount = $this->normalizeAmount($entry['amount']);
                 $drCr = strtolower($entry['dr_cr']);
                 $hasBranchDebit = $hasBranchDebit || $drCr === 'dr';
 
                 $transaction = Transaction::create([
                     'user_id' => $member->id,
+                    'member_branch_membership_id' => $account->member_branch_membership_id,
                     'trans_date' => $transactionDate,
                     'savings_account_id' => $account->id,
                     'charge' => 0,
@@ -114,7 +115,7 @@ class TransactionService
                 throw new RuntimeException('This transaction is missing its linked member account.');
             }
 
-            $newAccount = $this->resolveAccountForMember($member, (int) $payload['savings_account_id']);
+            $newAccount = $this->resolveAccountForMember($member, (int) $payload['savings_account_id'], $branch);
             $newAmount = $this->normalizeAmount($payload['amount']);
             $newDrCr = strtolower($payload['dr_cr']);
             $newDate = $payload['trans_date'];
@@ -124,6 +125,7 @@ class TransactionService
             $transaction->update([
                 'trans_date' => $newDate,
                 'savings_account_id' => $newAccount->id,
+                'member_branch_membership_id' => $newAccount->member_branch_membership_id,
                 'amount' => $newAmount,
                 'dr_cr' => $newDrCr,
                 'type' => $this->displayType($newAccount),
@@ -274,11 +276,12 @@ class TransactionService
         ]);
     }
 
-    protected function resolveAccountForMember(User $member, int $accountId): SavingsAccount
+    protected function resolveAccountForMember(User $member, int $accountId, Branch $branch): SavingsAccount
     {
         $account = SavingsAccount::query()
             ->with('product')
             ->where('user_id', $member->id)
+            ->where('branch_id', $branch->id)
             ->where('is_branch_acount', false)
             ->where('status', 1)
             ->find($accountId);

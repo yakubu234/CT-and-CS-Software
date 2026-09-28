@@ -12,6 +12,7 @@ class Loan extends Model
         'loan_id',
         'loan_product_id',
         'borrower_id',
+        'member_branch_membership_id',
         'first_payment_date',
         'release_date',
         'applied_amount',

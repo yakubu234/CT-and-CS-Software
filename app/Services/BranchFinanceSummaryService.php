@@ -163,7 +163,7 @@ class BranchFinanceSummaryService
         $rows = SavingsAccount::query()
             ->join('users', 'users.id', '=', 'savings_accounts.user_id')
             ->join('savings_products', 'savings_products.id', '=', 'savings_accounts.savings_product_id')
-            ->where('users.branch_id', (string) $branch->id)
+            ->where('savings_accounts.branch_id', (string) $branch->id)
             ->where('users.branch_account', false)
             ->whereNull('users.deleted_at')
             ->where('savings_accounts.is_branch_acount', false)

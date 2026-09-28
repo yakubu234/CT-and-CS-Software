@@ -104,7 +104,7 @@ class TransactionController extends Controller
 
         $member = User::query()
             ->where('id', $request->integer('member_id'))
-            ->where('branch_id', (string) $branch->id)
+            ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', true))
             ->where('branch_account', false)
             ->where('user_type', 'customer')
             ->whereNull('deleted_at')
@@ -235,17 +235,25 @@ class TransactionController extends Controller
         return User::query()
             ->with([
                 'detail',
-                'savingsAccounts' => function ($query): void {
+                'branchMemberships' => fn ($query) => $query->where('branch_id', $branchId),
+                'savingsAccounts' => function ($query) use ($branchId): void {
                     $query->with('product')
+                        ->where('branch_id', $branchId)
                         ->where('is_branch_acount', false)
                         ->where('status', 1);
                 },
             ])
-            ->where('branch_id', (string) $branchId)
+            ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branchId)->where('status', true))
             ->where('branch_account', false)
             ->where('user_type', 'customer')
             ->whereNull('deleted_at')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->each(function (User $member) use ($branchId): void {
+                if ($membership = $member->branchMemberships->firstWhere('branch_id', $branchId)) {
+                    $member->setRelation('activeMembership', $membership);
+                    $member->setRelation('branch', $membership->branch);
+                }
+            });
     }
 }

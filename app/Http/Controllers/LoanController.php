@@ -177,14 +177,17 @@ class LoanController extends Controller
         }
 
         $borrowers = User::query()
-            ->with(['detail', 'savingsAccounts.product'])
-            ->where('branch_id', (string) $branch->id)
+            ->with(['detail', 'savingsAccounts' => fn ($query) => $query->where('branch_id', $branch->id)->with('product')])
+            ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', true))
             ->where('branch_account', false)
             ->where('user_type', 'customer')
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get()
             ->map(function (User $borrower) use ($branch) {
+                $membership = $borrower->branchMemberships()->where('branch_id', $branch->id)->first();
+                $borrower->setRelation('activeMembership', $membership);
+                $borrower->setRelation('branch', $branch);
                 $outstanding = $this->loanService->currentOutstandingForBorrower($branch, $borrower);
 
                 return [
@@ -217,7 +220,7 @@ class LoanController extends Controller
 
         $borrower = User::query()
             ->where('id', $request->integer('borrower_id'))
-            ->where('branch_id', (string) $branch->id)
+            ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', true))
             ->where('branch_account', false)
             ->where('user_type', 'customer')
             ->whereNull('deleted_at')

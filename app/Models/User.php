@@ -100,6 +100,10 @@ class User extends Authenticatable
     protected function displayMemberNo(): Attribute
     {
         return Attribute::get(function (): ?string {
+            if ($this->relationLoaded('activeMembership') && $this->activeMembership) {
+                return $this->activeMembership->member_number;
+            }
+
             return MemberNumber::normalize(
                 $this->detail?->member_no ?: $this->member_no,
                 $this->relationLoaded('branch') ? $this->branch : null,
@@ -126,6 +130,16 @@ class User extends Authenticatable
     public function savingsAccounts(): HasMany
     {
         return $this->hasMany(SavingsAccount::class);
+    }
+
+    public function branchMemberships(): HasMany
+    {
+        return $this->hasMany(MemberBranchMembership::class);
+    }
+
+    public function activeMembership(): HasOne
+    {
+        return $this->hasOne(MemberBranchMembership::class);
     }
 
     public function detail(): HasOne
