@@ -18,7 +18,7 @@ class GoogleDriveOAuthService
         $client = $this->baseClient();
         $client->setState($state);
         $client->setAccessType('offline');
-        $client->setPrompt('consent');
+        $client->setPrompt('consent select_account');
         $client->setIncludeGrantedScopes(true);
 
         return $client->createAuthUrl();
@@ -54,10 +54,9 @@ class GoogleDriveOAuthService
         ]);
     }
 
-    public function authorizedClient(): Client
+    public function authorizedClient(array $connection): Client
     {
-        $configuration = $this->settings->get();
-        $refreshToken = (string) $configuration['google_refresh_token'];
+        $refreshToken = (string) ($connection['refresh_token'] ?? '');
 
         if ($refreshToken === '') {
             throw new RuntimeException('Google Drive is not connected. Connect a Google account first.');
@@ -73,10 +72,15 @@ class GoogleDriveOAuthService
         return $client;
     }
 
-    public function disconnect(): void
+    public function disconnect(string $connectionId): void
     {
-        $configuration = $this->settings->get();
-        $refreshToken = (string) $configuration['google_refresh_token'];
+        $connection = $this->settings->googleConnection($connectionId);
+
+        if (! $connection) {
+            throw new RuntimeException('The selected Google Drive connection was not found.');
+        }
+
+        $refreshToken = (string) $connection['refresh_token'];
 
         if ($refreshToken !== '') {
             try {
@@ -86,7 +90,7 @@ class GoogleDriveOAuthService
             }
         }
 
-        $this->settings->clearGoogleConnection();
+        $this->settings->removeGoogleConnection($connectionId);
     }
 
     private function baseClient(): Client

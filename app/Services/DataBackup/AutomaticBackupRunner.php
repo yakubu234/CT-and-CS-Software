@@ -4,6 +4,7 @@ namespace App\Services\DataBackup;
 
 use App\Models\DataBackup;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AutomaticBackupRunner
 {
@@ -36,7 +37,7 @@ class AutomaticBackupRunner
                 if (isset($backup) && $backup instanceof DataBackup) {
                     $backup->update([
                         'status' => 'failed',
-                        'error_message' => $exception->getMessage(),
+                        'error_message' => Str::limit($exception->getMessage(), 65000),
                         'completed_at' => now(),
                     ]);
                 }

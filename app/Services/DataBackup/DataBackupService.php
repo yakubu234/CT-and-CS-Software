@@ -39,6 +39,7 @@ class DataBackupService
             'modules' => $this->registry->validate($modules),
             'status' => 'pending',
             'queued_at' => now(),
+            'scheduled_for' => now(),
         ]);
     }
 
@@ -49,6 +50,32 @@ class DataBackupService
                 ->where('trigger', 'manual')
                 ->where('status', 'pending')
                 ->orderBy('queued_at')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $backup) {
+                return null;
+            }
+
+            $backup->update([
+                'status' => 'processing',
+                'processing_started_at' => now(),
+                'error_message' => null,
+            ]);
+
+            return $backup->refresh();
+        });
+    }
+
+    public function claimNextDrive(): ?DataBackup
+    {
+        return DB::transaction(function (): ?DataBackup {
+            $backup = DataBackup::query()
+                ->where('trigger', 'manual_drive')
+                ->where('status', 'pending')
+                ->where(fn ($query) => $query->whereNull('scheduled_for')->orWhere('scheduled_for', '<=', now()))
+                ->orderBy('scheduled_for')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->first();
@@ -109,12 +136,13 @@ class DataBackupService
                 $disk->put($path, $content);
             }
 
+            $requiresDriveUpload = in_array($backup->trigger, ['automatic', 'manual_drive'], true);
             $backup->update([
-                'status' => 'completed',
+                'status' => $requiresDriveUpload ? 'generated' : 'completed',
                 'file_name' => $fileName,
                 'storage_path' => $path,
                 'file_size' => $disk->size($path),
-                'completed_at' => now(),
+                'completed_at' => $requiresDriveUpload ? null : now(),
             ]);
         } catch (\Throwable $exception) {
             $backup->update([

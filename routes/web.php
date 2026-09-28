@@ -302,10 +302,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/data-backups/statuses', [DataBackupController::class, 'statuses'])->name('data-backups.statuses');
     Route::get('/data-backups/google/connect', [DataBackupController::class, 'connectGoogle'])->name('data-backups.google.connect');
     Route::get('/data-backups/google/callback', [DataBackupController::class, 'googleCallback'])->name('data-backups.google.callback');
-    Route::delete('/data-backups/google/disconnect', [DataBackupController::class, 'disconnectGoogle'])->name('data-backups.google.disconnect');
+    Route::delete('/data-backups/google/{connectionId}', [DataBackupController::class, 'disconnectGoogle'])->name('data-backups.google.disconnect');
     Route::get('/data-backups/{dataBackup}/download', [DataBackupController::class, 'download'])->name('data-backups.download');
     Route::put('/data-backups/settings', [DataBackupController::class, 'updateSettings'])->name('data-backups.settings.update');
     Route::post('/data-backups/test-drive', [DataBackupController::class, 'testDrive'])->name('data-backups.drive.test');
+    Route::post('/data-backups/run-drive-now', [DataBackupController::class, 'runDriveNow'])->name('data-backups.drive.run-now');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');

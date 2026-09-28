@@ -67,29 +67,106 @@ class DataBackupController extends Controller
         return $response;
     }
 
-    public function statuses(): JsonResponse
+    public function statuses(BackupSettingsService $settings): JsonResponse
     {
-        $backups = DataBackup::query()
-            ->where('trigger', 'manual')
+        $averageDuration = (int) round(DataBackup::query()
+            ->whereNotNull('processing_started_at')
+            ->whereNotNull('completed_at')
+            ->latest('completed_at')
+            ->limit(20)
+            ->get()
+            ->avg(fn (DataBackup $backup): int => max(1, $backup->processing_started_at->diffInSeconds($backup->completed_at))));
+        $averageDuration = min(3600, max(60, $averageDuration ?: 300));
+        $estimatedCursor = now();
+
+        $records = DataBackup::query()
             ->latest()
             ->limit(50)
-            ->get()
-            ->map(fn (DataBackup $backup): array => [
-                'id' => $backup->id,
-                'status' => $backup->status,
-                'queued_at' => $backup->queued_at?->toIso8601String(),
-                'completed_at' => $backup->completed_at?->toIso8601String(),
-                'downloaded_at' => $backup->downloaded_at?->toIso8601String(),
-                'error_message' => $backup->error_message,
-                'download_url' => $backup->status === 'completed' && ! $backup->downloaded_at
-                    ? route('data-backups.download', $backup)
-                    : null,
-            ]);
+            ->get();
+        $activeStatuses = ['pending', 'processing', 'generated', 'uploading'];
+        $backups = $records
+            ->filter(fn (DataBackup $backup) => in_array($backup->status, $activeStatuses, true))
+            ->sortBy('queued_at')
+            ->concat($records->reject(fn (DataBackup $backup) => in_array($backup->status, $activeStatuses, true)))
+            ->map(function (DataBackup $backup) use (&$estimatedCursor, $averageDuration): array {
+                $active = in_array($backup->status, ['pending', 'processing', 'generated', 'uploading'], true);
+                $estimatedStart = $backup->processing_started_at ?: ($active ? $estimatedCursor->copy() : null);
+                $elapsed = $backup->processing_started_at
+                    ? $backup->processing_started_at->diffInSeconds(now())
+                    : 0;
+                $remaining = $active ? max(10, $averageDuration - $elapsed) : 0;
+
+                if ($backup->status === 'uploading' && $backup->drive_destination_count > 0) {
+                    $remaining = max(10, (int) round(
+                        ($averageDuration * .35) *
+                        (($backup->drive_destination_count - $backup->drive_completed_count) / $backup->drive_destination_count)
+                    ));
+                }
+
+                if ($active) {
+                    $estimatedCursor->addSeconds($remaining);
+                }
+
+                return [
+                    'id' => $backup->id,
+                    'trigger' => $backup->trigger,
+                    'format' => $backup->format,
+                    'status' => $backup->status,
+                    'queued_at' => $backup->queued_at?->toIso8601String(),
+                    'scheduled_for' => $backup->scheduled_for?->toIso8601String(),
+                    'estimated_start_at' => $estimatedStart?->toIso8601String(),
+                    'estimated_seconds_remaining' => $remaining,
+                    'upload_started_at' => $backup->upload_started_at?->toIso8601String(),
+                    'drive_destination_count' => $backup->drive_destination_count,
+                    'drive_completed_count' => $backup->drive_completed_count,
+                    'completed_at' => $backup->completed_at?->toIso8601String(),
+                    'downloaded_at' => $backup->downloaded_at?->toIso8601String(),
+                    'error_message' => $backup->error_message,
+                    'download_url' => $backup->status === 'completed' && ! $backup->downloaded_at
+                        ? route('data-backups.download', $backup)
+                        : null,
+                ];
+            })->values();
+
+        $configuration = $settings->get();
+        $automaticEnabled = $configuration['enabled'] && $settings->isGoogleConnected();
+        $hoursUntilNextRun = 6 - (now()->hour % 6);
+        $nextAutomaticRun = $automaticEnabled
+            ? now()->addHours($hoursUntilNextRun)->startOfHour()
+            : null;
 
         return response()->json([
             'server_time' => now()->toIso8601String(),
+            'average_duration_seconds' => $averageDuration,
+            'automatic_enabled' => $automaticEnabled,
+            'next_automatic_run_at' => $nextAutomaticRun?->toIso8601String(),
             'backups' => $backups,
         ]);
+    }
+
+    public function runDriveNow(
+        Request $request,
+        BackupSettingsService $settings,
+        DataBackupService $backups
+    ): RedirectResponse {
+        $this->authorizeBackupManagement($request);
+
+        if (! $settings->isGoogleConnected()) {
+            return back()->withErrors(['drive' => 'Connect at least one Google Drive destination first.']);
+        }
+
+        $configuration = $settings->get();
+
+        foreach ($configuration['formats'] as $format) {
+            $backups->queue(
+                $configuration['modules'],
+                $format,
+                'manual_drive',
+                $request->user()->id
+            );
+        }
+
+        return back()->with('success', count($configuration['formats']) . ' Drive backup job(s) queued for immediate processing.');
     }
 
     public function updateSettings(
@@ -122,7 +199,7 @@ class DataBackupController extends Controller
             return back()->withErrors(['drive' => 'Google Drive test failed: ' . $exception->getMessage()]);
         }
 
-        return back()->with('success', 'Google Drive connection tested successfully. The temporary test file was removed.');
+        return back()->with('success', 'All Google Drive destinations were tested successfully. Temporary test files were removed.');
     }
 
     public function connectGoogle(Request $request, GoogleDriveOAuthService $oauth): RedirectResponse
@@ -172,15 +249,24 @@ class DataBackupController extends Controller
             return redirect()->route('data-backups.index')->withErrors(['google' => $exception->getMessage()]);
         }
 
-        return redirect()->route('data-backups.index')->with('success', 'Google Drive connected successfully.');
+        return redirect()->route('data-backups.index')->with('success', 'Google Drive destination connected successfully.');
     }
 
-    public function disconnectGoogle(Request $request, GoogleDriveOAuthService $oauth): RedirectResponse
+    public function disconnectGoogle(
+        Request $request,
+        string $connectionId,
+        GoogleDriveOAuthService $oauth
+    ): RedirectResponse
     {
         $this->authorizeBackupManagement($request);
-        $oauth->disconnect();
 
-        return redirect()->route('data-backups.index')->with('success', 'Google Drive disconnected. Automatic backups were disabled.');
+        try {
+            $oauth->disconnect($connectionId);
+        } catch (\Throwable $exception) {
+            return redirect()->route('data-backups.index')->withErrors(['google' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('data-backups.index')->with('success', 'Google Drive destination disconnected.');
     }
 
     private function authorizeBackupManagement(Request $request): void

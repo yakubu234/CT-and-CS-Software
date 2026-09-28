@@ -20,48 +20,79 @@ class GoogleDriveBackupService
     public function upload(DataBackup $backup): DataBackup
     {
         $configuration = $this->settings->get();
-        $folderId = trim((string) $configuration['google_folder_id']);
+        $connections = $configuration['google_connections'];
 
-        if ($folderId === '') {
-            throw new RuntimeException('Google Drive is not connected or its backup folder is missing.');
+        if ($connections === []) {
+            throw new RuntimeException('No Google Drive destination is connected.');
         }
 
-        $drive = new Drive($this->oauth->authorizedClient());
         $disk = Storage::disk(config('data_backup.storage_disk'));
+        $contents = $disk->get($backup->storage_path);
+        $firstFile = null;
+        $failures = [];
+        $backup->update([
+            'status' => 'uploading',
+            'upload_started_at' => now(),
+            'drive_destination_count' => count($connections),
+            'drive_completed_count' => 0,
+            'error_message' => null,
+        ]);
 
-        $file = $drive->files->create(
-            new DriveFile([
-                'name' => $backup->file_name,
-                'parents' => [$folderId],
-            ]),
-            [
-                'data' => $disk->get($backup->storage_path),
-                'mimeType' => match ($backup->format) {
-                    'pdf' => 'application/pdf',
-                    'sql' => 'application/sql',
-                    'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    default => 'application/zip',
-                },
-                'uploadType' => 'multipart',
-                'fields' => 'id,webViewLink',
-            ]
-        );
+        foreach ($connections as $connection) {
+            try {
+                $drive = new Drive($this->oauth->authorizedClient($connection));
+                $file = $drive->files->create(
+                    new DriveFile([
+                        'name' => $backup->file_name,
+                        'parents' => [$connection['folder_id']],
+                    ]),
+                    [
+                        'data' => $contents,
+                        'mimeType' => match ($backup->format) {
+                            'pdf' => 'application/pdf',
+                            'sql' => 'application/sql',
+                            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            default => 'application/zip',
+                        },
+                        'uploadType' => 'multipart',
+                        'fields' => 'id,webViewLink',
+                    ]
+                );
 
-        foreach (array_unique($configuration['recipient_emails'] ?? []) as $email) {
-            $drive->permissions->create(
-                $file->id,
-                new Permission([
-                    'type' => 'user',
-                    'role' => 'reader',
-                    'emailAddress' => $email,
-                ]),
-                ['sendNotificationEmail' => true]
-            );
+                foreach (array_unique($configuration['recipient_emails'] ?? []) as $email) {
+                    $drive->permissions->create(
+                        $file->id,
+                        new Permission([
+                            'type' => 'user',
+                            'role' => 'reader',
+                            'emailAddress' => $email,
+                        ]),
+                        ['sendNotificationEmail' => true]
+                    );
+                }
+
+                $firstFile ??= $file;
+                $backup->increment('drive_completed_count');
+            } catch (\Throwable $exception) {
+                $account = $connection['account_email'] ?: $connection['account_name'] ?: $connection['id'];
+                $failures[] = $account . ': ' . $exception->getMessage();
+            }
+        }
+
+        if ($firstFile) {
+            $backup->update([
+                'google_drive_file_id' => $firstFile->id,
+                'google_drive_url' => $firstFile->webViewLink,
+            ]);
+        }
+
+        if ($failures !== []) {
+            throw new RuntimeException('Backup delivery failed for: ' . implode('; ', $failures));
         }
 
         $backup->update([
-            'google_drive_file_id' => $file->id,
-            'google_drive_url' => $file->webViewLink,
+            'status' => 'completed',
+            'completed_at' => now(),
         ]);
 
         return $backup->refresh();
@@ -69,27 +100,39 @@ class GoogleDriveBackupService
 
     public function testConnection(): void
     {
-        $configuration = $this->settings->get();
-        $folderId = trim((string) $configuration['google_folder_id']);
+        $connections = $this->settings->googleConnections();
 
-        if ($folderId === '') {
-            throw new RuntimeException('Google Drive is not connected.');
+        if ($connections === []) {
+            throw new RuntimeException('No Google Drive destination is connected.');
         }
 
-        $drive = new Drive($this->oauth->authorizedClient());
-        $file = $drive->files->create(
-            new DriveFile([
-                'name' => 'backup-connection-test-' . now()->format('Ymd-His') . '.txt',
-                'parents' => [$folderId],
-            ]),
-            [
-                'data' => 'Google Drive backup connection test completed at ' . now()->toIso8601String(),
-                'mimeType' => 'text/plain',
-                'uploadType' => 'multipart',
-                'fields' => 'id',
-            ]
-        );
+        $failures = [];
 
-        $drive->files->delete($file->getId());
+        foreach ($connections as $connection) {
+            try {
+                $drive = new Drive($this->oauth->authorizedClient($connection));
+                $file = $drive->files->create(
+                    new DriveFile([
+                        'name' => 'backup-connection-test-' . now()->format('Ymd-His') . '.txt',
+                        'parents' => [$connection['folder_id']],
+                    ]),
+                    [
+                        'data' => 'Google Drive backup connection test completed at ' . now()->toIso8601String(),
+                        'mimeType' => 'text/plain',
+                        'uploadType' => 'multipart',
+                        'fields' => 'id',
+                    ]
+                );
+
+                $drive->files->delete($file->getId());
+            } catch (\Throwable $exception) {
+                $account = $connection['account_email'] ?: $connection['account_name'] ?: $connection['id'];
+                $failures[] = $account . ': ' . $exception->getMessage();
+            }
+        }
+
+        if ($failures !== []) {
+            throw new RuntimeException('Connection test failed for: ' . implode('; ', $failures));
+        }
     }
 }

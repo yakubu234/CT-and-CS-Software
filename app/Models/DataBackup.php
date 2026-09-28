@@ -14,7 +14,11 @@ class DataBackup extends Model
         'modules',
         'status',
         'queued_at',
+        'scheduled_for',
         'processing_started_at',
+        'upload_started_at',
+        'drive_destination_count',
+        'drive_completed_count',
         'file_name',
         'storage_path',
         'file_size',
@@ -31,7 +35,11 @@ class DataBackup extends Model
             'modules' => 'array',
             'completed_at' => 'datetime',
             'queued_at' => 'datetime',
+            'scheduled_for' => 'datetime',
             'processing_started_at' => 'datetime',
+            'upload_started_at' => 'datetime',
+            'drive_destination_count' => 'integer',
+            'drive_completed_count' => 'integer',
             'downloaded_at' => 'datetime',
         ];
     }

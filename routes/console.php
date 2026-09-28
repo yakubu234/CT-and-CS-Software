@@ -13,6 +13,7 @@ use App\Services\BalanceSyncService;
 use App\Models\Branch;
 use App\Services\DataBackup\AutomaticBackupRunner;
 use App\Services\DataBackup\DataBackupService;
+use App\Services\DataBackup\QueuedDriveBackupRunner;
 use App\Services\AssetAccountingService;
 use App\Models\Asset;
 use Illuminate\Support\Facades\Cache;
@@ -394,6 +395,29 @@ Artisan::command('data-backups:process-pending', function (DataBackupService $se
 
 Schedule::command('data-backups:run')
     ->everySixHours()
+    ->withoutOverlapping();
+
+Artisan::command('data-backups:process-drive', function (QueuedDriveBackupRunner $runner) {
+    $lock = Cache::lock('data-backups:process-drive', 3600);
+
+    if (! $lock->get()) {
+        $this->warn('Another immediate Drive backup processor is already running.');
+
+        return;
+    }
+
+    try {
+        $backups = $runner->runPending();
+        $this->info($backups === []
+            ? 'No immediate Drive backups are waiting.'
+            : count($backups) . ' immediate backup(s) uploaded to all Drive destinations.');
+    } finally {
+        $lock->release();
+    }
+})->purpose('Process queued immediate Google Drive backups.');
+
+Schedule::command('data-backups:process-drive')
+    ->everyMinute()
     ->withoutOverlapping();
 
 Artisan::command('assets:post-existing-purchases {--branch=} {--dry-run}', function (AssetAccountingService $accounting) {
