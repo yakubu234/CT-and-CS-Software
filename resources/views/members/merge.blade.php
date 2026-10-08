@@ -162,7 +162,9 @@
         const mergeButton = document.getElementById('merge-button');
 
         function initializeMemberSearch(select, branchSelect) {
-            $(select).select2({
+            const $select = $(select);
+
+            $select.select2({
                 theme: 'bootstrap4',
                 width: '100%',
                 placeholder: 'Search by name, email, phone, or member number',
@@ -184,13 +186,19 @@
                 refresh();
             }).on('select2:clear', refresh);
 
-            select.disabled = !branchSelect.value;
-            branchSelect.addEventListener('change', function () {
-                $(select).val(null).trigger('change');
-                select.disabled = !branchSelect.value;
-                members[String(select.value)] = undefined;
+            function syncWithBranch() {
+                const previousMemberId = select.value;
+                if (previousMemberId) {
+                    delete members[String(previousMemberId)];
+                }
+
+                $select.val(null).trigger('change');
+                $select.prop('disabled', !branchSelect.value).trigger('change.select2');
                 refresh();
-            });
+            }
+
+            $select.prop('disabled', !branchSelect.value).trigger('change.select2');
+            $(branchSelect).on('change select2:select select2:clear', syncWithBranch);
         }
 
         function escapeHtml(value) {
