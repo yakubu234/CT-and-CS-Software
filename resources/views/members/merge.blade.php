@@ -149,12 +149,8 @@
 @push('scripts')
 <script>
     (function () {
-        const members = @json($selectedMembers);
-        const oldValues = @json([
-            'email' => old('email_source_user_id'),
-            'mobile' => old('mobile_source_user_id'),
-            'primary' => old('primary_membership_id'),
-        ]);
+        const members = {{ Illuminate\Support\Js::from($selectedMembers) }};
+        const oldValues = {{ Illuminate\Support\Js::from($mergeOldValues) }};
         const canonicalSelect = document.getElementById('canonical_user_id');
         const mergedSelect = document.getElementById('merged_user_id');
         const canonicalBranchSelect = document.getElementById('canonical_branch_id');
@@ -172,7 +168,7 @@
                 placeholder: 'Search by name, email, phone, or member number',
                 minimumInputLength: 2,
                 ajax: {
-                    url: @json(route('members.merge.search')),
+                    url: {{ Illuminate\Support\Js::from($memberSearchUrl) }},
                     dataType: 'json',
                     delay: 300,
                     data: params => ({

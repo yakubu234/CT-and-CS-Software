@@ -36,7 +36,19 @@ class MemberMergeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return view('members.merge', compact('selectedMembers', 'branches'));
+        $mergeOldValues = [
+            'email' => old('email_source_user_id'),
+            'mobile' => old('mobile_source_user_id'),
+            'primary' => old('primary_membership_id'),
+        ];
+        $memberSearchUrl = route('members.merge.search');
+
+        return view('members.merge', compact(
+            'selectedMembers',
+            'branches',
+            'mergeOldValues',
+            'memberSearchUrl',
+        ));
     }
 
     public function search(Request $request): JsonResponse
