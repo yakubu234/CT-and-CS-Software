@@ -28,6 +28,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanCustomFieldController;
 use App\Http\Controllers\LoanPaymentController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberMergeController;
 use App\Http\Controllers\MemberStatementController;
 use App\Http\Controllers\MemberIdCardController;
 use App\Http\Controllers\MemberCustomFieldController;
@@ -171,6 +172,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/members/custom-fields/{customField}', [MemberCustomFieldController::class, 'destroy'])->name('members.custom-fields.destroy');
 
     Route::get('/members', [MemberController::class, 'index'])->name('members.index');
+    Route::get('/members/merge', [MemberMergeController::class, 'create'])->name('members.merge.create');
+    Route::post('/members/merge', [MemberMergeController::class, 'store'])->name('members.merge.store');
     Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
     Route::get('/members/archived', [MemberController::class, 'archived'])->name('members.archived');

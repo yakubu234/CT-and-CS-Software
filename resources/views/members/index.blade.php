@@ -22,6 +22,10 @@
                     <i class="fas fa-archive mr-1"></i>
                     Archived Members
                 </a>
+                <a href="{{ route('members.merge.create') }}" class="btn btn-outline-warning ml-2">
+                    <i class="fas fa-object-group mr-1"></i>
+                    Merge Duplicate Members
+                </a>
             </div>
 
             <div class="table-responsive">

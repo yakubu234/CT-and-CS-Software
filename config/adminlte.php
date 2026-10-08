@@ -438,6 +438,13 @@ return [
                     'permissions' => ['members.view', 'members.manage'],
                 ],
                 [
+                    'text' => 'Merge duplicate members',
+                    'url' => 'members/merge',
+                    'icon' => 'fas fa-object-group',
+                    'active' => ['members/merge'],
+                    'permissions' => ['members.manage'],
+                ],
+                [
                     'text' => 'Custom fields',
                     'url' => 'members/custom-fields',
                     'icon' => 'far fa-circle',

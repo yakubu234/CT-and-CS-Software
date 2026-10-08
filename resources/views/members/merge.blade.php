@@ -1,0 +1,221 @@
+@extends('layouts.admin')
+
+@section('title', 'Merge Duplicate Members')
+@section('page_title', 'Merge Duplicate Members')
+
+@section('content')
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="POST" action="{{ route('members.merge.store') }}" id="member-merge-form">
+                @csrf
+
+                <div class="card card-outline card-warning">
+                    <div class="card-header">
+                        <h3 class="card-title">Choose the two records</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            The original member remains the login identity. The second record is archived after its societies,
+                            accounts, loans, transactions, payments, documents, and messages are moved.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="canonical_user_id">Original member to keep</label>
+                            <select name="canonical_user_id" id="canonical_user_id" class="form-control @error('canonical_user_id') is-invalid @enderror" required>
+                                <option value="">Select the original member</option>
+                                @foreach ($members as $member)
+                                    <option value="{{ $member->id }}" @selected(old('canonical_user_id') == $member->id)>
+                                        {{ $member->name }} — {{ $member->email }} — {{ $member->detail?->mobile ?: 'no phone' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('canonical_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div id="canonical-summary" class="member-summary mb-4"></div>
+
+                        <div class="form-group">
+                            <label for="merged_user_id">Duplicate society account to merge</label>
+                            <select name="merged_user_id" id="merged_user_id" class="form-control @error('merged_user_id') is-invalid @enderror" required>
+                                <option value="">Select the duplicate account</option>
+                                @foreach ($members as $member)
+                                    <option value="{{ $member->id }}" @selected(old('merged_user_id') == $member->id)>
+                                        {{ $member->name }} — {{ $member->email }} — {{ $member->detail?->mobile ?: 'no phone' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('merged_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div id="merged-summary" class="member-summary"></div>
+                        <div id="overlap-warning" class="alert alert-danger mt-3 d-none"></div>
+                    </div>
+                </div>
+
+                <div class="card card-outline card-primary">
+                    <div class="card-header"><h3 class="card-title">Choose the final contact and default society</h3></div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="email_source_user_id">Email used for login</label>
+                            <select name="email_source_user_id" id="email_source_user_id" class="form-control @error('email_source_user_id') is-invalid @enderror" required>
+                                <option value="">Select both members first</option>
+                            </select>
+                            @error('email_source_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mobile_source_user_id">Phone number to keep</label>
+                            <select name="mobile_source_user_id" id="mobile_source_user_id" class="form-control @error('mobile_source_user_id') is-invalid @enderror" required>
+                                <option value="">Select both members first</option>
+                            </select>
+                            @error('mobile_source_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label for="primary_membership_id">Default society after login</label>
+                            <select name="primary_membership_id" id="primary_membership_id" class="form-control @error('primary_membership_id') is-invalid @enderror" required>
+                                <option value="">Select both members first</option>
+                            </select>
+                            @error('primary_membership_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div class="custom-control custom-checkbox mt-4">
+                            <input type="checkbox" name="confirmation" value="1" class="custom-control-input @error('confirmation') is-invalid @enderror" id="confirmation" required>
+                            <label class="custom-control-label" for="confirmation">
+                                I have verified these records belong to the same person and understand this merge cannot be undone from this screen.
+                            </label>
+                            @error('confirmation') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between">
+                        <a href="{{ route('members.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-warning" id="merge-button" disabled>
+                            <i class="fas fa-object-group mr-1"></i> Merge Member Records
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card card-outline card-secondary">
+                <div class="card-header"><h3 class="card-title">What the merge preserves</h3></div>
+                <div class="card-body">
+                    <ul class="pl-3 mb-0">
+                        <li>Every society membership and member number</li>
+                        <li>All savings accounts and existing balances</li>
+                        <li>Loans, repayments, and transaction history</li>
+                        <li>Documents and communication history</li>
+                        <li>An audit record of both identities and moved records</li>
+                    </ul>
+                    <hr>
+                    <p class="text-danger mb-0"><strong>Blocked:</strong> two records that already share the same society. This avoids combining financially distinct memberships by mistake.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
+<script>
+    (function () {
+        const members = @json($members->mapWithKeys(fn ($member) => [(string) $member->id => [
+            'id' => $member->id,
+            'name' => $member->name,
+            'email' => $member->email,
+            'mobile' => $member->detail?->mobile,
+            'accounts' => $member->savings_accounts_count,
+            'loans' => $member->loans_count,
+            'memberships' => $member->branchMemberships->map(fn ($membership) => [
+                'id' => $membership->id,
+                'branch_id' => $membership->branch_id,
+                'branch' => $membership->branch?->name ?: 'Unknown society',
+                'member_number' => $membership->member_number,
+                'is_primary' => $membership->is_primary,
+            ])->values(),
+        ]]));
+        const oldValues = @json([
+            'email' => old('email_source_user_id'),
+            'mobile' => old('mobile_source_user_id'),
+            'primary' => old('primary_membership_id'),
+        ]);
+        const canonicalSelect = document.getElementById('canonical_user_id');
+        const mergedSelect = document.getElementById('merged_user_id');
+        const emailSelect = document.getElementById('email_source_user_id');
+        const mobileSelect = document.getElementById('mobile_source_user_id');
+        const primarySelect = document.getElementById('primary_membership_id');
+        const overlapWarning = document.getElementById('overlap-warning');
+        const mergeButton = document.getElementById('merge-button');
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        function renderSummary(targetId, member) {
+            const target = document.getElementById(targetId);
+            if (!member) {
+                target.innerHTML = '';
+                return;
+            }
+            const societies = member.memberships.map(item =>
+                `<span class="badge badge-light border mr-1 mb-1">${escapeHtml(item.branch)} · ${escapeHtml(item.member_number)}</span>`
+            ).join('');
+            target.innerHTML = `<div class="border rounded p-3 bg-light">
+                <strong>${escapeHtml(member.name)}</strong>
+                <div class="small text-muted">${escapeHtml(member.email)} · ${escapeHtml(member.mobile || 'No phone')}</div>
+                <div class="small mt-2">${member.accounts} savings accounts · ${member.loans} loans</div>
+                <div class="mt-2">${societies || '<span class="text-danger">No society membership</span>'}</div>
+            </div>`;
+        }
+
+        function option(value, label, selectedValue) {
+            const selected = String(value) === String(selectedValue) ? ' selected' : '';
+            return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(label)}</option>`;
+        }
+
+        function refresh() {
+            const canonical = members[canonicalSelect.value];
+            const merged = members[mergedSelect.value];
+            renderSummary('canonical-summary', canonical);
+            renderSummary('merged-summary', merged);
+
+            emailSelect.innerHTML = '<option value="">Choose an email</option>';
+            mobileSelect.innerHTML = '<option value="">Choose a phone number</option>';
+            primarySelect.innerHTML = '<option value="">Choose the default society</option>';
+            overlapWarning.classList.add('d-none');
+            mergeButton.disabled = true;
+
+            if (!canonical || !merged || canonical.id === merged.id) {
+                return;
+            }
+
+            [canonical, merged].forEach(member => {
+                emailSelect.insertAdjacentHTML('beforeend', option(member.id, `${member.email} (${member.name})`, oldValues.email || canonical.id));
+                mobileSelect.insertAdjacentHTML('beforeend', option(member.id, `${member.mobile || 'No phone'} (${member.name})`, oldValues.mobile || canonical.id));
+                member.memberships.forEach(membership => {
+                    primarySelect.insertAdjacentHTML('beforeend', option(
+                        membership.id,
+                        `${membership.branch} — ${membership.member_number}`,
+                        oldValues.primary || (membership.is_primary ? membership.id : '')
+                    ));
+                });
+            });
+
+            const canonicalBranches = new Set(canonical.memberships.map(item => String(item.branch_id)));
+            const overlap = merged.memberships.filter(item => canonicalBranches.has(String(item.branch_id)));
+            if (overlap.length) {
+                overlapWarning.textContent = 'Merge blocked: both records belong to ' + overlap.map(item => item.branch).join(', ') + '.';
+                overlapWarning.classList.remove('d-none');
+                return;
+            }
+            mergeButton.disabled = canonical.memberships.length + merged.memberships.length === 0;
+        }
+
+        canonicalSelect.addEventListener('change', refresh);
+        mergedSelect.addEventListener('change', refresh);
+        refresh();
+    })();
+</script>
+@endpush
