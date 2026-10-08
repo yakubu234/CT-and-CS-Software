@@ -34,6 +34,11 @@
                             @error('canonical_branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
+                        <div id="canonical-member-loading" class="alert alert-info py-2 d-none" role="status" aria-live="polite">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            <span>Fetching members...</span>
+                        </div>
+
                         <div class="form-group">
                             <label for="canonical_user_id">Original member to keep</label>
                             <select name="canonical_user_id" id="canonical_user_id" data-native-select="true" class="form-control @error('canonical_user_id') is-invalid @enderror" required>
@@ -62,6 +67,11 @@
                                 @endforeach
                             </select>
                             @error('merged_branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div id="merged-member-loading" class="alert alert-info py-2 d-none" role="status" aria-live="polite">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            <span>Fetching members...</span>
                         </div>
 
                         <div class="form-group">
@@ -163,6 +173,10 @@
 
         function initializeMemberSearch(select, branchSelect) {
             const $select = $(select);
+            const loading = document.getElementById(
+                select.id === 'canonical_user_id' ? 'canonical-member-loading' : 'merged-member-loading'
+            );
+            const loadingText = loading.querySelector('span');
             let activeRequest = null;
 
             $select.select2({
@@ -185,16 +199,23 @@
                 }
 
                 const branchId = branchSelect.value;
+                const branchName = branchSelect.options[branchSelect.selectedIndex]?.text || 'selected society';
                 $select.empty().append(new Option(
                     branchId ? 'Loading society members...' : 'Select a society first',
                     ''
                 ));
                 $select.prop('disabled', true).trigger('change.select2');
+                loading.classList.add('d-none');
+                loading.classList.remove('alert-warning', 'alert-danger');
+                loading.classList.add('alert-info');
                 refresh();
 
                 if (!branchId) {
                     return;
                 }
+
+                loadingText.textContent = `Fetching members in ${branchName}...`;
+                loading.classList.remove('d-none');
 
                 const requestController = new AbortController();
                 activeRequest = requestController;
@@ -217,8 +238,15 @@
                         $select.append(new Option(member.text, member.id, false, String(member.id) === String(preferredMemberId)));
                     });
                     $select.prop('disabled', false).trigger('change.select2');
+                    loading.classList.add('d-none');
                     if (preferredMemberId) {
                         $select.val(String(preferredMemberId)).trigger('change');
+                    }
+
+                    if (data.results.length === 0) {
+                        loadingText.textContent = `No active members were found in ${branchName}.`;
+                        loading.classList.remove('d-none', 'alert-info');
+                        loading.classList.add('alert-warning');
                     }
                 } catch (error) {
                     if (error.name === 'AbortError') {
@@ -226,6 +254,9 @@
                     }
                     $select.empty().append(new Option('Members could not be loaded. Try again.', ''));
                     $select.prop('disabled', false).trigger('change.select2');
+                    loadingText.textContent = `Members in ${branchName} could not be loaded. Select the society again to retry.`;
+                    loading.classList.remove('d-none', 'alert-info');
+                    loading.classList.add('alert-danger');
                 } finally {
                     if (activeRequest === requestController) {
                         activeRequest = null;
