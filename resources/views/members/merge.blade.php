@@ -163,42 +163,86 @@
 
         function initializeMemberSearch(select, branchSelect) {
             const $select = $(select);
+            let activeRequest = null;
 
             $select.select2({
                 theme: 'bootstrap4',
                 width: '100%',
-                placeholder: 'Search by name, email, phone, or member number',
-                minimumInputLength: 2,
-                ajax: {
-                    url: {{ Illuminate\Support\Js::from($memberSearchUrl) }},
-                    dataType: 'json',
-                    delay: 300,
-                    data: params => ({
-                        q: params.term || '',
-                        branch_id: branchSelect.value,
-                    }),
-                    processResults: data => data,
-                    cache: true,
-                },
+                placeholder: 'Select or search a member',
+                allowClear: true,
             }).on('select2:select', function (event) {
-                const member = event.params.data;
+                const member = members[String(event.params.data.id)];
+                if (!member) {
+                    return;
+                }
                 members[String(member.id)] = member;
                 refresh();
             }).on('select2:clear', refresh);
 
-            function syncWithBranch() {
-                const previousMemberId = select.value;
-                if (previousMemberId) {
-                    delete members[String(previousMemberId)];
+            async function loadBranchMembers(preferredMemberId = '') {
+                if (activeRequest) {
+                    activeRequest.abort();
                 }
 
-                $select.val(null).trigger('change');
-                $select.prop('disabled', !branchSelect.value).trigger('change.select2');
+                const branchId = branchSelect.value;
+                $select.empty().append(new Option(
+                    branchId ? 'Loading society members...' : 'Select a society first',
+                    ''
+                ));
+                $select.prop('disabled', true).trigger('change.select2');
                 refresh();
+
+                if (!branchId) {
+                    return;
+                }
+
+                const requestController = new AbortController();
+                activeRequest = requestController;
+                const url = new URL({{ Illuminate\Support\Js::from($memberSearchUrl) }}, window.location.origin);
+                url.searchParams.set('branch_id', branchId);
+
+                try {
+                    const response = await fetch(url.toString(), {
+                        headers: { 'Accept': 'application/json' },
+                        signal: requestController.signal,
+                    });
+                    if (!response.ok) {
+                        throw new Error('Unable to load society members.');
+                    }
+
+                    const data = await response.json();
+                    $select.empty().append(new Option('Select or search a member', ''));
+                    data.results.forEach(member => {
+                        members[String(member.id)] = member;
+                        $select.append(new Option(member.text, member.id, false, String(member.id) === String(preferredMemberId)));
+                    });
+                    $select.prop('disabled', false).trigger('change.select2');
+                    if (preferredMemberId) {
+                        $select.val(String(preferredMemberId)).trigger('change');
+                    }
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        return;
+                    }
+                    $select.empty().append(new Option('Members could not be loaded. Try again.', ''));
+                    $select.prop('disabled', false).trigger('change.select2');
+                } finally {
+                    if (activeRequest === requestController) {
+                        activeRequest = null;
+                    }
+                }
             }
 
-            $select.prop('disabled', !branchSelect.value).trigger('change.select2');
-            $(branchSelect).on('change select2:select select2:clear', syncWithBranch);
+            const initialMemberId = select.value;
+            if (branchSelect.value) {
+                loadBranchMembers(initialMemberId);
+            } else {
+                $select.prop('disabled', true).trigger('change.select2');
+            }
+
+            $(branchSelect).on('change', function () {
+                loadBranchMembers();
+            });
         }
 
         function escapeHtml(value) {

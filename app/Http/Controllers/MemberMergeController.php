@@ -53,7 +53,6 @@ class MemberMergeController extends Controller
 
     public function search(Request $request): JsonResponse
     {
-        $term = trim($request->string('q')->toString());
         $branchId = $request->integer('branch_id');
 
         if ($branchId <= 0) {
@@ -64,23 +63,8 @@ class MemberMergeController extends Controller
             ->whereHas('branchMemberships', fn ($membership) => $membership
                 ->where('branch_id', $branchId)
                 ->where('status', true))
-            ->when($term !== '', function ($query) use ($term): void {
-                $like = '%' . addcslashes($term, '%_\\') . '%';
-                $query->where(function ($query) use ($like): void {
-                    $query->where('name', 'like', $like)
-                        ->orWhere('last_name', 'like', $like)
-                        ->orWhere('email', 'like', $like)
-                        ->orWhere('member_no', 'like', $like)
-                        ->orWhereHas('detail', fn ($detail) => $detail
-                            ->where('mobile', 'like', $like)
-                            ->orWhere('member_no', 'like', $like))
-                        ->orWhereHas('branchMemberships', fn ($membership) => $membership
-                            ->where('member_number', 'like', $like));
-                });
-            })
             ->orderBy('name')
             ->orderBy('last_name')
-            ->limit(20)
             ->get();
 
         return response()->json([
