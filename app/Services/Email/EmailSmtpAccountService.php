@@ -58,7 +58,7 @@ class EmailSmtpAccountService
             'encryption' => $account->encryption ?: null,
             'username' => $account->username,
             'password' => $account->decrypted_password,
-            'timeout' => null,
+            'timeout' => (int) config('mail.smtp_timeout', 10),
             'local_domain' => config('mail.mailers.smtp.local_domain'),
         ]);
 
