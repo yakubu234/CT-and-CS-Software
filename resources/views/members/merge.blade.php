@@ -19,36 +19,66 @@
                             accounts, loans, transactions, payments, documents, and messages are moved.
                         </div>
 
+                        <section class="border rounded p-3 mb-4 bg-light">
+                        <h4 class="mb-1">1. Original account holder</h4>
+                        <p class="text-muted">This user ID and login will remain as the main account.</p>
+
+                        <div class="form-group">
+                            <label for="canonical_branch_id">Base society</label>
+                            <select name="canonical_branch_id" id="canonical_branch_id" class="form-control @error('canonical_branch_id') is-invalid @enderror" required>
+                                <option value="">Select the base society first</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}" @selected(old('canonical_branch_id') == $branch->id)>{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('canonical_branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+
                         <div class="form-group">
                             <label for="canonical_user_id">Original member to keep</label>
-                            <select name="canonical_user_id" id="canonical_user_id" class="form-control @error('canonical_user_id') is-invalid @enderror" required>
-                                <option value="">Select the original member</option>
-                                @foreach ($members as $member)
-                                    <option value="{{ $member->id }}" @selected(old('canonical_user_id') == $member->id)>
-                                        {{ $member->name }} — {{ $member->email }} — {{ $member->detail?->mobile ?: 'no phone' }}
-                                    </option>
-                                @endforeach
+                            <select name="canonical_user_id" id="canonical_user_id" data-native-select="true" class="form-control @error('canonical_user_id') is-invalid @enderror" required>
+                                <option value="">Select a base society first</option>
+                                @if (old('canonical_user_id') && $selectedMembers->has((string) old('canonical_user_id')))
+                                    @php($selected = $selectedMembers->get((string) old('canonical_user_id')))
+                                    <option value="{{ $selected['id'] }}" selected>{{ $selected['name'] }} — {{ $selected['email'] }} — {{ $selected['mobile'] ?: 'no phone' }}</option>
+                                @endif
                             </select>
                             @error('canonical_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
-                        <div id="canonical-summary" class="member-summary mb-4"></div>
+                        <div id="canonical-summary" class="member-summary"></div>
+                        </section>
+
+                        <section class="border rounded p-3">
+                        <h4 class="mb-1">2. Society account to merge</h4>
+                        <p class="text-muted">This account’s society membership and financial records will move to the original account holder.</p>
+
+                        <div class="form-group">
+                            <label for="merged_branch_id">Society being merged</label>
+                            <select name="merged_branch_id" id="merged_branch_id" class="form-control @error('merged_branch_id') is-invalid @enderror" required>
+                                <option value="">Select the society first</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}" @selected(old('merged_branch_id') == $branch->id)>{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('merged_branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
 
                         <div class="form-group">
                             <label for="merged_user_id">Duplicate society account to merge</label>
-                            <select name="merged_user_id" id="merged_user_id" class="form-control @error('merged_user_id') is-invalid @enderror" required>
-                                <option value="">Select the duplicate account</option>
-                                @foreach ($members as $member)
-                                    <option value="{{ $member->id }}" @selected(old('merged_user_id') == $member->id)>
-                                        {{ $member->name }} — {{ $member->email }} — {{ $member->detail?->mobile ?: 'no phone' }}
-                                    </option>
-                                @endforeach
+                            <select name="merged_user_id" id="merged_user_id" data-native-select="true" class="form-control @error('merged_user_id') is-invalid @enderror" required>
+                                <option value="">Select the society first</option>
+                                @if (old('merged_user_id') && $selectedMembers->has((string) old('merged_user_id')))
+                                    @php($selected = $selectedMembers->get((string) old('merged_user_id')))
+                                    <option value="{{ $selected['id'] }}" selected>{{ $selected['name'] }} — {{ $selected['email'] }} — {{ $selected['mobile'] ?: 'no phone' }}</option>
+                                @endif
                             </select>
                             @error('merged_user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
                         <div id="merged-summary" class="member-summary"></div>
                         <div id="overlap-warning" class="alert alert-danger mt-3 d-none"></div>
+                        </section>
                     </div>
                 </div>
 
@@ -119,21 +149,7 @@
 @push('scripts')
 <script>
     (function () {
-        const members = @json($members->mapWithKeys(fn ($member) => [(string) $member->id => [
-            'id' => $member->id,
-            'name' => $member->name,
-            'email' => $member->email,
-            'mobile' => $member->detail?->mobile,
-            'accounts' => $member->savings_accounts_count,
-            'loans' => $member->loans_count,
-            'memberships' => $member->branchMemberships->map(fn ($membership) => [
-                'id' => $membership->id,
-                'branch_id' => $membership->branch_id,
-                'branch' => $membership->branch?->name ?: 'Unknown society',
-                'member_number' => $membership->member_number,
-                'is_primary' => $membership->is_primary,
-            ])->values(),
-        ]]));
+        const members = @json($selectedMembers);
         const oldValues = @json([
             'email' => old('email_source_user_id'),
             'mobile' => old('mobile_source_user_id'),
@@ -141,11 +157,45 @@
         ]);
         const canonicalSelect = document.getElementById('canonical_user_id');
         const mergedSelect = document.getElementById('merged_user_id');
+        const canonicalBranchSelect = document.getElementById('canonical_branch_id');
+        const mergedBranchSelect = document.getElementById('merged_branch_id');
         const emailSelect = document.getElementById('email_source_user_id');
         const mobileSelect = document.getElementById('mobile_source_user_id');
         const primarySelect = document.getElementById('primary_membership_id');
         const overlapWarning = document.getElementById('overlap-warning');
         const mergeButton = document.getElementById('merge-button');
+
+        function initializeMemberSearch(select, branchSelect) {
+            $(select).select2({
+                theme: 'bootstrap4',
+                width: '100%',
+                placeholder: 'Search by name, email, phone, or member number',
+                minimumInputLength: 2,
+                ajax: {
+                    url: @json(route('members.merge.search')),
+                    dataType: 'json',
+                    delay: 300,
+                    data: params => ({
+                        q: params.term || '',
+                        branch_id: branchSelect.value,
+                    }),
+                    processResults: data => data,
+                    cache: true,
+                },
+            }).on('select2:select', function (event) {
+                const member = event.params.data;
+                members[String(member.id)] = member;
+                refresh();
+            }).on('select2:clear', refresh);
+
+            select.disabled = !branchSelect.value;
+            branchSelect.addEventListener('change', function () {
+                $(select).val(null).trigger('change');
+                select.disabled = !branchSelect.value;
+                members[String(select.value)] = undefined;
+                refresh();
+            });
+        }
 
         function escapeHtml(value) {
             const div = document.createElement('div');
@@ -213,6 +263,8 @@
             mergeButton.disabled = canonical.memberships.length + merged.memberships.length === 0;
         }
 
+        initializeMemberSearch(canonicalSelect, canonicalBranchSelect);
+        initializeMemberSearch(mergedSelect, mergedBranchSelect);
         canonicalSelect.addEventListener('change', refresh);
         mergedSelect.addEventListener('change', refresh);
         refresh();

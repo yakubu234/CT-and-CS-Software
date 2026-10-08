@@ -48,6 +48,28 @@ class MemberMergeService
                 ->lockForUpdate()
                 ->get();
 
+            $canonicalBranchMembership = $memberships->first(fn ($membership) =>
+                (int) $membership->user_id === (int) $canonical->id
+                && (int) $membership->branch_id === (int) $data['canonical_branch_id']
+                && (bool) $membership->status
+            );
+            $mergedBranchMembership = $memberships->first(fn ($membership) =>
+                (int) $membership->user_id === (int) $merged->id
+                && (int) $membership->branch_id === (int) $data['merged_branch_id']
+                && (bool) $membership->status
+            );
+
+            if (! $canonicalBranchMembership) {
+                throw ValidationException::withMessages([
+                    'canonical_user_id' => 'The original member does not belong to the selected base society.',
+                ]);
+            }
+            if (! $mergedBranchMembership) {
+                throw ValidationException::withMessages([
+                    'merged_user_id' => 'The duplicate member does not belong to the selected merge society.',
+                ]);
+            }
+
             $overlappingBranches = $memberships->groupBy('branch_id')->filter(fn ($items) => $items->count() > 1);
             if ($overlappingBranches->isNotEmpty()) {
                 throw ValidationException::withMessages([

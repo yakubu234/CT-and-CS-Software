@@ -173,6 +173,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/members', [MemberController::class, 'index'])->name('members.index');
     Route::get('/members/merge', [MemberMergeController::class, 'create'])->name('members.merge.create');
+    Route::get('/members/merge/search', [MemberMergeController::class, 'search'])->name('members.merge.search');
     Route::post('/members/merge', [MemberMergeController::class, 'store'])->name('members.merge.store');
     Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');

@@ -15,6 +15,8 @@ class MergeMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'canonical_branch_id' => ['required', 'integer', 'different:merged_branch_id', 'exists:branches,id'],
+            'merged_branch_id' => ['required', 'integer', 'different:canonical_branch_id', 'exists:branches,id'],
             'canonical_user_id' => ['required', 'integer', 'different:merged_user_id', 'exists:users,id'],
             'merged_user_id' => ['required', 'integer', 'different:canonical_user_id', 'exists:users,id'],
             'email_source_user_id' => ['required', 'integer', Rule::in(array_filter([
