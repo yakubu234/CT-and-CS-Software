@@ -107,6 +107,7 @@ class MemberService
                 'last_name' => $data['last_name'],
                 'email' => $normalizedEmail,
                 'password' => Hash::make(Str::password(24)),
+                'must_change_password' => true,
                 'user_type' => 'customer',
                 'role_id' => null,
                 'branch_id' => (string) $branch->id,

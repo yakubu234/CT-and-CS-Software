@@ -50,6 +50,7 @@ class LoanPaymentService
     public function repaymentContext(Loan $loan, ?string $paidAt = null, ?LoanPayment $excludePayment = null): array
     {
         $loan->loadMissing([
+            'branch',
             'borrower.detail',
             'details' => function ($query): void {
                 $query->where('decision_status', LoanDetail::STATUS_APPROVED)->orderByDesc('id');
@@ -96,7 +97,7 @@ class LoanPaymentService
             'current_balance' => $currentBalance,
             'pending_carry_forward_amount' => $carriedForwardInterest,
             'pending_carry_forwards' => $pendingCarryForwards,
-            'due_cycle' => $this->dueCycleSummary($detail, $paidDate),
+            'due_cycle' => $this->dueCycleSummary($detail, $paidDate, $loan, $excludePayment),
         ];
     }
 
@@ -357,7 +358,12 @@ class LoanPaymentService
         });
     }
 
-    public function dueCycleSummary(LoanDetail $detail, Carbon $paidDate): array
+    public function dueCycleSummary(
+        LoanDetail $detail,
+        Carbon $paidDate,
+        ?Loan $loan = null,
+        ?LoanPayment $excludePayment = null
+    ): array
     {
         $releaseDate = optional($detail->release_date)?->copy()?->startOfDay();
 
@@ -377,7 +383,37 @@ class LoanPaymentService
             ];
         }
 
-        $interval = $detail->interest_week_interval;
+        $loan ??= $detail->loan;
+        $interval = $this->repaymentInterval(
+            $detail->interest_week_interval,
+            $loan?->branch?->branch_meeting_days ?? $detail->branch?->branch_meeting_days
+        );
+
+        if (! $interval) {
+            return [
+                'is_due' => false,
+                'label' => 'No repayment schedule is available for this member or branch.',
+                'next_due_date' => null,
+            ];
+        }
+
+        $lastPaymentDate = $loan?->payments
+            ?->filter(function (LoanPayment $payment) use ($detail, $paidDate, $excludePayment): bool {
+                if ($excludePayment && (int) $payment->id === (int) $excludePayment->id) {
+                    return false;
+                }
+
+                // Older records may not have loan_details_id, but still belong to this loan.
+                if ($payment->loan_details_id && (int) $payment->loan_details_id !== (int) $detail->id) {
+                    return false;
+                }
+
+                return $payment->paid_at && $payment->paid_at->copy()->startOfDay()->lte($paidDate);
+            })
+            ->sortByDesc(fn (LoanPayment $payment) => $payment->paid_at?->timestamp ?? 0)
+            ->first()?->paid_at?->copy()?->startOfDay();
+
+        $anchorDate = $lastPaymentDate ?: $releaseDate;
         $isDue = false;
         $nextDueDate = null;
 
@@ -388,27 +424,13 @@ class LoanPaymentService
                 'every-3-weeks' => 21,
             };
 
-            $diff = $releaseDate->diffInDays($paidDate);
-            $isDue = $diff > 0 && $diff % $days === 0;
-            $cyclesCompleted = intdiv($diff, $days);
-            $nextDueDate = $releaseDate->copy()->addDays(($cyclesCompleted + 1) * $days)->format('Y-m-d');
+            $expectedDate = $anchorDate->copy()->addDays($days);
+            $isDue = $paidDate->equalTo($expectedDate);
+            $nextDueDate = $expectedDate->format('Y-m-d');
         } elseif ($interval === 'monthly') {
-            $cursor = $releaseDate->copy();
-            $matched = false;
-
-            while ($cursor->lte($paidDate)) {
-                if ($cursor->equalTo($paidDate)) {
-                    $matched = true;
-                    break;
-                }
-
-                $cursor->addMonthNoOverflow();
-            }
-
-            $isDue = $matched;
-            $nextDueDate = $matched
-                ? $paidDate->copy()->addMonthNoOverflow()->format('Y-m-d')
-                : $cursor->format('Y-m-d');
+            $expectedDate = $anchorDate->copy()->addMonthNoOverflow();
+            $isDue = $paidDate->equalTo($expectedDate);
+            $nextDueDate = $expectedDate->format('Y-m-d');
         }
 
         return [
@@ -417,7 +439,31 @@ class LoanPaymentService
                 ? 'This repayment date falls on a scheduled interest interval.'
                 : 'This repayment date is outside the scheduled interest interval. Interest can still be paid later.',
             'next_due_date' => $nextDueDate,
+            'interval' => $interval,
+            'based_on' => $lastPaymentDate ? 'last_repayment' : 'release_date',
         ];
+    }
+
+    /**
+     * The member's loan schedule is authoritative. The branch frequency is used
+     * only for older loan records that do not yet have an individual schedule.
+     */
+    protected function repaymentInterval(?string $memberInterval, ?string $branchInterval): ?string
+    {
+        foreach ([$memberInterval, $branchInterval] as $value) {
+            $normalized = Str::of((string) $value)
+                ->lower()
+                ->trim()
+                ->replace(['_', ' '], '-')
+                ->replaceMatches('/-+/', '-')
+                ->toString();
+
+            if (in_array($normalized, ['weekly', 'every-2-weeks', 'every-3-weeks', 'monthly'], true)) {
+                return $normalized;
+            }
+        }
+
+        return null;
     }
 
     protected function prepareRepaymentPayload(Branch $branch, Loan $loan, array $payload, ?LoanPayment $excludePayment = null): array

@@ -148,6 +148,12 @@
                         <li>Documents and communication history</li>
                         <li>An audit record of both identities and moved records</li>
                     </ul>
+                    <p class="mt-3 mb-0 text-muted">
+                        The original account holder's password remains the login password. Selecting the other account's email changes the login email only; it does not copy or expose either saved password.
+                    </p>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <strong>About reversing a merge:</strong> Existing merges cannot be automatically reversed safely. The audit stores the identities and record totals, but not enough ownership detail to distinguish records created after the merge. Contact a system administrator for a reviewed data restoration; do not recreate or transfer financial entries manually.
+                    </div>
                     <hr>
                     <p class="text-danger mb-0"><strong>Blocked:</strong> two records that already share the same society. This avoids combining financially distinct memberships by mistake.</p>
                 </div>

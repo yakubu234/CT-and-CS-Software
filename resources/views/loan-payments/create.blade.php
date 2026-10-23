@@ -28,6 +28,10 @@
                 'balance' => (float) ($loan->balanace ?? 0),
                 'release_date' => optional($detail?->release_date)->format('Y-m-d'),
                 'interest_week_interval' => $detail?->interest_week_interval,
+                'branch_repayment_frequency' => $loan->branch?->branch_meeting_days ?? $branch->branch_meeting_days,
+                'repayment_dates' => $loan->payments
+                    ->filter(fn ($payment) => ! $payment->loan_details_id || (int) $payment->loan_details_id === (int) $detail?->id)
+                    ->pluck('paid_at')->filter()->map(fn ($date) => $date->format('Y-m-d'))->values()->all(),
                 'carry_forwards' => $carryForwards->all(),
                 'carry_forward_total' => (float) $carryForwards->sum('remaining'),
             ],
@@ -341,6 +345,12 @@
             const currentLoan = () => loans[loanSelect.value] || null;
 
             const parseDate = (value) => value ? new Date(`${value}T00:00:00`) : null;
+            const addMonthNoOverflow = (date) => {
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const lastDay = new Date(year, month + 1, 0).getDate();
+                return new Date(year, month, Math.min(date.getDate(), lastDay));
+            };
 
             const syncInterestPaidAvailability = (loan) => {
                 const hasCarryForward = Boolean(loan && Number(loan.carry_forward_total || 0) > 0);
@@ -367,12 +377,19 @@
                     };
                 }
 
-                const diffDays = Math.floor((paidDate - releaseDate) / (1000 * 60 * 60 * 24));
-                const interval = loan.interest_week_interval;
+                const lastRepaymentDate = (loan.repayment_dates || [])
+                    .map(parseDate).filter((date) => date && date <= paidDate)
+                    .sort((left, right) => right - left)[0] || null;
+                const anchorDate = lastRepaymentDate || releaseDate;
+                const normalizeInterval = (value) => String(value || '')
+                    .trim().toLowerCase().replace(/[ _]+/g, '-').replace(/-+/g, '-');
+                const interval = normalizeInterval(loan.interest_week_interval)
+                    || normalizeInterval(loan.branch_repayment_frequency);
+                const diffDays = Math.floor((paidDate - anchorDate) / (1000 * 60 * 60 * 24));
 
                 if (interval === 'weekly' || interval === 'every-2-weeks' || interval === 'every-3-weeks') {
                     const days = interval === 'weekly' ? 7 : interval === 'every-2-weeks' ? 14 : 21;
-                    const due = diffDays > 0 && diffDays % days === 0;
+                    const due = diffDays === days;
                     return {
                         isDue: due,
                         label: due
@@ -382,7 +399,10 @@
                 }
 
                 if (interval === 'monthly') {
-                    const due = releaseDate.getDate() === paidDate.getDate() && paidDate > releaseDate;
+                    const expected = addMonthNoOverflow(anchorDate);
+                    const due = expected.getFullYear() === paidDate.getFullYear()
+                        && expected.getMonth() === paidDate.getMonth()
+                        && expected.getDate() === paidDate.getDate();
                     return {
                         isDue: due,
                         label: due

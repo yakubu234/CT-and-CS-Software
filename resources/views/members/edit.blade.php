@@ -25,14 +25,18 @@
             @csrf
             @method('PUT')
             <div class="card-body">
+                <div class="alert {{ $member->must_change_password ? 'alert-warning' : 'alert-success' }}">
+                    <strong>Password status:</strong>
+                    {{ $member->must_change_password ? 'Password setup/reset is pending; the member must choose a personal password after signing in.' : 'A personal portal password is active.' }}
+                </div>
                 <div class="alert alert-light border">
-                    Use this section to update only the member's portal password. The member details above will not be changed.
+                    Saved passwords are securely hashed and can never be displayed again. Enter a new password below only when creating or resetting access; leaving this page and returning will show empty fields by design.
                 </div>
 
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="member_password">New Password</label>
+                            <label for="member_password">New or Temporary Password</label>
                             <div class="input-group">
                                 <input
                                     type="password"
@@ -92,7 +96,7 @@
             </div>
             <div class="card-footer">
                 <button type="submit" class="btn btn-warning">
-                    Update Password
+                    Set / Reset Password
                 </button>
             </div>
         </form>

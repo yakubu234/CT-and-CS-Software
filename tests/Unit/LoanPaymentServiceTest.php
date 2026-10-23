@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Models\Branch;
 use App\Models\Loan;
+use App\Models\LoanDetail;
+use App\Models\LoanPayment;
 use App\Services\LoanPaymentService;
 use App\Services\LoanService;
 use Carbon\Carbon;
@@ -13,6 +15,51 @@ use Tests\TestCase;
 
 class LoanPaymentServiceTest extends TestCase
 {
+    public function test_next_repayment_uses_member_schedule_and_last_relevant_repayment(): void
+    {
+        $service = new LoanPaymentService(Mockery::mock(LoanService::class));
+        $branch = new Branch(['branch_meeting_days' => 'monthly']);
+        $detail = new LoanDetail([
+            'id' => 10,
+            'release_date' => '2026-10-01',
+            'interest_week_interval' => 'weekly',
+        ]);
+        $detail->id = 10;
+
+        $lastPayment = new LoanPayment(['paid_at' => '2026-10-15', 'loan_details_id' => 10]);
+        $lastPayment->id = 20;
+        $otherSchedulePayment = new LoanPayment(['paid_at' => '2026-10-20', 'loan_details_id' => 99]);
+        $otherSchedulePayment->id = 21;
+
+        $loan = new Loan();
+        $loan->setRelation('branch', $branch);
+        $loan->setRelation('payments', collect([$lastPayment, $otherSchedulePayment]));
+
+        $summary = $service->dueCycleSummary($detail, Carbon::parse('2026-10-22'), $loan);
+
+        $this->assertTrue($summary['is_due']);
+        $this->assertSame('2026-10-22', $summary['next_due_date']);
+        $this->assertSame('weekly', $summary['interval']);
+        $this->assertSame('last_repayment', $summary['based_on']);
+    }
+
+    public function test_branch_frequency_is_used_only_when_member_schedule_is_missing(): void
+    {
+        $service = new LoanPaymentService(Mockery::mock(LoanService::class));
+        $branch = new Branch(['branch_meeting_days' => 'every 2 weeks']);
+        $detail = new LoanDetail(['release_date' => '2026-10-01', 'interest_week_interval' => null]);
+        $loan = new Loan();
+        $loan->setRelation('branch', $branch);
+        $loan->setRelation('payments', collect());
+
+        $summary = $service->dueCycleSummary($detail, Carbon::parse('2026-10-15'), $loan);
+
+        $this->assertTrue($summary['is_due']);
+        $this->assertSame('every-2-weeks', $summary['interval']);
+        $this->assertSame('2026-10-15', $summary['next_due_date']);
+        $this->assertSame('release_date', $summary['based_on']);
+    }
+
     public function test_interest_payment_does_not_reduce_loan_principal_balance(): void
     {
         $branch = new Branch(['id' => 1]);

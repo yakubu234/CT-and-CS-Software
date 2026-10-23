@@ -13,6 +13,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\MemberStatementService;
 use App\Services\ActiveMemberBranchService;
+use App\Services\LoanPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,8 +29,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CustomerPortalController extends Controller
 {
-    public function __construct(protected ActiveMemberBranchService $activeMemberBranch)
-    {
+    public function __construct(
+        protected ActiveMemberBranchService $activeMemberBranch,
+        protected LoanPaymentService $loanPaymentService,
+    ) {
     }
 
     public function document(Request $request, MemberDocument $memberDocument): StreamedResponse
@@ -473,12 +476,11 @@ class CustomerPortalController extends Controller
             ->whereHas('details', function (Builder $query): void {
                 $query->where('decision_status', LoanDetail::STATUS_APPROVED);
             })
-            ->with(['payments' => function ($query): void {
+            ->with(['branch', 'details', 'payments' => function ($query): void {
                 $query->whereNull('deleted_at');
             }])
             ->get();
 
-        $loanIds = $loans->pluck('id')->all();
         $approvedAmount = round((float) $loans->sum(fn (Loan $loan): float => (float) ($loan->applied_amount ?? 0)), 2);
         $outstandingBalance = round((float) $loans->sum(fn (Loan $loan): float => (float) ($loan->balanace ?? 0)), 2);
         $principalRepaid = round((float) $loans->sum(fn (Loan $loan): float => (float) ($loan->total_paid ?? 0)), 2);
@@ -492,24 +494,11 @@ class CustomerPortalController extends Controller
         }), 2);
         $progress = $approvedAmount > 0 ? round(min(($principalRepaid / $approvedAmount) * 100, 100), 1) : 0;
 
-        $nextRepayment = $loanIds === []
-            ? null
-            : LoanDetail::query()
-                ->with('loan')
-                ->whereIn('loan_id', $loanIds)
-                ->where('borrower_id', $customer->id)
-                ->where('decision_status', LoanDetail::STATUS_APPROVED)
-                ->where('repayment_status', false)
-                ->orderBy('due_date')
-                ->first();
-
-        $hasOverdue = $loanIds !== [] && LoanDetail::query()
-            ->whereIn('loan_id', $loanIds)
-            ->where('borrower_id', $customer->id)
-            ->where('decision_status', LoanDetail::STATUS_APPROVED)
-            ->where('repayment_status', false)
-            ->whereDate('due_date', '<', now()->toDateString())
-            ->exists();
+        $scheduledRepayments = $this->scheduledRepayments($loans);
+        $nextRepayment = $scheduledRepayments->sortBy('due_date')->first();
+        $hasOverdue = $scheduledRepayments->contains(
+            fn (LoanDetail $detail): bool => $detail->due_date?->lt(now()->startOfDay()) ?? false
+        );
 
         return [
             'approved_amount' => $approvedAmount,
@@ -580,14 +569,35 @@ class CustomerPortalController extends Controller
 
     protected function nextRepaymentDue(User $customer): ?LoanDetail
     {
-        return LoanDetail::query()
-            ->with('loan')
-            ->where('borrower_id', $customer->id)
-            ->whereHas('loan', fn (Builder $query) => $query->where('member_branch_membership_id', $customer->activeMembership->id))
-            ->where('decision_status', LoanDetail::STATUS_APPROVED)
-            ->where('repayment_status', false)
-            ->whereDate('due_date', '>=', now()->toDateString())
-            ->orderBy('due_date')
-            ->first();
+        $loans = $this->loansQuery($customer)
+            ->with(['branch', 'details', 'payments' => fn ($query) => $query->whereNull('deleted_at')])
+            ->get();
+
+        return $this->scheduledRepayments($loans)->sortBy('due_date')->first();
+    }
+
+    protected function scheduledRepayments($loans)
+    {
+        return $loans->map(function (Loan $loan): ?LoanDetail {
+            $detail = $loan->details
+                ->where('decision_status', LoanDetail::STATUS_APPROVED)
+                ->where('repayment_status', false)
+                ->sortByDesc('id')
+                ->first();
+
+            if (! $detail || (float) ($loan->balanace ?? $loan->amount_due ?? 0) <= 0) {
+                return null;
+            }
+
+            $cycle = $this->loanPaymentService->dueCycleSummary($detail, now()->startOfDay(), $loan);
+            if (! $cycle['next_due_date']) {
+                return null;
+            }
+
+            // This is a display-only model value; no existing loan history is changed.
+            $detail->due_date = $cycle['next_due_date'];
+
+            return $detail;
+        })->filter()->values();
     }
 }
