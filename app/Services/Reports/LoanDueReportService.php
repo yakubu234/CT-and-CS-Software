@@ -167,8 +167,8 @@ class LoanDueReportService
                 $builder->where('loans.loan_id', 'like', '%' . $search . '%')
                     ->orWhere('borrowers.name', 'like', '%' . $search . '%')
                     ->orWhere('borrowers.last_name', 'like', '%' . $search . '%')
-                    ->orWhere('borrowers.member_no', 'like', '%' . $search . '%')
-                    ->orWhere('borrower_details.member_no', 'like', '%' . $search . '%');
+                    // Same expression as the displayed number: the loan's society membership first.
+                    ->orWhereRaw('COALESCE(memberships.member_number, borrower_details.member_no, borrowers.member_no) LIKE ?', ['%' . $search . '%']);
             });
         }
 

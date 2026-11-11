@@ -391,7 +391,7 @@
             </div>
             <div class="transaction-stat-card">
                 <div class="transaction-stat-label">Member No</div>
-                <div class="transaction-stat-value">{{ $transaction->user?->display_member_no ?: 'N/A' }}</div>
+                <div class="transaction-stat-value">{{ $transaction->membership?->member_number ?: ($transaction->user?->display_member_no ?: 'N/A') }}</div>
             </div>
             <div class="transaction-stat-card">
                 <div class="transaction-stat-label">Balance After</div>
@@ -464,7 +464,7 @@
                                 </div>
                                 <div class="transaction-detail-item">
                                     <div class="transaction-detail-label">Member No</div>
-                                    <div class="transaction-detail-value">{{ $transaction->user?->display_member_no ?: 'N/A' }}</div>
+                                    <div class="transaction-detail-value">{{ $transaction->membership?->member_number ?: ($transaction->user?->display_member_no ?: 'N/A') }}</div>
                                 </div>
                                 <div class="transaction-detail-item">
                                     <div class="transaction-detail-label">Account Number</div>

@@ -15,6 +15,7 @@ use App\Services\ActiveBranchService;
 use App\Services\MemberService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -40,7 +41,7 @@ class MemberController extends Controller
         }
 
         $members = TableListing::paginate(
-            TableListing::applySearch(
+            $this->applyMemberSearch(
                 User::query()
                     ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
                     ->where('branch_account', false)
@@ -49,7 +50,7 @@ class MemberController extends Controller
                     ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', true))
                     ->latest(),
                 $request->string('search')->toString(),
-                ['name', 'last_name', 'email', 'member_no', 'designation']
+                $branch->id
             ),
             $request
         );
@@ -90,7 +91,7 @@ class MemberController extends Controller
         }
 
         $members = TableListing::paginate(
-            TableListing::applySearch(
+            $this->applyMemberSearch(
                 User::withTrashed()
                     ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
                     ->withCount('savingsAccounts')
@@ -99,7 +100,7 @@ class MemberController extends Controller
                     ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id)->where('status', false))
                     ->latest('deleted_at'),
                 $request->string('search')->toString(),
-                ['name', 'last_name', 'email', 'member_no', 'designation']
+                $branch->id
             ),
             $request
         );
@@ -114,6 +115,33 @@ class MemberController extends Controller
         $member = User::withTrashed()->findOrFail($memberId);
 
         return $this->showMember($request, $member, true);
+    }
+
+    /**
+     * Search by the ACTIVE society's membership number rather than the user-level member_no.
+     * The user-level number belongs to the member's primary society, so searching it made a
+     * member from another society (e.g. 0082) appear here, while this society's own number
+     * (e.g. 0190) could not be found at all.
+     */
+    protected function applyMemberSearch(Builder $query, string $search, int $branchId): Builder
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+
+        return $query->where(function (Builder $builder) use ($like, $branchId): void {
+            foreach (['name', 'last_name', 'email', 'designation'] as $column) {
+                $builder->orWhere($column, 'like', $like);
+            }
+
+            $builder->orWhereHas('branchMemberships', fn (Builder $membership) => $membership
+                ->where('branch_id', $branchId)
+                ->where('member_number', 'like', $like));
+        });
     }
 
     protected function activateListedMemberships($members, int $branchId): void

@@ -49,8 +49,8 @@ class SocietyLedgerReportService
 
         $members = User::query()
             ->withTrashed()
-            ->with(['detail', 'branch'])
-            ->where('branch_id', $branch->id)
+            ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
+            ->whereHas('branchMemberships', fn (Builder $query) => $query->where('branch_id', $branch->id))
             ->where('user_type', 'customer')
             ->where('branch_account', false)
             ->when($memberId > 0, fn (Builder $query) => $query->where('id', $memberId))
@@ -77,8 +77,8 @@ class SocietyLedgerReportService
     {
         return User::query()
             ->withTrashed()
-            ->with('detail')
-            ->where('branch_id', $branch->id)
+            ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
+            ->whereHas('branchMemberships', fn (Builder $query) => $query->where('branch_id', $branch->id))
             ->where('user_type', 'customer')
             ->where('branch_account', false)
             ->orderBy('name')
@@ -86,8 +86,22 @@ class SocietyLedgerReportService
             ->map(fn (User $member): array => [
                 'id' => $member->id,
                 'name' => $member->name,
-                'member_no' => MemberNumber::normalize($member->detail?->member_no ?: $member->member_no, $branch),
+                'member_no' => $this->memberNumberFor($member, $branch),
             ]);
+    }
+
+    /**
+     * The member's number in THIS society. Members can belong to several societies, so the
+     * user-level member_no (their primary society's number) is only a legacy fallback.
+     */
+    protected function memberNumberFor(User $member, Branch $branch): ?string
+    {
+        $memberships = $member->relationLoaded('branchMemberships')
+            ? $member->branchMemberships
+            : $member->branchMemberships()->where('branch_id', $branch->id)->get();
+
+        return $memberships->firstWhere('branch_id', $branch->id)?->member_number
+            ?: MemberNumber::normalize($member->detail?->member_no ?: $member->member_no, $branch);
     }
 
     protected function transactionsQuery(Branch $branch, Request $request, ?Carbon $startDate, Carbon $endDate): Builder
@@ -106,6 +120,7 @@ class SocietyLedgerReportService
                 $query->where(function (Builder $builder) use ($search): void {
                     $builder->where('description', 'like', $search)
                         ->orWhere('type', 'like', $search)
+                        ->orWhereHas('membership', fn (Builder $membershipQuery) => $membershipQuery->where('member_number', 'like', $search))
                         ->orWhereHas('user', function (Builder $userQuery) use ($search): void {
                             $userQuery->withTrashed()->where('name', 'like', $search)
                                 ->orWhere('last_name', 'like', $search)
@@ -232,7 +247,7 @@ class SocietyLedgerReportService
         return [
             'member' => [
                 'name' => $member->name,
-                'member_no' => MemberNumber::normalize($member->detail?->member_no ?: $member->member_no, $branch),
+                'member_no' => $this->memberNumberFor($member, $branch),
             ],
             'rows' => $rows,
             'summary' => $this->ledgerSummary($rows),
@@ -244,8 +259,8 @@ class SocietyLedgerReportService
         $memberId = (int) $request->integer('member_id');
         $memberQuery = User::query()
             ->withTrashed()
-            ->with(['detail', 'branch'])
-            ->where('branch_id', $branch->id)
+            ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
+            ->whereHas('branchMemberships', fn (Builder $query) => $query->where('branch_id', $branch->id))
             ->where('user_type', 'customer')
             ->where('branch_account', false);
 

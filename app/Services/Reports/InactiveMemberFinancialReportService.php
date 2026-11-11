@@ -13,12 +13,16 @@ class InactiveMemberFinancialReportService
     public function build(Branch $branch, Request $request): array
     {
         $members = User::withTrashed()
-            ->with('detail')
-            ->where('branch_id', $branch->id)
+            ->with(['detail', 'branchMemberships' => fn ($query) => $query->where('branch_id', $branch->id)])
+            ->whereHas('branchMemberships', fn ($query) => $query->where('branch_id', $branch->id))
             ->where('branch_account', false)
             ->where('user_type', 'customer')
-            ->where(function ($query): void {
-                $query->where('status', 0)->orWhereNotNull('deleted_at');
+            ->where(function ($query) use ($branch): void {
+                // Archiving is per society membership, so an archived membership counts as
+                // inactive here even when the member is still active in another society.
+                $query->where('status', 0)
+                    ->orWhereNotNull('deleted_at')
+                    ->orWhereHas('branchMemberships', fn ($membership) => $membership->where('branch_id', $branch->id)->where('status', false));
             })
             ->orderBy('name')
             ->get();
@@ -26,17 +30,17 @@ class InactiveMemberFinancialReportService
         $options = $members->map(fn (User $member): array => [
             'id' => $member->id,
             'name' => $member->name,
-            'member_no' => MemberNumber::normalize($member->detail?->member_no ?: $member->member_no, $branch),
+            'member_no' => $this->memberNumberFor($member, $branch),
         ]);
 
         $memberId = (int) $request->integer('member_id');
         $search = trim((string) $request->input('search'));
-        $members = $members->filter(function (User $member) use ($memberId, $search): bool {
+        $members = $members->filter(function (User $member) use ($memberId, $search, $branch): bool {
             if ($memberId > 0 && (int) $member->id !== $memberId) {
                 return false;
             }
 
-            return $search === '' || str_contains(mb_strtolower($member->name . ' ' . $member->member_no . ' ' . ($member->detail?->member_no ?? '')), mb_strtolower($search));
+            return $search === '' || str_contains(mb_strtolower($member->name . ' ' . $this->memberNumberFor($member, $branch)), mb_strtolower($search));
         })->values();
 
         $ids = $members->pluck('id')->all();
@@ -55,6 +59,7 @@ class InactiveMemberFinancialReportService
         $openingBalances = DB::table('savings_accounts')
             ->join('savings_products', 'savings_products.id', '=', 'savings_accounts.savings_product_id')
             ->whereIn('savings_accounts.user_id', $ids)
+            ->where('savings_accounts.branch_id', $branch->id)
             ->where('savings_accounts.is_branch_acount', false)
             ->groupBy('savings_accounts.user_id', 'savings_products.id', 'savings_products.name', 'savings_products.type')
             ->selectRaw('savings_accounts.user_id, savings_products.name, savings_products.type, SUM(savings_accounts.opening_balance) as balance')
@@ -102,7 +107,7 @@ class InactiveMemberFinancialReportService
             return [
                 'id' => $member->id,
                 'name' => $member->name,
-                'member_no' => MemberNumber::normalize($member->detail?->member_no ?: $member->member_no, $branch),
+                'member_no' => $this->memberNumberFor($member, $branch),
                 'savings' => round($balances['SAVINGS'], 2),
                 'shares' => round($balances['SHARES'], 2),
                 'building_fund' => round($balances['BUILDING_FUND'], 2),
@@ -122,5 +127,11 @@ class InactiveMemberFinancialReportService
             'outstanding_loan' => round((float) $rows->sum('outstanding_loan'), 2),
             'net_position' => round((float) $rows->sum('net_position'), 2),
         ]];
+    }
+
+    protected function memberNumberFor(User $member, Branch $branch): ?string
+    {
+        return $member->branchMemberships->firstWhere('branch_id', $branch->id)?->member_number
+            ?: MemberNumber::normalize($member->detail?->member_no ?: $member->member_no, $branch);
     }
 }
