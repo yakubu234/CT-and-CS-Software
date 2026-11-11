@@ -34,7 +34,7 @@ class TransactionController extends Controller
         }
 
         $transactionsQuery = Transaction::query()
-            ->with(['user.detail', 'account.product', 'creator'])
+            ->with(['user.detail', 'membership', 'account.product', 'creator'])
             ->where('branch_id', $branch->id)
             ->where('tracking_id', 'regular')
             ->where('is_branch', false)
@@ -50,7 +50,10 @@ class TransactionController extends Controller
         $search = $request->string('search')->toString();
         if ($search !== '') {
             $transactionsQuery->where(function (Builder $query) use ($search): void {
-                $query->where('description', 'like', '%' . $search . '%')
+                $query->orWhereHas('membership', function (Builder $membershipQuery) use ($search): void {
+                    $membershipQuery->where('member_number', 'like', '%' . $search . '%');
+                })
+                    ->orWhere('description', 'like', '%' . $search . '%')
                     ->orWhere('type', 'like', '%' . $search . '%')
                     ->orWhere('dr_cr', 'like', '%' . $search . '%')
                     ->orWhereHas('account', function (Builder $accountQuery) use ($search): void {
@@ -110,6 +113,13 @@ class TransactionController extends Controller
             ->whereNull('deleted_at')
             ->firstOrFail();
 
+        // Pin the member to THIS society's membership so every entry is validated and
+        // recorded against it (not the member's primary-society number).
+        $member->setRelation(
+            'activeMembership',
+            $member->branchMemberships()->where('branch_id', $branch->id)->where('status', true)->firstOrFail()
+        );
+
         try {
             $transactions = $this->transactionService->createBatch(
                 $branch,
@@ -142,7 +152,7 @@ class TransactionController extends Controller
             404
         );
 
-        $transaction->load(['user.detail', 'account.product', 'creator', 'updater']);
+        $transaction->load(['user.detail', 'membership', 'account.product', 'creator', 'updater']);
 
         return view('transactions.show', [
             'branch' => $branch,
@@ -163,14 +173,26 @@ class TransactionController extends Controller
             404
         );
 
-        $transaction->load(['user.detail', 'account.product']);
+        $transaction->load(['user.detail', 'membership', 'account.product']);
+
+        if ($transaction->user && $transaction->membership) {
+            $transaction->user->setRelation('activeMembership', $transaction->membership);
+        }
 
         return view('transactions.edit', [
             'branch' => $branch,
             'transaction' => $transaction,
             'member' => $transaction->user,
+            // Only this society's accounts. Previously every account of the login was listed,
+            // so a member with memberships in two societies saw both sets (e.g. 0082 and 0190).
             'memberAccounts' => $transaction->user
-                ? $transaction->user->savingsAccounts()->with('product')->where('is_branch_acount', false)->where('status', 1)->get()
+                ? $transaction->user->savingsAccounts()
+                    ->with('product')
+                    ->where('branch_id', $branch->id)
+                    ->when($transaction->member_branch_membership_id, fn ($query, $membershipId) => $query->where('member_branch_membership_id', $membershipId))
+                    ->where('is_branch_acount', false)
+                    ->where('status', 1)
+                    ->get()
                 : collect(),
         ]);
     }

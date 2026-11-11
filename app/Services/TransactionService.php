@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Branch;
+use App\Models\MemberBranchMembership;
 use App\Models\SavingsAccount;
 use App\Models\Transaction;
 use App\Models\User;
@@ -113,6 +114,15 @@ class TransactionService
 
             if (! $member || ! $originalAccount) {
                 throw new RuntimeException('This transaction is missing its linked member account.');
+            }
+
+            // An edit may change the account, but never move the entry to a different membership.
+            $member->unsetRelation('activeMembership');
+            if ($transaction->member_branch_membership_id) {
+                $originalMembership = MemberBranchMembership::query()->find($transaction->member_branch_membership_id);
+                if ($originalMembership) {
+                    $member->setRelation('activeMembership', $originalMembership);
+                }
             }
 
             $newAccount = $this->resolveAccountForMember($member, (int) $payload['savings_account_id'], $branch);
@@ -263,7 +273,7 @@ class TransactionService
                 'source_transaction_id' => $transaction->id,
                 'member_id' => $transaction->user_id,
                 'member_name' => $transaction->user?->name,
-                'member_no' => $transaction->user?->display_member_no,
+                'member_no' => $transaction->membership?->member_number ?: $transaction->user?->display_member_no,
                 'account_number' => $account->account_number,
                 'account_type' => $account->product?->type,
             ],
@@ -289,6 +299,27 @@ class TransactionService
         if (! $account) {
             throw new RuntimeException('The selected account is invalid for the chosen member.');
         }
+
+        // The account must belong to this member's membership in THIS society. Without this,
+        // the posting was recorded against the member's user-level (primary society) number,
+        // e.g. a transaction entered for 0190 was stamped with 0082.
+        $membership = MemberBranchMembership::query()
+            ->whereKey($account->member_branch_membership_id)
+            ->where('user_id', $member->id)
+            ->where('branch_id', $branch->id)
+            ->first();
+
+        if (! $membership) {
+            throw new RuntimeException("Account {$account->account_number} is not linked to this member's membership in this society. The transaction was not posted.");
+        }
+
+        $activeMembership = $member->relationLoaded('activeMembership') ? $member->getRelation('activeMembership') : null;
+        if ($activeMembership && (int) $activeMembership->branch_id === (int) $branch->id && ! $activeMembership->is($membership)) {
+            throw new RuntimeException("Account {$account->account_number} belongs to member number {$membership->member_number}, not {$activeMembership->member_number}. The transaction was not posted.");
+        }
+
+        $member->setRelation('activeMembership', $membership);
+        $member->setRelation('branch', $branch);
 
         return $account;
     }

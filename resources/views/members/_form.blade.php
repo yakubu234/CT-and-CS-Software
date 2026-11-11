@@ -132,9 +132,9 @@
             <div class="custom-control custom-checkbox mb-3">
                 <input class="custom-control-input" type="checkbox" name="link_existing" value="1" id="link_existing" @checked(old('link_existing'))>
                 <label class="custom-control-label" for="link_existing">
-                    If this email or phone already belongs to a member, confirm this is the same person and add membership for {{ $branch->name }}.
+                    If this email already belongs to a member, confirm this is the same person and add membership for {{ $branch->name }}.
                 </label>
-                <small class="form-text text-muted">The existing login will be retained and four new society-specific accounts will be created.</small>
+                <small class="form-text text-muted">Only tick this for the same person (the name must match). The existing login will be retained and four new society-specific accounts will be created. Never tick this to get past a duplicate warning for a different person — use a different email instead.</small>
             </div>
         </div>
     @endif

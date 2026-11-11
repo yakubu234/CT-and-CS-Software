@@ -54,6 +54,11 @@ class Loan extends Model
         return $this->belongsTo(User::class, 'borrower_id');
     }
 
+    public function membership(): BelongsTo
+    {
+        return $this->belongsTo(MemberBranchMembership::class, 'member_branch_membership_id');
+    }
+
     public function details(): HasMany
     {
         return $this->hasMany(LoanDetail::class)->latest('id');

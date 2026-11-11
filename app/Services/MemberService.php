@@ -56,24 +56,31 @@ class MemberService
     {
         return DB::transaction(function () use ($data, $branch): User {
             $normalizedEmail = Str::lower(trim($data['email']));
-            $normalizedMobile = preg_replace('/\D+/', '', (string) $data['mobile']);
+
+            // Identity is matched on email only. Phone numbers are NOT an identity key here:
+            // many members share placeholder numbers (one number is used by ~1,800 members),
+            // and the previous fuzzy phone-suffix match attached new registrants to
+            // unrelated existing members, so their account numbers and transactions
+            // ended up under another person's record.
             $existing = User::query()
+                ->with(['detail', 'branchMemberships'])
                 ->where('user_type', 'customer')
                 ->where('branch_account', false)
-                ->where(function ($query) use ($normalizedEmail, $normalizedMobile): void {
-                    $query->whereRaw('LOWER(email) = ?', [$normalizedEmail]);
-                    if ($normalizedMobile !== '') {
-                        $query->orWhereHas('detail', function ($detail) use ($normalizedMobile): void {
-                            $detail->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '+', ''), '-', ''), '(', '') LIKE ?", ['%' . ltrim($normalizedMobile, '0')]);
-                        });
-                    }
-                })
+                ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
                 ->first();
 
             if ($existing) {
+                $existingLabel = $this->describeExistingMember($existing);
+
                 if (! ($data['link_existing'] ?? false)) {
                     throw ValidationException::withMessages([
-                        'email' => 'A member with this email or phone already exists. Confirm that this is the same person to add the current society membership.',
+                        'email' => "This email already belongs to {$existingLabel}. If this is the same person, tick the confirmation box to add a membership for this society; otherwise use a different email address.",
+                    ]);
+                }
+
+                if (! $this->namesMatch($existing, (string) $data['first_name'], (string) $data['last_name'])) {
+                    throw ValidationException::withMessages([
+                        'email' => "This email belongs to {$existingLabel}, whose name does not match the name entered. A different person cannot be linked to an existing member. Use a different email address for this member.",
                     ]);
                 }
 
@@ -374,6 +381,34 @@ class MemberService
         }
 
         return $file->store($path, 'public');
+    }
+
+    protected function describeExistingMember(User $member): string
+    {
+        $numbers = $member->branchMemberships->pluck('member_number')->filter()->implode(', ')
+            ?: ($member->detail?->member_no ?: $member->member_no ?: 'no member number');
+
+        return $member->name . " ({$numbers})";
+    }
+
+    /**
+     * Linking a new society membership to an existing login is only allowed when the
+     * entered name is the same person. Order-insensitive because first/last names are
+     * frequently entered swapped.
+     */
+    protected function namesMatch(User $existing, string $firstName, string $lastName): bool
+    {
+        $tokens = static function (string ...$parts): array {
+            $words = preg_split('/\s+/', Str::lower(preg_replace('/[^\pL\pN\s]+/u', ' ', implode(' ', $parts))), -1, PREG_SPLIT_NO_EMPTY);
+            sort($words);
+
+            return $words;
+        };
+
+        $entered = $tokens($firstName, $lastName);
+
+        // getRawOriginal: the `name` accessor already appends last_name.
+        return $entered !== [] && $entered === $tokens((string) $existing->getRawOriginal('name'), (string) $existing->last_name);
     }
 
     protected function reserveNextMemberNumber(Branch $branch): string

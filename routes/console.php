@@ -37,6 +37,120 @@ Artisan::command('branches:reconcile-accounts {--dry-run}', function (BranchAcco
     }
 })->purpose('Reconcile duplicate branch-account users and branch savings accounts.');
 
+Artisan::command('members:audit-linked-memberships', function (\App\Services\MembershipDetachService $service) {
+    $rows = $service->linkedMemberships();
+
+    if ($rows->isEmpty()) {
+        $this->info('No secondary (linked) society memberships found.');
+
+        return;
+    }
+
+    $this->table(
+        ['Membership', 'Linked No.', 'Society', 'Linked at', 'Attached to (user)', 'Their primary No.', 'Live tx', 'Net amount', 'Deleted tx', 'Loans', 'Merge tool'],
+        $rows->map(fn ($row) => [
+            $row->membership_id,
+            $row->linked_member_number,
+            $row->society,
+            $row->linked_at,
+            "{$row->attached_to} (#{$row->attached_user_id})",
+            $row->attached_primary_number,
+            $row->live_transactions,
+            number_format((float) $row->net_amount, 2),
+            $row->deleted_transactions,
+            $row->loans,
+            $row->from_merge_tool ? 'yes' : 'no',
+        ])->all()
+    );
+
+    $this->warn('Each row not created by the merge tool must be confirmed with the society: is the linked number the SAME person? If not, run members:detach-membership.');
+})->purpose('List society memberships attached to another member\'s login, with their transactions and loans.');
+
+Artisan::command('members:detach-membership {membership : member_branch_memberships.id} {--first-name=} {--last-name=} {--email=} {--mobile=} {--dry-run}', function (\App\Services\MembershipDetachService $service) {
+    $person = [
+        'first_name' => (string) $this->option('first-name'),
+        'last_name' => (string) $this->option('last-name'),
+        'email' => (string) $this->option('email'),
+        'mobile' => (string) $this->option('mobile'),
+    ];
+
+    foreach ($person as $key => $value) {
+        if (trim($value) === '') {
+            $this->error('--' . str_replace('_', '-', $key) . ' is required (the REAL member\'s details).');
+
+            return 1;
+        }
+    }
+
+    try {
+        $summary = $service->detach((int) $this->argument('membership'), $person, (bool) $this->option('dry-run'));
+    } catch (\Throwable $exception) {
+        $this->error($exception->getMessage());
+
+        return 1;
+    }
+
+    $this->info(($summary['dry_run'] ? '[DRY RUN - nothing saved] ' : '') . "{$summary['member_number']} detached from {$summary['detached_from']} (#{$summary['detached_from_user_id']}) to {$summary['new_member']} (#{$summary['new_user_id']}).");
+    foreach ($summary['moved'] as $table => $count) {
+        $this->line("  {$table}: {$count}");
+    }
+
+    return 0;
+})->purpose('Move a wrongly linked society membership (with its accounts, transactions and loans) to a new member record for the real person.');
+
+Artisan::command('transactions:repair-member-snapshots {--dry-run}', function () {
+    // Transactions store a snapshot of the member number at posting time. Postings to a
+    // secondary society membership stored the member's PRIMARY number (e.g. 0190 entries
+    // stamped BRANCH_175_0082). Only genuinely different numbers are touched: the legacy
+    // BRANCH_<society>_<number> spelling of the SAME number is left as-is.
+    $mismatch = <<<'SQL'
+        t.is_branch = 0
+        AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.transaction_details, '$.member_no')), '') <> m.member_number
+        AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.transaction_details, '$.member_no')), '') <> CONCAT('BRANCH_', m.branch_id, '_', SUBSTRING_INDEX(m.member_number, '_', -1))
+    SQL;
+
+    $rows = collect(DB::select(
+        "SELECT t.id, m.member_number AS actual, JSON_UNQUOTE(JSON_EXTRACT(t.transaction_details, '$.member_no')) AS stored, t.deleted_at IS NOT NULL AS deleted
+         FROM transactions t JOIN member_branch_memberships m ON m.id = t.member_branch_membership_id
+         WHERE {$mismatch}"
+    ));
+
+    if ($rows->isEmpty()) {
+        $this->info('No transactions carry a wrong member number.');
+
+        return 0;
+    }
+
+    $this->table(['Stored number', 'Correct number', 'Live', 'Deleted'], $rows->groupBy(fn ($row) => $row->stored . '|' . $row->actual)->map(fn ($group, $key) => [
+        ...explode('|', $key),
+        $group->where('deleted', 0)->count(),
+        $group->where('deleted', 1)->count(),
+    ])->values()->all());
+
+    $mirrors = DB::table('transactions')->where('is_branch', 1)->whereIn('parent_id', $rows->pluck('id'))->count();
+    $this->line("Member transactions: {$rows->count()}, branch-ledger mirror entries: {$mirrors}");
+
+    if ($this->option('dry-run')) {
+        $this->warn('[DRY RUN] Nothing was changed.');
+
+        return 0;
+    }
+
+    DB::transaction(function () use ($rows): void {
+        foreach ($rows->groupBy('actual') as $number => $group) {
+            $ids = $group->pluck('id');
+            DB::table('transactions')->whereIn('id', $ids)
+                ->update(['transaction_details' => DB::raw("JSON_SET(COALESCE(transaction_details, '{}'), '$.member_no', " . DB::getPdo()->quote($number) . ')')]);
+            DB::table('transactions')->where('is_branch', 1)->whereIn('parent_id', $ids)
+                ->update(['transaction_details' => DB::raw("JSON_SET(COALESCE(transaction_details, '{}'), '$.member_no', " . DB::getPdo()->quote($number) . ')')]);
+        }
+    });
+
+    $this->info('Member numbers on the listed transactions have been corrected.');
+
+    return 0;
+})->purpose('Correct transactions that stored another society\'s member number at posting time.');
+
 Artisan::command('branches:sync-ledgers {--branch=}', function (BalanceSyncService $balanceSyncService) {
     $branches = Branch::query()
         ->whereNull('deleted_at')
