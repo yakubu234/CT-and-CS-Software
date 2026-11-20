@@ -124,7 +124,9 @@ class SmsAutomationController extends Controller
 
     protected function validateRule(Request $request, array $branchRules): array
     {
-        $data = $request->validate([
+        // The day is always shown and saved, so it is kept when an event is switched;
+        // only monthly statements use it when sending.
+        return $request->validate([
             'name' => ['required', 'string', 'max:191'],
             ...$branchRules,
             'template_id' => ['required', 'exists:sms_templates,id'],
@@ -138,13 +140,6 @@ class SmsAutomationController extends Controller
                 'between:1,31',
             ],
         ]);
-
-        // The day only matters for monthly statements; don't keep a stale one on other events.
-        if ($data['event'] !== SmsAutomationRule::EVENT_MONTHLY_STATEMENT) {
-            $data['day_of_month'] = null;
-        }
-
-        return $data;
     }
 
     protected function eventOptions(): array
