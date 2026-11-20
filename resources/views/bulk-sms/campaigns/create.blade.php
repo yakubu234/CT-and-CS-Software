@@ -22,13 +22,16 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="branch_id">Target Branch</label>
-                            <select name="branch_id" id="branch_id" class="form-control select2" data-placeholder="Choose branch">
-                                <option value="">All accessible branches</option>
+                            @php($selectedBranches = array_map('strval', (array) old('branch_ids', $currentBranch ? [$currentBranch->id] : ['all'])))
+                            <label for="branch_ids">Target Branches</label>
+                            <select name="branch_ids[]" id="branch_ids" class="form-control select2 branch-multi" multiple data-placeholder="Choose one or more branches">
+                                <option value="all" @selected(in_array('all', $selectedBranches, true))>All accessible branches</option>
                                 @foreach ($branches as $branch)
-                                    <option value="{{ $branch->id }}" @selected((string) old('branch_id', $currentBranch?->id) === (string) $branch->id)>{{ $branch->name }}</option>
+                                    <option value="{{ $branch->id }}" @selected(in_array((string) $branch->id, $selectedBranches, true))>{{ $branch->name }}</option>
                                 @endforeach
                             </select>
+                            <small class="text-muted">Pick several branches (or all) and a separate campaign is created and sent for each one.</small>
+                            @error('branch_ids')<div class="text-danger small">{{ $message }}</div>@enderror
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -58,11 +61,12 @@
                             <label for="member_ids">Select Members</label>
                             <select name="member_ids[]" id="member_ids" class="form-control select2" multiple data-placeholder="Choose members">
                                 @foreach ($members as $member)
-                                    <option value="{{ $member->id }}" @selected(collect(old('member_ids', []))->contains($member->id))>
+                                    <option value="{{ $member->id }}" selected>
                                         {{ $member->display_member_no ?: 'N/A' }} - {{ $member->name }} ({{ $member->branch?->name ?: 'No branch' }})
                                     </option>
                                 @endforeach
                             </select>
+                            <small class="text-muted">Type at least two characters of the member's name, number, email or phone. Results are loaded as you search.</small>
                         </div>
                     </div>
                     <div class="col-12">
@@ -90,6 +94,8 @@
     </div>
 @endsection
 
+@include('bulk-sms.partials.branch-multi-script')
+
 @push('scripts')
     <script>
         (() => {
@@ -97,6 +103,35 @@
             const memberWrap = document.querySelector('.audience-selected-members');
             const template = document.getElementById('template_id');
             const message = document.getElementById('message');
+            const $branchSelect = window.jQuery ? window.jQuery('#branch_ids') : null;
+            const $memberSelect = window.jQuery ? window.jQuery('#member_ids') : null;
+
+            if ($memberSelect?.length && typeof window.jQuery.fn.select2 === 'function') {
+                if ($memberSelect.hasClass('select2-hidden-accessible')) {
+                    $memberSelect.select2('destroy');
+                }
+
+                $memberSelect.select2({
+                    theme: 'bootstrap4',
+                    width: '100%',
+                    placeholder: 'Search members',
+                    minimumInputLength: 2,
+                    ajax: {
+                        url: @json(route('bulk-sms.campaigns.members.search')),
+                        dataType: 'json',
+                        delay: 300,
+                        data: params => ({
+                            q: params.term || '',
+                            page: params.page || 1,
+                            branch_ids: $branchSelect?.val() || [],
+                        }),
+                        processResults: data => data,
+                        cache: false,
+                    },
+                });
+
+                $branchSelect?.on('change', () => $memberSelect.val(null).trigger('change'));
+            }
 
             const toggleMemberWrap = () => {
                 if (! audience || ! memberWrap) {
@@ -118,8 +153,14 @@
                 }
             };
 
-            audience?.addEventListener('change', toggleMemberWrap);
-            template?.addEventListener('change', fillTemplate);
+            // Select2 fires jQuery "change" events, which native addEventListener does not receive.
+            if (window.jQuery) {
+                window.jQuery(audience).on('change', toggleMemberWrap);
+                window.jQuery(template).on('change', fillTemplate);
+            } else {
+                audience?.addEventListener('change', toggleMemberWrap);
+                template?.addEventListener('change', fillTemplate);
+            }
             toggleMemberWrap();
         })();
     </script>

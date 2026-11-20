@@ -460,6 +460,8 @@ Artisan::command('sms:process-pending', function (SmsCampaignService $campaignSe
     $this->line("Automation messages processed: {$automaticMessages}");
 })->purpose('Process queued SMS campaigns and date-based SMS automations.');
 
+Schedule::command('sms:process-pending')->everyMinute()->withoutOverlapping();
+
 Artisan::command('email:process-pending', function (EmailCampaignService $campaignService, EmailAutomationService $automationService) {
     $queuedMessages = $campaignService->processScheduledMessages();
     $reminders = $automationService->processRepaymentReminders();

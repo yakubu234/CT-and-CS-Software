@@ -9,8 +9,11 @@ use App\Services\ActiveBranchService;
 use App\Services\Sms\SmsCampaignService;
 use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SmsCampaignController extends Controller
 {
@@ -44,29 +47,100 @@ class SmsCampaignController extends Controller
     {
         $currentBranch = $this->activeBranchService->ensureActiveBranch($request->user());
 
+        $oldMemberIds = collect(old('member_ids', []))->map(fn ($id) => (int) $id)->filter();
+
         return view('bulk-sms.campaigns.create', [
             'templates' => SmsTemplate::query()->where('status', true)->orderBy('name')->get(),
             'branches' => $this->activeBranchService->availableBranches($request->user()),
-            'members' => User::query()
-                ->with('detail', 'branch')
-                ->where('branch_account', false)
-                ->whereNull('deleted_at')
-                ->where(function ($query): void {
-                    $query->where('user_type', 'customer')
-                        ->orWhere('society_exco', true)
-                        ->orWhere('former_exco', true);
-                })
-                ->orderBy('name')
-                ->get(),
+            // Only members re-selected after a failed submit are rendered up front;
+            // everything else is loaded on demand via searchMembers().
+            'members' => $oldMemberIds->isEmpty()
+                ? collect()
+                : $this->smsMemberQuery()
+                    ->with('detail', 'branch')
+                    ->whereIn('id', $oldMemberIds)
+                    ->orderBy('name')
+                    ->get(),
             'currentBranch' => $currentBranch,
         ]);
     }
 
+    public function searchMembers(Request $request): JsonResponse
+    {
+        $allowedBranchIds = $this->allowedBranchIds($request);
+        $branchIds = $this->resolveBranchSelection((array) $request->input('branch_ids', []), $allowedBranchIds);
+
+        $search = trim((string) $request->input('q'));
+        if (mb_strlen($search) < 2) {
+            return response()->json(['results' => [], 'pagination' => ['more' => false]]);
+        }
+
+        $members = $this->smsMemberQuery()
+            ->with('detail', 'branch')
+            ->whereIn('branch_id', $branchIds ?: $allowedBranchIds)
+            ->where(function ($query) use ($search): void {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('last_name', 'like', '%' . $search . '%')
+                    ->orWhere('member_no', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhereHas('detail', fn ($detail) => $detail->where(fn ($inner) => $inner
+                        ->where('member_no', 'like', '%' . $search . '%')
+                        ->orWhere('mobile', 'like', '%' . $search . '%')));
+            })
+            ->orderBy('name')
+            ->simplePaginate(20);
+
+        return response()->json([
+            'results' => collect($members->items())->map(fn (User $member): array => [
+                'id' => $member->id,
+                'text' => ($member->display_member_no ?: 'N/A') . ' - ' . $member->name . ' (' . ($member->branch?->name ?: 'No branch') . ')',
+            ])->values(),
+            'pagination' => ['more' => $members->hasMorePages()],
+        ]);
+    }
+
+    protected function smsMemberQuery(): Builder
+    {
+        return User::query()
+            ->where('branch_account', false)
+            ->whereNull('deleted_at')
+            ->where(function ($query): void {
+                $query->where('user_type', 'customer')
+                    ->orWhere('society_exco', true)
+                    ->orWhere('former_exco', true);
+            });
+    }
+
+    protected function allowedBranchIds(Request $request): array
+    {
+        return $this->activeBranchService->availableBranches($request->user())
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /**
+     * Turn the branch multi-select into concrete branch ids. "all" expands to every
+     * branch the user can access; anything outside that list is dropped.
+     */
+    protected function resolveBranchSelection(array $selection, array $allowedBranchIds): array
+    {
+        if (in_array('all', $selection, true)) {
+            return $allowedBranchIds;
+        }
+
+        return array_values(array_intersect(
+            $allowedBranchIds,
+            array_map('intval', $selection)
+        ));
+    }
+
     public function store(Request $request): RedirectResponse
     {
+        $allowedBranchIds = $this->allowedBranchIds($request);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:191'],
-            'branch_id' => ['nullable', 'exists:branches,id'],
+            'branch_ids' => ['required', 'array', 'min:1'],
+            'branch_ids.*' => ['required', Rule::in(['all', ...array_map('strval', $allowedBranchIds)])],
             'template_id' => ['nullable', 'exists:sms_templates,id'],
             'audience_type' => ['required', 'in:branch_members,selected_members'],
             'member_ids' => ['nullable', 'array'],
@@ -87,11 +161,59 @@ class SmsCampaignController extends Controller
                 ->withInput();
         }
 
-        $campaign = $this->campaignService->createCampaign($request->user(), $data);
+        $branchIds = $this->resolveBranchSelection($data['branch_ids'], $allowedBranchIds);
+
+        if ($branchIds === []) {
+            return back()
+                ->withErrors(['branch_ids' => 'Choose at least one branch you have access to.'])
+                ->withInput();
+        }
+
+        // For hand-picked members, each member goes into the campaign of their own branch.
+        $memberBranches = collect();
+        if ($data['audience_type'] === 'selected_members') {
+            $memberIds = array_values(array_unique(array_map('intval', $data['member_ids'])));
+            $memberBranches = $this->smsMemberQuery()
+                ->whereIn('id', $memberIds)
+                ->pluck('branch_id', 'id')
+                ->map(fn ($branchId) => (int) $branchId);
+
+            $outside = $memberBranches->reject(fn ($branchId) => in_array($branchId, $branchIds, true));
+            if ($memberBranches->count() !== count($memberIds) || $outside->isNotEmpty()) {
+                return back()
+                    ->withErrors(['member_ids' => 'Every selected member must belong to one of the selected branches.'])
+                    ->withInput();
+            }
+        }
+
+        $branchNames = $this->activeBranchService->availableBranches($request->user())->pluck('name', 'id');
+        $multiple = count($branchIds) > 1;
+        $campaigns = [];
+
+        foreach ($branchIds as $branchId) {
+            $memberIds = $memberBranches->filter(fn ($memberBranch) => $memberBranch === $branchId)->keys()->all();
+
+            if ($data['audience_type'] === 'selected_members' && $memberIds === []) {
+                continue;
+            }
+
+            $campaigns[] = $this->campaignService->createCampaign($request->user(), [
+                ...$data,
+                'name' => $multiple ? $data['name'] . ' - ' . ($branchNames[$branchId] ?? 'Branch ' . $branchId) : $data['name'],
+                'branch_id' => $branchId,
+                'member_ids' => $memberIds,
+            ]);
+        }
+
+        if (count($campaigns) === 1) {
+            return redirect()
+                ->route('bulk-sms.campaigns.show', $campaigns[0])
+                ->with('status', 'SMS campaign saved successfully.');
+        }
 
         return redirect()
-            ->route('bulk-sms.campaigns.show', $campaign)
-            ->with('status', 'SMS campaign saved successfully.');
+            ->route('bulk-sms.campaigns.index')
+            ->with('status', count($campaigns) . ' SMS campaigns saved, one for each selected branch.');
     }
 
     public function show(SmsCampaign $smsCampaign): View

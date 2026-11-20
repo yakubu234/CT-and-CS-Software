@@ -9,6 +9,7 @@ use App\Support\TableListing;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SmsAutomationController extends Controller
 {
@@ -50,17 +51,39 @@ class SmsAutomationController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validateRule($request);
+        $branches = $this->activeBranchService->availableBranches($request->user());
+        $allowedBranchIds = $branches->pluck('id')->map(fn ($id) => (string) $id)->all();
 
-        SmsAutomationRule::create([
-            ...$data,
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
+        $data = $this->validateRule($request, [
+            'branch_ids' => ['required', 'array', 'min:1'],
+            'branch_ids.*' => ['required', Rule::in(['all', ...$allowedBranchIds])],
         ]);
+
+        // "All" stays a single global rule (branch_id = null) so branches added later are
+        // covered too; specific branches each get their own copy of the rule.
+        $branchIds = in_array('all', $data['branch_ids'], true)
+            ? [null]
+            : array_values(array_unique(array_map('intval', $data['branch_ids'])));
+        unset($data['branch_ids']);
+
+        $branchNames = $branches->pluck('name', 'id');
+        $multiple = count($branchIds) > 1;
+
+        foreach ($branchIds as $branchId) {
+            SmsAutomationRule::create([
+                ...$data,
+                'name' => $multiple ? $data['name'] . ' - ' . ($branchNames[$branchId] ?? 'Branch ' . $branchId) : $data['name'],
+                'branch_id' => $branchId,
+                'created_by' => $request->user()->id,
+                'updated_by' => $request->user()->id,
+            ]);
+        }
 
         return redirect()
             ->route('bulk-sms.automations.index')
-            ->with('status', 'SMS automation rule created successfully.');
+            ->with('status', $multiple
+                ? count($branchIds) . ' SMS automation rules created, one for each selected branch.'
+                : 'SMS automation rule created successfully.');
     }
 
     public function edit(SmsAutomationRule $smsAutomationRule, Request $request): View
@@ -76,8 +99,12 @@ class SmsAutomationController extends Controller
 
     public function update(Request $request, SmsAutomationRule $smsAutomationRule): RedirectResponse
     {
+        $allowedBranchIds = $this->activeBranchService->availableBranches($request->user())->pluck('id')->all();
+
         $smsAutomationRule->update([
-            ...$this->validateRule($request),
+            ...$this->validateRule($request, [
+                'branch_id' => ['nullable', Rule::in($allowedBranchIds)],
+            ]),
             'updated_by' => $request->user()->id,
         ]);
 
@@ -95,17 +122,29 @@ class SmsAutomationController extends Controller
             ->with('status', 'SMS automation rule deleted successfully.');
     }
 
-    protected function validateRule(Request $request): array
+    protected function validateRule(Request $request, array $branchRules): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:191'],
-            'branch_id' => ['nullable', 'exists:branches,id'],
+            ...$branchRules,
             'template_id' => ['required', 'exists:sms_templates,id'],
             'event' => ['required', 'in:' . implode(',', array_keys($this->eventOptions()))],
             'status' => ['required', 'boolean'],
             'schedule_time' => ['nullable', 'date_format:H:i'],
-            'day_of_month' => ['nullable', 'integer', 'between:1,28'],
+            'day_of_month' => [
+                Rule::requiredIf($request->input('event') === SmsAutomationRule::EVENT_MONTHLY_STATEMENT),
+                'nullable',
+                'integer',
+                'between:1,31',
+            ],
         ]);
+
+        // The day only matters for monthly statements; don't keep a stale one on other events.
+        if ($data['event'] !== SmsAutomationRule::EVENT_MONTHLY_STATEMENT) {
+            $data['day_of_month'] = null;
+        }
+
+        return $data;
     }
 
     protected function eventOptions(): array

@@ -230,7 +230,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/bulk-sms/templates/{smsTemplate}', [SmsTemplateController::class, 'update'])->name('bulk-sms.templates.update');
     Route::delete('/bulk-sms/templates/{smsTemplate}', [SmsTemplateController::class, 'destroy'])->name('bulk-sms.templates.destroy');
     Route::get('/bulk-sms/campaigns', [SmsCampaignController::class, 'index'])->name('bulk-sms.campaigns.index');
-    Route::get('/bulk-sms/campaigns/create', [SmsCampaignController::class, 'create'])->name('bulk-sms.campaigns.create');
+    Route::get('/bulk-sms/campaigns/members/search', [SmsCampaignController::class, 'searchMembers'])->name('bulk-sms.campaigns.members.search');
+    Route::get('/bulk-sms/campaigns/create',[SmsCampaignController::class, 'create'])->name('bulk-sms.campaigns.create');
     Route::post('/bulk-sms/campaigns', [SmsCampaignController::class, 'store'])->name('bulk-sms.campaigns.store');
     Route::get('/bulk-sms/campaigns/{smsCampaign}', [SmsCampaignController::class, 'show'])->name('bulk-sms.campaigns.show');
     Route::get('/bulk-sms/automations', [SmsAutomationController::class, 'index'])->name('bulk-sms.automations.index');

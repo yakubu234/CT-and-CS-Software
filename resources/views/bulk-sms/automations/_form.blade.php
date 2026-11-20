@@ -1,5 +1,5 @@
 <div class="alert alert-light border mb-4">
-    Birthday and monthly statement automations can be branch-specific or global. Monthly statement uses the selected day of month and sends a balance summary by SMS.
+    Credit, debit and loan approval messages send instantly when the event happens. Birthday messages send on each member's birthday at the schedule time. Monthly statements send on the chosen day of month at the schedule time, with a balance summary.
 </div>
 
 <div class="row">
@@ -11,13 +11,27 @@
     </div>
     <div class="col-md-6">
         <div class="form-group">
-            <label for="branch_id">Branch</label>
-            <select name="branch_id" id="branch_id" class="form-control select2">
-                <option value="">All accessible branches</option>
-                @foreach ($branches as $branch)
-                    <option value="{{ $branch->id }}" @selected((string) old('branch_id', $rule->branch_id ?? $currentBranch?->id) === (string) $branch->id)>{{ $branch->name }}</option>
-                @endforeach
-            </select>
+            @isset($rule)
+                {{-- An existing rule belongs to one branch (or all); edit each branch's copy separately. --}}
+                <label for="branch_id">Branch</label>
+                <select name="branch_id" id="branch_id" class="form-control select2">
+                    <option value="">All branches</option>
+                    @foreach ($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected((string) old('branch_id', $rule->branch_id) === (string) $branch->id)>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+            @else
+                @php($selectedBranches = array_map('strval', (array) old('branch_ids', $currentBranch ? [$currentBranch->id] : ['all'])))
+                <label for="branch_ids">Branches</label>
+                <select name="branch_ids[]" id="branch_ids" class="form-control select2 branch-multi" multiple data-placeholder="Choose one or more branches">
+                    <option value="all" @selected(in_array('all', $selectedBranches, true))>All branches</option>
+                    @foreach ($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected(in_array((string) $branch->id, $selectedBranches, true))>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+                <small class="text-muted">Each selected branch gets its own copy of this rule. "All branches" creates one rule that also covers branches added later.</small>
+                @error('branch_ids')<div class="text-danger small">{{ $message }}</div>@enderror
+            @endisset
         </div>
     </div>
     <div class="col-md-6">
@@ -50,8 +64,15 @@
     </div>
     <div class="col-md-4 monthly-only">
         <div class="form-group">
+            @php($selectedDay = (int) old('day_of_month', $rule->day_of_month ?? 1))
             <label for="day_of_month">Day of Month</label>
-            <input type="number" min="1" max="28" name="day_of_month" id="day_of_month" class="form-control" value="{{ old('day_of_month', $rule->day_of_month ?? 1) }}">
+            <select name="day_of_month" id="day_of_month" class="form-control select2">
+                @for ($day = 1; $day <= 31; $day++)
+                    <option value="{{ $day }}" @selected($selectedDay === $day)>{{ $day }}{{ in_array($day % 100, [11, 12, 13], true) ? 'th' : (['th', 'st', 'nd', 'rd'][$day % 10] ?? 'th') }}</option>
+                @endfor
+            </select>
+            <small class="text-muted">If a month has fewer days (e.g. 31st in April, or 29th-31st in February), it sends on that month's last day.</small>
+            @error('day_of_month')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
     </div>
     <div class="col-md-4">
@@ -70,6 +91,8 @@
     <a href="{{ route('bulk-sms.automations.index') }}" class="btn btn-outline-secondary">Cancel</a>
 </div>
 
+@include('bulk-sms.partials.branch-multi-script')
+
 @push('scripts')
     <script>
         (() => {
@@ -84,7 +107,12 @@
                 monthlyWrap.classList.toggle('d-none', eventField.value !== 'monthly_statement');
             };
 
-            eventField?.addEventListener('change', syncEventFields);
+            // Select2 fires jQuery "change" events, which native addEventListener does not receive.
+            if (window.jQuery) {
+                window.jQuery(eventField).on('change', syncEventFields);
+            } else {
+                eventField?.addEventListener('change', syncEventFields);
+            }
             syncEventFields();
         })();
     </script>
