@@ -58,21 +58,21 @@
     </div>
     <div class="col-md-4">
         <div class="form-group">
-            <label for="schedule_time">Schedule Time</label>
-            <input type="time" name="schedule_time" id="schedule_time" class="form-control" value="{{ old('schedule_time', $rule->schedule_time ?? '08:00') }}">
-        </div>
-    </div>
-    <div class="col-md-4 monthly-only">
-        <div class="form-group">
             @php($selectedDay = (int) old('day_of_month', $rule->day_of_month ?? 1))
-            <label for="day_of_month">Day of Month</label>
+            <label for="day_of_month">Day of the Month</label>
             <select name="day_of_month" id="day_of_month" class="form-control select2">
                 @for ($day = 1; $day <= 31; $day++)
                     <option value="{{ $day }}" @selected($selectedDay === $day)>{{ $day }}{{ in_array($day % 100, [11, 12, 13], true) ? 'th' : (['th', 'st', 'nd', 'rd'][$day % 10] ?? 'th') }}</option>
                 @endfor
             </select>
-            <small class="text-muted">If a month has fewer days (e.g. 31st in April, or 29th-31st in February), it sends on that month's last day.</small>
+            <small class="text-muted">Used by Monthly Statement. If a month is shorter (e.g. 31st in April, or 29th-31st in February), it sends on that month's last day.</small>
             @error('day_of_month')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-group">
+            <label for="schedule_time">Schedule Time</label>
+            <input type="time" name="schedule_time" id="schedule_time" class="form-control" value="{{ old('schedule_time', $rule->schedule_time ?? '08:00') }}">
         </div>
     </div>
     <div class="col-md-4">
@@ -92,28 +92,3 @@
 </div>
 
 @include('bulk-sms.partials.branch-multi-script')
-
-@push('scripts')
-    <script>
-        (() => {
-            const eventField = document.getElementById('event');
-            const monthlyWrap = document.querySelector('.monthly-only');
-
-            const syncEventFields = () => {
-                if (! eventField || ! monthlyWrap) {
-                    return;
-                }
-
-                monthlyWrap.classList.toggle('d-none', eventField.value !== 'monthly_statement');
-            };
-
-            // Select2 fires jQuery "change" events, which native addEventListener does not receive.
-            if (window.jQuery) {
-                window.jQuery(eventField).on('change', syncEventFields);
-            } else {
-                eventField?.addEventListener('change', syncEventFields);
-            }
-            syncEventFields();
-        })();
-    </script>
-@endpush
