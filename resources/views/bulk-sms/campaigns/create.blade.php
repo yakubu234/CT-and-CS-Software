@@ -69,7 +69,7 @@
                         <div class="form-group">
                             <label for="message">Message</label>
                             <textarea name="message" id="message" rows="7" class="form-control">{{ old('message') }}</textarea>
-                            <small class="text-muted">Templates can use placeholders like <code>{{ '{{member_name}}' }}</code>, <code>{{ '{{branch_name}}' }}</code>, <code>{{ '{{statement_summary}}' }}</code>.</small>
+                            <small class="text-muted">Templates can use placeholders like <code>@{{member_name}}</code>, <code>@{{branch_name}}</code>, <code>@{{statement_summary}}</code>.</small>
                         </div>
                     </div>
                     <div class="col-md-6">
