@@ -62,14 +62,13 @@ class MemberIdCardController extends Controller
         return view('members.id-card', [
             'member' => $member,
             'branch' => $branch,
-            'memberPhoto' => $this->storedImageDataUrl($member->profile_picture)
-                ?: asset('id-card/bg/john_doe.jpeg'),
-            'memberSignature' => $this->storedImageDataUrl($member->signature)
-                ?: asset('id-card/bg/signature.png'),
+            // Photo and signatures stay null when missing so the card shows
+            // an empty frame / "not provided" text instead of sample images.
+            'memberPhoto' => $this->storedImageDataUrl($member->profile_picture),
+            'memberSignature' => $this->storedImageDataUrl($member->signature),
             'branchLogo' => $this->storedImageDataUrl($branch->photo)
                 ?: asset('id-card/bg/Vector.png'),
-            'branchSignature' => $this->storedImageDataUrl($branch->signature)
-                ?: asset('id-card/bg/signature.png'),
+            'branchSignature' => $this->storedImageDataUrl($branch->signature),
         ]);
     }
 
