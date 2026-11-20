@@ -27,6 +27,7 @@
                         <th>Name</th>
                         <th>Event</th>
                         <th>Branch</th>
+                        <th>Schedule</th>
                         <th>Template</th>
                         <th>Status</th>
                         <th style="width: 90px;">Action</th>
@@ -37,7 +38,8 @@
                         <tr>
                             <td>{{ $rule->name }}</td>
                             <td>{{ $eventOptions[$rule->event] ?? ucfirst(str_replace('_', ' ', $rule->event)) }}</td>
-                            <td>{{ $rule->branch?->name ?: 'All accessible branches' }}</td>
+                            <td>{{ $rule->branch_id ? ($rule->branch?->name ?: 'Branch #' . $rule->branch_id) : 'All branches' }}</td>
+                            <td>{{ $rule->scheduleLabel() }}</td>
                             <td>{{ $rule->template?->name ?: 'N/A' }}</td>
                             <td><span class="badge badge-{{ $rule->status ? 'success' : 'secondary' }}">{{ $rule->status ? 'Active' : 'Inactive' }}</span></td>
                             <td class="text-center">
@@ -55,7 +57,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">No SMS automation rules found.</td>
+                            <td colspan="7" class="text-center text-muted py-4">No SMS automation rules found.</td>
                         </tr>
                     @endforelse
                     </tbody>

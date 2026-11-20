@@ -10,6 +10,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class SmsAutomationService
@@ -135,14 +136,22 @@ class SmsAutomationService
                 continue;
             }
 
-            if ($rule->event === SmsAutomationRule::EVENT_BIRTHDAY) {
-                $processed += $this->processBirthdayRule($rule, $now);
+            // Once a rule has fully run today, skip it for the rest of the day instead of
+            // reloading every member each minute. The key includes the rule's settings, so
+            // editing the time or day lets it run again.
+            $doneKey = 'sms-automation-done:' . $rule->id . ':' . md5($rule->event . '|' . $rule->schedule_time . '|' . $rule->day_of_month . '|' . $rule->branch_id) . ':' . $now->format('Y-m-d');
+
+            if (Cache::has($doneKey)) {
                 continue;
             }
 
-            if ($rule->event === SmsAutomationRule::EVENT_MONTHLY_STATEMENT) {
+            if ($rule->event === SmsAutomationRule::EVENT_BIRTHDAY) {
+                $processed += $this->processBirthdayRule($rule, $now);
+            } elseif ($rule->event === SmsAutomationRule::EVENT_MONTHLY_STATEMENT) {
                 $processed += $this->processMonthlyStatementRule($rule, $now);
             }
+
+            Cache::put($doneKey, true, $now->copy()->endOfDay()->addHour());
         }
 
         return $processed;
@@ -197,9 +206,7 @@ class SmsAutomationService
 
     protected function processMonthlyStatementRule(SmsAutomationRule $rule, Carbon $now): int
     {
-        $dayOfMonth = (int) ($rule->day_of_month ?: 1);
-
-        if ($now->day !== $dayOfMonth) {
+        if ($now->day !== $rule->effectiveDayOfMonth($now)) {
             return 0;
         }
 
@@ -287,7 +294,10 @@ class SmsAutomationService
             return true;
         }
 
-        return substr($rule->schedule_time, 0, 5) === $now->format('H:i');
+        // Due from the chosen time onward for the rest of the day, so a run that lands a
+        // minute late (or a missed run) still sends. Each member is only sent once per
+        // day/month because the per-member reference keys are checked before sending.
+        return $now->format('H:i') >= substr($rule->schedule_time, 0, 5);
     }
 
     protected function statementSummary(Collection $accounts): array
