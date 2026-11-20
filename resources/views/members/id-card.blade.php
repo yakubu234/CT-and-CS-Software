@@ -68,6 +68,32 @@
             box-shadow: 0 14px 35px rgba(15, 23, 42, 0.18);
         }
 
+        .image-wrapper-empty {
+            background: #fff;
+        }
+
+        .signature-missing {
+            margin: 0;
+            color: #64748b;
+            font-style: italic;
+            font-weight: 600;
+        }
+
+        .signature-missing-front {
+            height: 50px;
+            line-height: 50px;
+            font-size: 16px;
+        }
+
+        .line-and-text .signature-missing-back {
+            position: absolute;
+            left: 50%;
+            top: -40px;
+            transform: translate(-50%);
+            white-space: nowrap;
+            font-size: 18px;
+        }
+
         @media (max-width: 650px) {
             body {
                 padding: 10px;
@@ -131,15 +157,23 @@
                     </div>
                 </div>
 
-                <img class="image-wrapper" src="{{ $memberPhoto }}" alt="{{ $member->name }}">
+                @if ($memberPhoto)
+                    <img class="image-wrapper" src="{{ $memberPhoto }}" alt="{{ $member->name }}">
+                @else
+                    <div class="image-wrapper image-wrapper-empty" aria-label="No photo provided"></div>
+                @endif
 
                 <div class="name-wrapper">
                     <h1 class="user-name-id-card">{{ strtoupper($member->name) }}</h1>
                     <h4 class="user-role">{{ strtoupper($member->designation ?: 'MEMBER') }}</h4>
-                    <p class="user-number">{{ $member->detail?->mobile ?: $member->email }}</p>
+                    <p class="user-number">{{ trim((string) $member->detail?->mobile) ?: 'Phone not provided' }}</p>
                     <p class="user-unique-name">{{ $member->display_member_no ?: 'N/A' }}</p>
-                    <p class="user-address">{{ $member->detail?->address ?: 'Address not provided' }}</p>
-                    <img src="{{ $memberSignature }}" alt="{{ $member->name }} signature" class="signature-front">
+                    <p class="user-address">{{ trim((string) $member->detail?->address) ?: 'Address not provided' }}</p>
+                    @if ($memberSignature)
+                        <img src="{{ $memberSignature }}" alt="{{ $member->name }} signature" class="signature-front">
+                    @else
+                        <p class="signature-missing signature-missing-front">Signature not provided</p>
+                    @endif
                 </div>
             </div>
 
@@ -173,7 +207,11 @@
                 </p>
 
                 <div class="line-and-text">
-                    <img src="{{ $branchSignature }}" alt="Authorized signature" class="signature">
+                    @if ($branchSignature)
+                        <img src="{{ $branchSignature }}" alt="Authorized signature" class="signature">
+                    @else
+                        <span class="signature-missing signature-missing-back">Signature not present</span>
+                    @endif
                     <p>Authorized Signature</p>
                 </div>
 
