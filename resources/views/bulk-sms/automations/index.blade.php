@@ -46,7 +46,11 @@
                             <td><span class="badge badge-{{ $rule->status ? 'success' : 'secondary' }}">{{ $rule->status ? 'Active' : 'Inactive' }}</span></td>
                             <td><span class="badge badge-{{ $rule->isManual() ? 'warning' : 'info' }}">{{ $rule->isManual() ? 'Manual' : 'Automated' }}</span></td>
                             <td class="small text-nowrap">
-                                <a href="{{ route('bulk-sms.logs.index', ['rule' => $rule->id, 'status' => 'sent']) }}" class="text-success">{{ $rule->sent_count }} sent</a><br>
+                                <a href="{{ route('bulk-sms.logs.index', ['rule' => $rule->id, 'status' => 'sent']) }}" class="text-success">{{ $rule->sent_count }} sent</a>
+                                @if ($rule->delivered_count)
+                                    (<a href="{{ route('bulk-sms.logs.index', ['rule' => $rule->id, 'status' => 'delivered']) }}" class="text-success">{{ $rule->delivered_count }} delivered</a>)
+                                @endif
+                                <br>
                                 <a href="{{ route('bulk-sms.logs.index', ['rule' => $rule->id, 'status' => 'failed']) }}" class="text-danger">{{ $rule->failed_count }} failed</a>
                                 @if ($rule->awaiting_count)
                                     <br><a href="{{ route('bulk-sms.logs.index', ['rule' => $rule->id, 'status' => 'awaiting']) }}" class="text-warning font-weight-bold">{{ $rule->awaiting_count }} awaiting</a>

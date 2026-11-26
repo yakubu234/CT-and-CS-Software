@@ -101,9 +101,14 @@
                         <input type="hidden" name="data_source" value="sample" class="event-fields" data-events="loan_approved,birthday,monthly_statement,manual" disabled>
 
                         <div class="form-row">
-                            <div class="form-group col-md-4">
+                            <div class="form-group col-md-4 event-fields" data-events="transaction_credit,transaction_debit,loan_repayment,loan_approved,birthday,manual">
                                 <label for="transaction_date">Date</label>
                                 <input type="date" name="transaction_date" id="transaction_date" class="form-control" value="{{ $input['transaction_date'] ?? now()->format('Y-m-d') }}">
+                            </div>
+                            <div class="form-group col-md-8 event-fields" data-events="monthly_statement">
+                                <label for="statement_month">Statement month</label>
+                                <input type="month" name="statement_month" id="statement_month" class="form-control" value="{{ $input['statement_month'] ?? now()->subMonthNoOverflow()->format('Y-m') }}">
+                                <small class="text-muted">Figures are worked out from the member's real transactions and loans for this month, as at month-end. The automation always uses the last complete month before the send date.</small>
                             </div>
                         </div>
 

@@ -25,9 +25,15 @@ class SmsAutomationController extends Controller
             TableListing::applySearch(
                 SmsAutomationRule::query()
                     ->with(['branch', 'template'])
-                    ->withCount(collect(['sent', 'failed', 'awaiting', 'skipped'])->mapWithKeys(fn ($status) => [
-                        'messages as ' . $status . '_count' => fn ($query) => $query
-                            ->where('status', $status)
+                    ->withCount(collect([
+                        'sent' => ['sent', 'delivered'],
+                        'delivered' => ['delivered'],
+                        'failed' => ['failed'],
+                        'awaiting' => ['awaiting'],
+                        'skipped' => ['skipped'],
+                    ])->mapWithKeys(fn ($statuses, $name) => [
+                        'messages as ' . $name . '_count' => fn ($query) => $query
+                            ->whereIn('status', $statuses)
                             ->where('created_at', '>=', now()->subDays(30)),
                     ])->all())
                     ->latest('id'),

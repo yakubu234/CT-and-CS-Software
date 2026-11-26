@@ -15,7 +15,8 @@ class SmsMessageController extends Controller
     public const STATUSES = [
         SmsMessage::STATUS_AWAITING => 'Awaiting (manual)',
         SmsMessage::STATUS_PENDING => 'Pending',
-        SmsMessage::STATUS_SENT => 'Sent',
+        SmsMessage::STATUS_SENT => 'Sent (accepted by provider)',
+        SmsMessage::STATUS_DELIVERED => 'Delivered',
         SmsMessage::STATUS_FAILED => 'Failed',
         SmsMessage::STATUS_SKIPPED => 'Skipped',
     ];

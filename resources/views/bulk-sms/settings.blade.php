@@ -70,8 +70,18 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label for="callback_url">Callback URL</label>
-                            <input type="url" name="callback_url" id="callback_url" class="form-control" value="{{ old('callback_url', $callbackUrl) }}" placeholder="https://your-domain.com/webhooks/sms">
+                            <label for="callback_url">Callback URL <span class="text-muted font-weight-normal">(optional)</span></label>
+                            <input type="url" name="callback_url" id="callback_url" class="form-control" value="{{ old('callback_url', $callbackUrl) }}" placeholder="Leave empty to use this app's delivery report address">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-group mb-0">
+                            <label for="delivery_report_url">Delivery report address</label>
+                            <input type="text" id="delivery_report_url" class="form-control" value="{{ $deliveryReportUrl }}" readonly onclick="this.select()">
+                            <small class="text-muted">
+                                When Callback URL is empty, this address is sent with every SMS so the provider can report whether it was delivered; SMS Logs then show <strong>Delivered</strong> or <strong>Failed</strong>.
+                                Providers that set delivery reports in their own dashboard (such as Termii) need this address pasted there. Keep it private.
+                            </small>
                         </div>
                     </div>
                 </div>
