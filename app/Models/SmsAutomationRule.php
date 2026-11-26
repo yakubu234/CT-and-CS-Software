@@ -14,6 +14,11 @@ class SmsAutomationRule extends Model
     public const EVENT_LOAN_APPROVED = 'loan_approved';
     public const EVENT_BIRTHDAY = 'birthday';
     public const EVENT_MONTHLY_STATEMENT = 'monthly_statement';
+    public const EVENT_LOAN_REPAYMENT = 'loan_repayment';
+
+    /** Automated: sends by itself when the event happens. Manual: waits in SMS Logs for staff. */
+    public const SEND_AUTOMATIC = 'automatic';
+    public const SEND_MANUAL = 'manual';
 
     protected $fillable = [
         'branch_id',
@@ -21,6 +26,7 @@ class SmsAutomationRule extends Model
         'name',
         'event',
         'status',
+        'send_mode',
         'schedule_time',
         'day_of_month',
         'filters',
@@ -45,6 +51,16 @@ class SmsAutomationRule extends Model
         $day = max(1, min(31, (int) ($this->day_of_month ?: 1)));
 
         return min($day, $date->daysInMonth);
+    }
+
+    public function sendMode(): string
+    {
+        return $this->send_mode === self::SEND_MANUAL ? self::SEND_MANUAL : self::SEND_AUTOMATIC;
+    }
+
+    public function isManual(): bool
+    {
+        return $this->sendMode() === self::SEND_MANUAL;
     }
 
     public function scheduleLabel(): string

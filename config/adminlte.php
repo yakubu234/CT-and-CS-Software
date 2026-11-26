@@ -501,6 +501,13 @@ return [
                     'permissions' => ['sms.view', 'sms.manage'],
                 ],
                 [
+                    'text' => 'Test SMS Alerts',
+                    'url' => 'bulk-sms/test',
+                    'icon' => 'fas fa-vial',
+                    'active' => ['bulk-sms/test'],
+                    'permissions' => ['sms.view', 'sms.manage'],
+                ],
+                [
                     'text' => 'SMS Logs',
                     'url' => 'bulk-sms/logs',
                     'icon' => 'fas fa-history',

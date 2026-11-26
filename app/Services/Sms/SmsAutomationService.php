@@ -4,14 +4,15 @@ namespace App\Services\Sms;
 
 use App\Models\Branch;
 use App\Models\LoanDetail;
+use App\Models\LoanPayment;
+use App\Models\MemberBranchMembership;
 use App\Models\SmsAutomationRule;
 use App\Models\SmsMessage;
 use App\Models\Transaction;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 
 class SmsAutomationService
 {
@@ -20,57 +21,118 @@ class SmsAutomationService
         protected SmsPhoneNormalizer $phoneNormalizer,
         protected SmsDispatchService $dispatchService,
         protected SmsSettingsService $settings,
+        protected SmsContextBuilder $contexts,
     ) {
     }
 
+    /**
+     * Credit/debit alerts for one saved transaction. The whole posting it belongs to is
+     * alerted together, so calling this for each entry of a posting sends one alert.
+     */
     public function handleTransaction(Transaction $transaction): void
     {
         if ($transaction->is_branch || ! $transaction->user_id) {
             return;
         }
 
-        $event = strtolower((string) $transaction->dr_cr) === 'cr'
-            ? SmsAutomationRule::EVENT_TRANSACTION_CREDIT
-            : SmsAutomationRule::EVENT_TRANSACTION_DEBIT;
+        $transactions = $transaction->batch_id
+            ? Transaction::query()->with(['user.detail', 'account.product'])
+                ->where('batch_id', $transaction->batch_id)
+                ->where('is_branch', 0)
+                ->whereNull('deleted_at')
+                ->get()
+            : collect([$transaction->loadMissing(['user.detail', 'account.product'])]);
 
-        $transaction->loadMissing(['user.detail', 'account.product']);
+        $this->handleTransactionBatch($transactions);
+    }
 
-        $rules = SmsAutomationRule::query()
-            ->with('template')
-            ->where('status', true)
-            ->where('event', $event)
-            ->where(function ($query) use ($transaction): void {
-                $query->whereNull('branch_id')
-                    ->orWhere('branch_id', $transaction->branch_id);
-            })
-            ->get();
+    /**
+     * One alert per member, per posting, per direction: everything a member was credited
+     * in one save becomes a single Credit Alert (likewise for debits). Only the members
+     * in the posting are messaged, and each posting can only ever alert once.
+     */
+    public function handleTransactionBatch(Collection $transactions): void
+    {
+        $groups = $transactions
+            ->filter(fn (Transaction $transaction) => ! $transaction->is_branch && $transaction->user_id)
+            ->groupBy(fn (Transaction $transaction) => implode('|', [
+                $transaction->user_id,
+                $transaction->batch_id ?: 'tx' . $transaction->id,
+                strtolower((string) $transaction->dr_cr) === 'dr' ? 'dr' : 'cr',
+            ]));
 
-        foreach ($rules as $rule) {
-            $user = $transaction->user;
+        foreach ($groups as $group) {
+            /** @var Transaction $first */
+            $first = $group->first();
+            $direction = strtolower((string) $first->dr_cr) === 'dr' ? 'dr' : 'cr';
+            $event = $direction === 'dr' ? SmsAutomationRule::EVENT_TRANSACTION_DEBIT : SmsAutomationRule::EVENT_TRANSACTION_CREDIT;
+            $user = $first->user;
 
             if (! $user) {
                 continue;
             }
 
+            $rules = $this->activeRules($event, $first->branch_id);
+            if ($rules->isEmpty()) {
+                continue;
+            }
+
+            $branch = $first->branch_id ? Branch::query()->find($first->branch_id) : null;
+            $membership = $first->member_branch_membership_id
+                ? MemberBranchMembership::query()->with('branch')->find($first->member_branch_membership_id)
+                : $this->contexts->membershipFor($user, $first->branch_id);
+
+            $context = $this->contexts->transactionBatch(
+                $user,
+                $branch,
+                $membership,
+                $direction,
+                $group->map(fn (Transaction $transaction) => [
+                    'type' => $transaction->account?->product?->type ?: data_get($transaction->transaction_details, 'account_type'),
+                    'amount' => $transaction->amount,
+                    'account_number' => $transaction->account?->account_number ?: data_get($transaction->transaction_details, 'account_number'),
+                ])->values()->all(),
+                $first->trans_date
+            );
+
+            $postingKey = $first->batch_id ?: 'tx' . $first->id;
+            foreach ($rules as $rule) {
+                $this->createAndDispatch(
+                    $rule,
+                    $user,
+                    $branch,
+                    $context,
+                    $first,
+                    'automation:' . $rule->id . ':posting:' . $postingKey . ':' . $user->id . ':' . $direction
+                );
+            }
+        }
+    }
+
+    public function handleLoanRepayment(LoanPayment $payment): void
+    {
+        $payment->loadMissing(['loan.borrower.detail', 'loan.branch', 'loan.membership.branch']);
+        $borrower = $payment->loan?->borrower;
+
+        if (! $borrower) {
+            return;
+        }
+
+        $rules = $this->activeRules(SmsAutomationRule::EVENT_LOAN_REPAYMENT, $payment->loan->branch_id);
+        if ($rules->isEmpty()) {
+            return;
+        }
+
+        $context = $this->contexts->loanRepayment($payment);
+
+        foreach ($rules as $rule) {
             $this->createAndDispatch(
                 $rule,
-                $user,
-                $transaction->branch_id ? Branch::query()->find($transaction->branch_id) : null,
-                $this->phoneNormalizer->normalize($user->detail?->mobile),
-                $this->renderer->render($rule->template?->body ?? '', [
-                    'member_name' => $user->name,
-                    'member_no' => $user->display_member_no,
-                    'branch_name' => $user->branch?->name,
-                    'amount' => number_format((float) $transaction->amount, 2),
-                    'transaction_date' => optional($transaction->trans_date)->format('d M Y'),
-                    'transaction_type' => strtoupper((string) $transaction->dr_cr),
-                    'account_number' => $transaction->account?->account_number,
-                    'account_type' => $transaction->account?->product?->type,
-                    'current_balance' => number_format((float) data_get($transaction->transaction_details, 'balance_after', 0), 2),
-                    'society_name' => 'Oreoluwapo CT&CU',
-                ]),
-                $transaction,
-                'automation:' . $rule->id . ':transaction:' . $transaction->id
+                $borrower,
+                $payment->loan->branch,
+                $context,
+                $payment,
+                'automation:' . $rule->id . ':loan_repayment:' . $payment->id
             );
         }
     }
@@ -78,42 +140,23 @@ class SmsAutomationService
     public function handleLoanApproved(LoanDetail $detail): void
     {
         $detail->loadMissing(['borrower.detail', 'borrower.branch', 'loan']);
+        $borrower = $detail->borrower;
 
-        $rules = SmsAutomationRule::query()
-            ->with('template')
-            ->where('status', true)
-            ->where('event', SmsAutomationRule::EVENT_LOAN_APPROVED)
-            ->where(function ($query) use ($detail): void {
-                $query->whereNull('branch_id')
-                    ->orWhere('branch_id', $detail->branch_id);
-            })
-            ->get();
+        if (! $borrower) {
+            return;
+        }
 
-        foreach ($rules as $rule) {
-            $borrower = $detail->borrower;
+        $branch = $detail->branch_id ? Branch::query()->find($detail->branch_id) : null;
+        $context = [
+            ...$this->contexts->common($borrower, $branch, $this->contexts->membershipFor($borrower, $detail->branch_id)),
+            'loan_id' => $detail->loan?->loan_id,
+            'loan_amount' => $this->contexts->money($detail->applied_amount),
+            'release_date' => $this->contexts->date($detail->release_date),
+            'due_date' => $this->contexts->date($detail->due_date),
+        ];
 
-            if (! $borrower) {
-                continue;
-            }
-
-            $this->createAndDispatch(
-                $rule,
-                $borrower,
-                $detail->branch_id ? Branch::query()->find($detail->branch_id) : null,
-                $this->phoneNormalizer->normalize($borrower->detail?->mobile),
-                $this->renderer->render($rule->template?->body ?? '', [
-                    'member_name' => $borrower->name,
-                    'member_no' => $borrower->display_member_no,
-                    'branch_name' => $borrower->branch?->name,
-                    'loan_id' => $detail->loan?->loan_id,
-                    'loan_amount' => number_format((float) $detail->applied_amount, 2),
-                    'release_date' => optional($detail->release_date)->format('d M Y'),
-                    'due_date' => optional($detail->due_date)->format('d M Y'),
-                    'society_name' => 'Oreoluwapo CT&CU',
-                ]),
-                $detail,
-                'automation:' . $rule->id . ':loan:' . $detail->id
-            );
+        foreach ($this->activeRules(SmsAutomationRule::EVENT_LOAN_APPROVED, $detail->branch_id) as $rule) {
+            $this->createAndDispatch($rule, $borrower, $branch, $context, $detail, 'automation:' . $rule->id . ':loan:' . $detail->id);
         }
     }
 
@@ -157,53 +200,89 @@ class SmsAutomationService
         return $processed;
     }
 
+    /**
+     * Send (or release) a message that a Manual rule left waiting for staff.
+     */
+    public function releaseAwaiting(SmsMessage $message): SmsMessage
+    {
+        if ($message->status !== SmsMessage::STATUS_AWAITING) {
+            return $message;
+        }
+
+        $message->update(['status' => SmsMessage::STATUS_PENDING]);
+
+        return $this->dispatchService->dispatch($message);
+    }
+
     protected function processBirthdayRule(SmsAutomationRule $rule, Carbon $now): int
     {
         $count = 0;
 
-        $query = User::query()
-            ->with(['detail', 'branch', 'savingsAccounts.product'])
-            ->where('branch_account', false)
-            ->whereNull('deleted_at')
-            ->whereHas('detail', function ($builder) use ($now): void {
-                $builder
-                    ->whereMonth('date_of_birth', $now->month)
-                    ->whereDay('date_of_birth', $now->day);
-            });
-
-        if ($rule->branch_id) {
-            $query->where('branch_id', $rule->branch_id);
+        // Celebrants come straight from Member Management: active customer members whose
+        // date of birth falls on today's day and month (birth year ignored). 29 Feb
+        // birthdays are celebrated on 28 Feb in non-leap years.
+        $birthDays = [[$now->month, $now->day]];
+        if ($now->month === 2 && $now->day === 28 && ! $now->isLeapYear()) {
+            $birthDays[] = [2, 29];
         }
 
-        foreach ($query->get() as $user) {
-            $referenceKey = 'automation:' . $rule->id . ':birthday:' . $user->id . ':' . $now->format('Y-m-d');
+        $membershipScope = fn ($query) => $query
+            ->where('status', true)
+            ->when($rule->branch_id, fn ($inner) => $inner->where('branch_id', $rule->branch_id));
 
-            if (SmsMessage::query()->where('reference_key', $referenceKey)->exists()) {
+        $query = $this->eligibleMembers($membershipScope)
+            ->whereHas('detail', function ($builder) use ($birthDays): void {
+                $builder->where(function ($dates) use ($birthDays): void {
+                    foreach ($birthDays as [$month, $day]) {
+                        $dates->orWhere(fn ($date) => $date
+                            ->whereMonth('date_of_birth', $month)
+                            ->whereDay('date_of_birth', $day));
+                    }
+                });
+            });
+
+        $birthdayRuleIds = SmsAutomationRule::query()
+            ->where('event', SmsAutomationRule::EVENT_BIRTHDAY)
+            ->pluck('id');
+
+        foreach ($query->get() as $user) {
+            // One greeting per member per day, even if they are in several societies
+            // that each have their own birthday rule.
+            $alreadyGreeted = SmsMessage::query()
+                ->where('user_id', $user->id)
+                ->whereIn('automation_rule_id', $birthdayRuleIds)
+                ->where('reference_key', 'like', 'automation:%:birthday:' . $user->id . ':' . $now->format('Y-m-d'))
+                ->exists();
+
+            if ($alreadyGreeted) {
                 continue;
             }
 
-            $this->createAndDispatch(
+            $membership = $user->branchMemberships->sortByDesc('is_primary')->first();
+            $branch = $rule->branch ?: $membership?->branch ?: $user->branch;
+
+            $sent = $this->createAndDispatch(
                 $rule,
                 $user,
-                $rule->branch,
-                $this->phoneNormalizer->normalize($user->detail?->mobile),
-                $this->renderer->render($rule->template?->body ?? '', [
-                    'member_name' => $user->name,
-                    'member_no' => $user->display_member_no,
-                    'branch_name' => $user->branch?->name,
+                $branch,
+                [
+                    ...$this->contexts->common($user, $branch, $membership),
                     'birth_day' => optional($user->detail?->date_of_birth)->format('d M'),
-                    'society_name' => 'Oreoluwapo CT&CU',
-                ]),
+                ],
                 $user,
-                $referenceKey
+                'automation:' . $rule->id . ':birthday:' . $user->id . ':' . $now->format('Y-m-d')
             );
 
-            $count++;
+            $count += $sent ? 1 : 0;
         }
 
         return $count;
     }
 
+    /**
+     * Monthly statement / balance alert: one message per active society membership, with
+     * that society's four account balances.
+     */
     protected function processMonthlyStatementRule(SmsAutomationRule $rule, Carbon $now): int
     {
         if ($now->day !== $rule->effectiveDayOfMonth($now)) {
@@ -211,81 +290,95 @@ class SmsAutomationService
         }
 
         $count = 0;
+        $membershipScope = fn ($query) => $query
+            ->where('status', true)
+            ->when($rule->branch_id, fn ($inner) => $inner->where('branch_id', $rule->branch_id));
 
-        $query = User::query()
-            ->with(['detail', 'branch', 'savingsAccounts.product'])
-            ->where('branch_account', false)
-            ->whereNull('deleted_at');
+        foreach ($this->eligibleMembers($membershipScope)->get() as $user) {
+            foreach ($user->branchMemberships as $membership) {
+                $sent = $this->createAndDispatch(
+                    $rule,
+                    $user,
+                    $membership->branch,
+                    [
+                        ...$this->contexts->common($user, $membership->branch, $membership),
+                        ...$this->contexts->balances($user, $membership),
+                        'month_label' => $now->format('F Y'),
+                    ],
+                    $user,
+                    'automation:' . $rule->id . ':monthly:' . $user->id . ':' . $membership->id . ':' . $now->format('Y-m')
+                );
 
-        if ($rule->branch_id) {
-            $query->where('branch_id', $rule->branch_id);
-        }
-
-        foreach ($query->get() as $user) {
-            $referenceKey = 'automation:' . $rule->id . ':monthly:' . $user->id . ':' . $now->format('Y-m');
-
-            if (SmsMessage::query()->where('reference_key', $referenceKey)->exists()) {
-                continue;
+                $count += $sent ? 1 : 0;
             }
-
-            $statementSummary = $this->statementSummary(
-                $user->savingsAccounts
-                    ->where('is_branch_acount', false)
-                    ->where('status', 1)
-                    ->values()
-            );
-
-            $this->createAndDispatch(
-                $rule,
-                $user,
-                $rule->branch,
-                $this->phoneNormalizer->normalize($user->detail?->mobile),
-                $this->renderer->render($rule->template?->body ?? '', [
-                    'member_name' => $user->name,
-                    'member_no' => $user->display_member_no,
-                    'branch_name' => $user->branch?->name,
-                    'month_label' => $now->format('F Y'),
-                    'statement_summary' => $statementSummary['full'],
-                    'statement_compact' => $statementSummary['compact'],
-                    'statement_total_balance' => $statementSummary['total'],
-                    'society_name' => 'Oreoluwapo CT&CU',
-                ]),
-                $user,
-                $referenceKey
-            );
-
-            $count++;
         }
 
         return $count;
     }
 
+    /** Active customer members, as listed in Member Management, with matching memberships loaded. */
+    protected function eligibleMembers(\Closure $membershipScope)
+    {
+        return User::query()
+            ->with(['detail', 'branch', 'branchMemberships' => fn ($query) => $membershipScope($query)->with('branch')])
+            ->where('branch_account', false)
+            ->where('user_type', 'customer')
+            ->whereNull('deleted_at')
+            ->whereHas('branchMemberships', $membershipScope);
+    }
+
+    protected function activeRules(string $event, mixed $branchId): Collection
+    {
+        return SmsAutomationRule::query()
+            ->with('template')
+            ->where('status', true)
+            ->where('event', $event)
+            ->where(function ($query) use ($branchId): void {
+                $query->whereNull('branch_id')
+                    ->when($branchId, fn ($inner) => $inner->orWhere('branch_id', $branchId));
+            })
+            ->get();
+    }
+
+    /**
+     * Render and record one message. Automated rules send straight away; Manual rules
+     * leave it "awaiting" in SMS Logs until staff send it. Returns false if this exact
+     * message (same reference key) was already created, so nothing is ever sent twice.
+     */
     protected function createAndDispatch(
         SmsAutomationRule $rule,
         User $user,
         ?Branch $branch,
-        ?string $phone,
-        string $messageBody,
+        array $context,
         mixed $related,
         string $referenceKey
-    ): void {
+    ): bool {
+        if (SmsMessage::query()->where('reference_key', $referenceKey)->exists()) {
+            return false;
+        }
+
         $message = SmsMessage::create([
             'automation_rule_id' => $rule->id,
             'user_id' => $user->id,
             'branch_id' => $branch?->id,
-            'phone' => $phone,
+            'phone' => $this->phoneNormalizer->normalize($user->detail?->mobile),
             'recipient_name' => $user->name,
-            'message' => $messageBody,
+            'message' => $this->renderer->render($rule->template?->body ?? '', $context),
             'provider' => $this->settings->activeProvider(),
             'sender_id' => $this->settings->senderId(),
-            'status' => SmsMessage::STATUS_PENDING,
+            'status' => $rule->isManual() ? SmsMessage::STATUS_AWAITING : SmsMessage::STATUS_PENDING,
             'related_type' => $related ? $related::class : null,
             'related_id' => $related?->id,
             'reference_key' => $referenceKey,
             'scheduled_for' => now(),
+            'meta' => ['send_mode' => $rule->sendMode()],
         ]);
 
-        $this->dispatchService->dispatch($message);
+        if (! $rule->isManual()) {
+            $this->dispatchService->dispatch($message);
+        }
+
+        return true;
     }
 
     protected function isTimeDue(SmsAutomationRule $rule, Carbon $now): bool
@@ -298,31 +391,5 @@ class SmsAutomationService
         // minute late (or a missed run) still sends. Each member is only sent once per
         // day/month because the per-member reference keys are checked before sending.
         return $now->format('H:i') >= substr($rule->schedule_time, 0, 5);
-    }
-
-    protected function statementSummary(Collection $accounts): array
-    {
-        $items = $accounts->map(function ($account): array {
-            $type = strtoupper((string) ($account->product?->type ?: 'ACCOUNT'));
-            $label = match ($type) {
-                'SAVINGS' => 'Sav',
-                'SHARES' => 'Shr',
-                'AUTHENTICATION' => 'Auth',
-                'DEPOSIT' => 'Dep',
-                default => Str::title(Str::lower($type)),
-            };
-
-            return [
-                'full' => ($account->product?->type ?: 'Account') . ': ' . number_format((float) $account->balance, 2),
-                'compact' => $label . ' ' . number_format((float) $account->balance, 2),
-                'balance' => (float) $account->balance,
-            ];
-        });
-
-        return [
-            'full' => $items->pluck('full')->implode(', '),
-            'compact' => $items->pluck('compact')->implode(' | '),
-            'total' => number_format((float) $items->sum('balance'), 2),
-        ];
     }
 }

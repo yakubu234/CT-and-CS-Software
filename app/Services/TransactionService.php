@@ -80,10 +80,16 @@ class TransactionService
                 $accountsToSync[$account->id] = $account;
 
                 $transactions->push($transaction->fresh(['account.product', 'user.detail', 'creator']));
-                DB::afterCommit(function () use ($transaction): void {
-                    app(SmsAutomationService::class)->handleTransaction($transaction->fresh(['user.detail', 'account.product']));
-                });
             }
+
+            // One alert per member per posting (all accounts together), sent once the
+            // balances below are saved so the alert shows the updated balances.
+            $transactionIds = $transactions->pluck('id')->all();
+            DB::afterCommit(function () use ($transactionIds): void {
+                app(SmsAutomationService::class)->handleTransactionBatch(
+                    Transaction::query()->with(['user.detail', 'account.product'])->whereIn('id', $transactionIds)->get()
+                );
+            });
 
             foreach ($accountsToSync as $account) {
                 $account->updated_user_id = $actor->id;

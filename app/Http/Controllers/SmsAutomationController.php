@@ -25,6 +25,11 @@ class SmsAutomationController extends Controller
             TableListing::applySearch(
                 SmsAutomationRule::query()
                     ->with(['branch', 'template'])
+                    ->withCount(collect(['sent', 'failed', 'awaiting', 'skipped'])->mapWithKeys(fn ($status) => [
+                        'messages as ' . $status . '_count' => fn ($query) => $query
+                            ->where('status', $status)
+                            ->where('created_at', '>=', now()->subDays(30)),
+                    ])->all())
                     ->latest('id'),
                 $request->string('search')->toString(),
                 ['name', 'event']
@@ -124,14 +129,15 @@ class SmsAutomationController extends Controller
 
     protected function validateRule(Request $request, array $branchRules): array
     {
-        // The day is always shown and saved, so it is kept when an event is switched;
-        // only monthly statements use it when sending.
+        // Only monthly statements use the day. The form disables the field for other
+        // events, so it is not submitted and any previously saved day is left as is.
         return $request->validate([
             'name' => ['required', 'string', 'max:191'],
             ...$branchRules,
             'template_id' => ['required', 'exists:sms_templates,id'],
             'event' => ['required', 'in:' . implode(',', array_keys($this->eventOptions()))],
             'status' => ['required', 'boolean'],
+            'send_mode' => ['required', Rule::in([SmsAutomationRule::SEND_AUTOMATIC, SmsAutomationRule::SEND_MANUAL])],
             'schedule_time' => ['nullable', 'date_format:H:i'],
             'day_of_month' => [
                 Rule::requiredIf($request->input('event') === SmsAutomationRule::EVENT_MONTHLY_STATEMENT),
@@ -145,11 +151,12 @@ class SmsAutomationController extends Controller
     protected function eventOptions(): array
     {
         return [
-            'transaction_credit' => 'Member Credited',
-            'transaction_debit' => 'Member Debited',
-            'loan_approved' => 'Loan Approved',
-            'birthday' => 'Birthday',
-            'monthly_statement' => 'Monthly Statement',
+            SmsAutomationRule::EVENT_TRANSACTION_CREDIT => 'Credit Alert (member credited)',
+            SmsAutomationRule::EVENT_TRANSACTION_DEBIT => 'Debit Alert (member debited)',
+            SmsAutomationRule::EVENT_LOAN_REPAYMENT => 'Loan Repayment Alert',
+            SmsAutomationRule::EVENT_LOAN_APPROVED => 'Loan Approved Alert',
+            SmsAutomationRule::EVENT_BIRTHDAY => 'Birthday Greeting',
+            SmsAutomationRule::EVENT_MONTHLY_STATEMENT => 'Monthly Statement / Balance Alert',
         ];
     }
 }

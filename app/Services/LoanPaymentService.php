@@ -201,6 +201,15 @@ class LoanPaymentService
             $this->refreshLoanPaymentSnapshots($loan->fresh());
             $this->loanService->syncLoanAggregate($loan->fresh());
 
+            // Loan Repayment Alert, once the repayment and loan balance are saved.
+            $paymentId = $payment->id;
+            DB::afterCommit(function () use ($paymentId): void {
+                $savedPayment = LoanPayment::query()->find($paymentId);
+                if ($savedPayment) {
+                    app(\App\Services\Sms\SmsAutomationService::class)->handleLoanRepayment($savedPayment);
+                }
+            });
+
             return $payment->fresh([
                 'loan.borrower.detail',
                 'detail',
