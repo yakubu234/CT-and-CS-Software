@@ -77,7 +77,7 @@ class SmsCampaignController extends Controller
 
         $members = $this->smsMemberQuery()
             ->with('detail', 'branch')
-            ->whereIn('branch_id', $branchIds ?: $allowedBranchIds)
+            ->tap(fn ($query) => $this->inBranches($query, $branchIds ?: $allowedBranchIds))
             ->where(function ($query) use ($search): void {
                 $query->where('name', 'like', '%' . $search . '%')
                     ->orWhere('last_name', 'like', '%' . $search . '%')
@@ -109,6 +109,15 @@ class SmsCampaignController extends Controller
                     ->orWhere('society_exco', true)
                     ->orWhere('former_exco', true);
             });
+    }
+
+    /** Members with an active membership in any of the branches (non-customer excos by branch). */
+    protected function inBranches($query, array $branchIds)
+    {
+        return $query->where(function ($builder) use ($branchIds): void {
+            $builder->whereHas('branchMemberships', fn ($membership) => $membership->whereIn('branch_id', $branchIds)->where('status', true))
+                ->orWhere(fn ($exco) => $exco->where('user_type', '<>', 'customer')->whereIn('branch_id', $branchIds));
+        });
     }
 
     protected function allowedBranchIds(Request $request): array
@@ -173,12 +182,27 @@ class SmsCampaignController extends Controller
         $memberBranches = collect();
         if ($data['audience_type'] === 'selected_members') {
             $memberIds = array_values(array_unique(array_map('intval', $data['member_ids'])));
+            // Each member goes to one selected society they actively belong to (their
+            // primary one when it is selected), so they get exactly one message.
             $memberBranches = $this->smsMemberQuery()
+                ->with(['branchMemberships' => fn ($membership) => $membership->where('status', true)])
                 ->whereIn('id', $memberIds)
-                ->pluck('branch_id', 'id')
-                ->map(fn ($branchId) => (int) $branchId);
+                ->get()
+                ->mapWithKeys(function (User $member) use ($branchIds): array {
+                    $candidates = $member->branchMemberships
+                        ->filter(fn ($membership) => in_array((int) $membership->branch_id, $branchIds, true))
+                        ->sortByDesc('is_primary')
+                        ->pluck('branch_id')
+                        ->map(fn ($id) => (int) $id);
 
-            $outside = $memberBranches->reject(fn ($branchId) => in_array($branchId, $branchIds, true));
+                    if ($candidates->isEmpty() && in_array((int) $member->branch_id, $branchIds, true)) {
+                        $candidates = collect([(int) $member->branch_id]);
+                    }
+
+                    return [$member->id => $candidates->first()];
+                });
+
+            $outside = $memberBranches->filter(fn ($branchId) => $branchId === null);
             if ($memberBranches->count() !== count($memberIds) || $outside->isNotEmpty()) {
                 return back()
                     ->withErrors(['member_ids' => 'Every selected member must belong to one of the selected branches.'])

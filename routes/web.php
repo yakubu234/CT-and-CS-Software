@@ -241,6 +241,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/bulk-sms/automations/{smsAutomationRule}', [SmsAutomationController::class, 'update'])->name('bulk-sms.automations.update');
     Route::delete('/bulk-sms/automations/{smsAutomationRule}', [SmsAutomationController::class, 'destroy'])->name('bulk-sms.automations.destroy');
     Route::get('/bulk-sms/logs', [SmsMessageController::class, 'index'])->name('bulk-sms.logs.index');
+    Route::post('/bulk-sms/logs/send-awaiting', [SmsMessageController::class, 'sendAwaiting'])->name('bulk-sms.logs.send-awaiting');
+    Route::post('/bulk-sms/logs/{smsMessage}/send', [SmsMessageController::class, 'send'])->name('bulk-sms.logs.send');
+    Route::get('/bulk-sms/test', [\App\Http\Controllers\SmsTestController::class, 'create'])->name('bulk-sms.test.create');
+    Route::post('/bulk-sms/test', [\App\Http\Controllers\SmsTestController::class, 'run'])->name('bulk-sms.test.run');
 
     Route::get('/email/settings', [EmailSettingsController::class, 'edit'])->name('email.settings.edit');
     Route::post('/email/settings/test-send', [EmailSettingsController::class, 'testSend'])->name('email.settings.test-send');

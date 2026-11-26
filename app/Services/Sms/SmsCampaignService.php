@@ -178,7 +178,13 @@ class SmsCampaignService
             ->orderBy('name');
 
         if ($campaign->branch_id) {
-            $query->where('branch_id', $campaign->branch_id);
+            // Members with an active membership in this society (as Member Management lists
+            // them, including linked members); non-customer excos still go by their branch.
+            $branchId = $campaign->branch_id;
+            $query->where(function ($builder) use ($branchId): void {
+                $builder->whereHas('branchMemberships', fn ($membership) => $membership->where('branch_id', $branchId)->where('status', true))
+                    ->orWhere(fn ($exco) => $exco->where('user_type', '<>', 'customer')->where('branch_id', $branchId));
+            });
         }
 
         $memberIds = $campaign->filters['member_ids'] ?? [];
@@ -192,54 +198,17 @@ class SmsCampaignService
 
     protected function contextForUser(User $user, ?Branch $branch): array
     {
-        $accounts = $user->savingsAccounts()
-            ->with('product')
-            ->where('is_branch_acount', false)
-            ->where('status', 1)
-            ->get();
-
-        $statement = $this->statementSummary($accounts);
+        // society_name is the campaign's society (the member's affiliated society), not
+        // the parent union; balances are that society's four accounts.
+        $contexts = app(SmsContextBuilder::class);
+        $membership = $contexts->membershipFor($user, $branch?->id ?: $user->branch_id);
 
         return [
-            'member_name' => $user->name,
-            'member_no' => $user->display_member_no,
-            'first_name' => $user->getRawOriginal('name'),
-            'last_name' => $user->last_name,
-            'branch_name' => $branch?->name ?: $user->branch?->name,
-            'mobile' => $user->detail?->mobile,
+            ...$contexts->common($user, $branch, $membership),
+            ...$contexts->balances($user, $membership),
             'date_of_birth' => optional($user->detail?->date_of_birth)->format('Y-m-d'),
-            'statement_summary' => $statement['full'],
-            'statement_compact' => $statement['compact'],
-            'statement_total_balance' => $statement['total'],
             'month_label' => now()->format('F Y'),
-            'society_name' => 'Oreoluwapo CT&CU',
             'unsubscribe_code' => Str::upper(Str::random(6)),
-        ];
-    }
-
-    protected function statementSummary(Collection $accounts): array
-    {
-        $items = $accounts->map(function ($account): array {
-            $type = strtoupper((string) ($account->product?->type ?: 'ACCOUNT'));
-            $label = match ($type) {
-                'SAVINGS' => 'Sav',
-                'SHARES' => 'Shr',
-                'AUTHENTICATION' => 'Auth',
-                'DEPOSIT' => 'Dep',
-                default => Str::title(Str::lower($type)),
-            };
-
-            return [
-                'full' => ($account->product?->type ?: 'Account') . ': ' . number_format((float) $account->balance, 2),
-                'compact' => $label . ' ' . number_format((float) $account->balance, 2),
-                'balance' => (float) $account->balance,
-            ];
-        });
-
-        return [
-            'full' => $items->pluck('full')->implode(', '),
-            'compact' => $items->pluck('compact')->implode(' | '),
-            'total' => number_format((float) $items->sum('balance'), 2),
         ];
     }
 }

@@ -1,5 +1,6 @@
 <div class="alert alert-light border mb-4">
-    Credit, debit and loan approval messages send instantly when the event happens. Birthday messages send on each member's birthday at the schedule time. Monthly statements send on the chosen day of month at the schedule time, with a balance summary.
+    Credit, debit, loan repayment and loan approval alerts go only to the member involved, as soon as the transaction is saved (one alert per member per posting, covering every account in it). Birthday greetings go out each day at the schedule time to that day's celebrants. Monthly statements go out on the chosen day of the month with each member's balances.
+    <a href="{{ route('bulk-sms.test.create', isset($rule) ? ['rule' => $rule->id] : []) }}" class="d-inline-block mt-1"><i class="fas fa-vial mr-1"></i>Test an alert with sample data before activating it</a>
 </div>
 
 <div class="row">
@@ -65,7 +66,9 @@
                     <option value="{{ $day }}" @selected($selectedDay === $day)>{{ $day }}{{ in_array($day % 100, [11, 12, 13], true) ? 'th' : (['th', 'st', 'nd', 'rd'][$day % 10] ?? 'th') }}</option>
                 @endfor
             </select>
-            <small class="text-muted">Used by Monthly Statement. If a month is shorter (e.g. 31st in April, or 29th-31st in February), it sends on that month's last day.</small>
+            <small class="text-muted day-hint" data-event-hint="monthly_statement">If a month is shorter (e.g. 31st in April, or 29th-31st in February), it sends on that month's last day.</small>
+            <small class="text-muted day-hint d-none" data-event-hint="birthday">Not used for Birthday. Every day at the schedule time, members in the selected branches whose date of birth (day and month) is today receive the greeting.</small>
+            <small class="text-muted day-hint d-none" data-event-hint="instant">Not used for this event. The message sends immediately when the event happens.</small>
             @error('day_of_month')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
     </div>
@@ -73,6 +76,7 @@
         <div class="form-group">
             <label for="schedule_time">Schedule Time</label>
             <input type="time" name="schedule_time" id="schedule_time" class="form-control" value="{{ old('schedule_time', $rule->schedule_time ?? '08:00') }}">
+            <small class="text-muted day-hint d-none" data-event-hint="instant">Not used: transaction alerts send immediately.</small>
         </div>
     </div>
     <div class="col-md-4">
@@ -84,6 +88,18 @@
             </select>
         </div>
     </div>
+    <div class="col-md-6">
+        <div class="form-group">
+            @php($sendMode = old('send_mode', isset($rule) ? $rule->sendMode() : \App\Models\SmsAutomationRule::SEND_AUTOMATIC))
+            <label for="send_mode">Sending Method</label>
+            <select name="send_mode" id="send_mode" class="form-control select2" required>
+                <option value="automatic" @selected($sendMode === 'automatic')>Automated - send by itself when the event happens</option>
+                <option value="manual" @selected($sendMode === 'manual')>Manual - prepare the message, staff send it</option>
+            </select>
+            <small class="text-muted">Manual messages wait in <a href="{{ route('bulk-sms.logs.index', ['status' => 'awaiting']) }}">SMS Logs</a> with status "Awaiting" until authorised staff press Send. You can switch method at any time; it applies to new messages.</small>
+            @error('send_mode')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+    </div>
 </div>
 
 <div class="mt-3">
@@ -92,3 +108,40 @@
 </div>
 
 @include('bulk-sms.partials.branch-multi-script')
+
+@push('scripts')
+    <script>
+        (() => {
+            const eventField = document.getElementById('event');
+            const dayField = document.getElementById('day_of_month');
+
+            if (! eventField || ! dayField) {
+                return;
+            }
+
+            const syncDayField = () => {
+                const event = eventField.value;
+                const hintKey = event === 'monthly_statement' || event === 'birthday' ? event : 'instant';
+
+                // Only Monthly Statement uses the day; a disabled field is not submitted,
+                // so the saved day is kept untouched for other events.
+                dayField.disabled = event !== 'monthly_statement';
+                document.querySelectorAll('.day-hint').forEach((hint) => {
+                    hint.classList.toggle('d-none', hint.dataset.eventHint !== hintKey);
+                });
+
+                if (window.jQuery) {
+                    window.jQuery(dayField).trigger('change.select2');
+                }
+            };
+
+            // Select2 fires jQuery "change" events, which native addEventListener does not receive.
+            if (window.jQuery) {
+                window.jQuery(eventField).on('change', syncDayField);
+            } else {
+                eventField.addEventListener('change', syncDayField);
+            }
+            syncDayField();
+        })();
+    </script>
+@endpush

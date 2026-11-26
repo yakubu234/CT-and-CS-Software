@@ -37,18 +37,66 @@
         </div>
     </div>
     <div class="col-lg-4">
+        @php($ph = fn (string $name): string => str_repeat('{', 2) . $name . str_repeat('}', 2))
         <div class="card bg-light">
             <div class="card-header">
-                <strong>Available Placeholders</strong>
+                <strong>Placeholders for this category</strong>
             </div>
-            <div class="card-body">
-                @foreach ($placeholderHints as $hint)
-                    <span class="badge badge-secondary mb-1">{{ $hint }}</span>
+            <div class="card-body p-2" style="max-height: 420px; overflow-y: auto;">
+                <p class="small text-muted mb-2">Click one to insert it. Each needs two braces on both sides, e.g. <code>@{{member_name}}</code>.</p>
+                @foreach ($placeholderHints as $event => $group)
+                    <div class="placeholder-hints" data-event="{{ $event }}">
+                        @foreach ($group['placeholders'] as $name => $description)
+                            <div class="mb-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 insert-placeholder" data-value="{{ $ph($name) }}">{{ $ph($name) }}</button>
+                                <small class="text-muted d-block">{{ $description }}</small>
+                            </div>
+                        @endforeach
+                    </div>
                 @endforeach
             </div>
         </div>
+        @isset($smsTemplate)
+            <a href="{{ route('bulk-sms.test.create', ['template' => $smsTemplate->id]) }}" class="btn btn-outline-info btn-block"><i class="fas fa-vial mr-1"></i>Test this template with sample data</a>
+        @endisset
     </div>
 </div>
+
+@push('scripts')
+    <script>
+        (() => {
+            const category = document.getElementById('category');
+            const body = document.getElementById('body');
+            // Template categories that are not an alert type use the general placeholders.
+            const eventFor = (value) => document.querySelector('.placeholder-hints[data-event="' + value + '"]') ? value : 'manual';
+
+            const sync = () => {
+                const event = eventFor(category.value);
+                document.querySelectorAll('.placeholder-hints').forEach((group) => {
+                    group.classList.toggle('d-none', group.dataset.event !== event);
+                });
+            };
+
+            document.querySelectorAll('.insert-placeholder').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const start = body.selectionStart ?? body.value.length;
+                    const end = body.selectionEnd ?? body.value.length;
+                    body.value = body.value.slice(0, start) + button.dataset.value + body.value.slice(end);
+                    body.focus();
+                    body.selectionStart = body.selectionEnd = start + button.dataset.value.length;
+                });
+            });
+
+            // Select2 fires jQuery "change" events, which native addEventListener does not receive.
+            if (window.jQuery) {
+                window.jQuery(category).on('change', sync);
+            } else {
+                category.addEventListener('change', sync);
+            }
+            sync();
+        })();
+    </script>
+@endpush
 
 <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{ $submitLabel ?? 'Save Template' }}</button>

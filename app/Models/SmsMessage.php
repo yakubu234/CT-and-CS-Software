@@ -12,6 +12,8 @@ class SmsMessage extends Model
     public const STATUS_SENT = 'sent';
     public const STATUS_FAILED = 'failed';
     public const STATUS_SKIPPED = 'skipped';
+    /** Prepared by a Manual automation rule; staff must send it from SMS Logs. */
+    public const STATUS_AWAITING = 'awaiting';
 
     protected $fillable = [
         'campaign_id',

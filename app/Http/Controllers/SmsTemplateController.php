@@ -61,7 +61,7 @@ class SmsTemplateController extends Controller
 
         return redirect()
             ->route('bulk-sms.templates.index')
-            ->with('status', 'SMS template created successfully.');
+            ->with('status', 'SMS template created successfully.' . $this->placeholderWarning($data['body'], $data['category']));
     }
 
     public function edit(SmsTemplate $smsTemplate): View
@@ -91,7 +91,7 @@ class SmsTemplateController extends Controller
 
         return redirect()
             ->route('bulk-sms.templates.index')
-            ->with('status', 'SMS template updated successfully.');
+            ->with('status', 'SMS template updated successfully.' . $this->placeholderWarning($data['body'], $data['category']));
     }
 
     public function destroy(SmsTemplate $smsTemplate): RedirectResponse
@@ -111,32 +111,45 @@ class SmsTemplateController extends Controller
             'celebration' => 'Celebration',
             'birthday' => 'Birthday',
             'monthly_statement' => 'Monthly Statement',
-            'transaction_credit' => 'Transaction Credit',
-            'transaction_debit' => 'Transaction Debit',
+            'transaction_credit' => 'Credit Alert',
+            'transaction_debit' => 'Debit Alert',
+            'loan_repayment' => 'Loan Repayment Alert',
             'loan_approved' => 'Loan Approved',
         ];
     }
 
+    /** A short warning about broken or unknown placeholders, appended to the save message. */
+    protected function placeholderWarning(string $body, string $category): string
+    {
+        $catalog = app(\App\Services\Sms\SmsPlaceholderCatalog::class);
+        $event = array_key_exists($category, $catalog->eventLabels()) ? $category : 'manual';
+        $issues = $catalog->analyze($body, $event);
+        $wrap = fn ($name) => str_repeat('{', 2) . $name . str_repeat('}', 2);
+        $problems = [];
+
+        if ($issues['malformed']) {
+            $problems[] = 'broken placeholder(s) ' . implode(', ', $issues['malformed']) . ' (use two braces on both sides)';
+        }
+        if ($issues['unknown']) {
+            $problems[] = 'unknown placeholder(s) ' . implode(', ', array_map($wrap, $issues['unknown']));
+        }
+        if ($issues['other_event']) {
+            $problems[] = 'placeholder(s) not available for this category: ' . implode(', ', array_map($wrap, $issues['other_event']));
+        }
+
+        return $problems ? ' Please check: ' . implode('; ', $problems) . '. These would show blank in messages.' : '';
+    }
+
+    /** Placeholders grouped by alert type: [event label => [name => description]]. */
     protected function placeholderHints(): array
     {
-        return [
-            '{{member_name}}',
-            '{{member_no}}',
-            '{{branch_name}}',
-            '{{amount}}',
-            '{{transaction_date}}',
-            '{{transaction_type}}',
-            '{{account_number}}',
-            '{{account_type}}',
-            '{{current_balance}}',
-            '{{loan_id}}',
-            '{{loan_amount}}',
-            '{{release_date}}',
-            '{{due_date}}',
-            '{{birth_day}}',
-            '{{month_label}}',
-            '{{statement_summary}}',
-            '{{society_name}}',
-        ];
+        $catalog = app(\App\Services\Sms\SmsPlaceholderCatalog::class);
+
+        return collect($catalog->eventLabels())
+            ->mapWithKeys(fn ($label, $event) => [$event => [
+                'label' => $label,
+                'placeholders' => collect($catalog->forEvent($event))->map(fn ($entry) => $entry[0])->all(),
+            ]])
+            ->all();
     }
 }
