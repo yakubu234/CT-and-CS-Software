@@ -68,7 +68,7 @@
                     </thead>
                     <tbody>
                     @forelse ($messages as $message)
-                        @php($badge = ['sent' => 'success', 'failed' => 'danger', 'awaiting' => 'warning', 'skipped' => 'secondary', 'pending' => 'info'][$message->status] ?? 'secondary')
+                        @php($badge = ['delivered' => 'success', 'sent' => 'primary','failed' => 'danger', 'awaiting' => 'warning', 'skipped' => 'secondary', 'pending' => 'info'][$message->status] ?? 'secondary')
                         <tr>
                             <td>
                                 <div class="font-weight-semibold">{{ $message->recipient_name ?: $message->user?->name ?: 'N/A' }}</div>

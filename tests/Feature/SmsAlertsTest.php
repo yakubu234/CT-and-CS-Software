@@ -144,24 +144,76 @@ class SmsAlertsTest extends TestCase
         );
     }
 
-    public function test_monthly_balance_alert_goes_to_active_members_with_that_societys_balances(): void
+    public function test_monthly_statement_uses_month_end_figures_for_active_members_only(): void
     {
-        $this->rule('monthly_statement', '{{society_name}} {{member_id}} {{balance_summary}} = {{total_member_balance}}', SmsAutomationRule::SEND_AUTOMATIC, [
-            'schedule_time' => '08:00', 'day_of_month' => 31,
-        ]);
+        $this->rule('monthly_statement', implode('|', [
+            '{{society_name}}', '{{member_id}}', '{{statement_month}}', '{{opening_savings_balance}}', '{{total_savings_deposits}}',
+            '{{total_savings_withdrawals}}', '{{closing_savings_balance}}', '{{total_loan_balance}}', '{{total_interest_paid}}',
+            '{{net_balance}}', '{{transaction_count}}', '{{savings_opening_balance}}', '{{savings_closing_balance}}', '{{shares_closing_balance}}',
+        ]), SmsAutomationRule::SEND_AUTOMATIC, ['schedule_time' => '08:00', 'day_of_month' => 1]);
+
+        // Opening balances, then savings history: September (before), October (statement month), November (after).
+        foreach ([201 => 40000, 202 => 30000, 203 => 20000, 204 => 11000] as $accountId => $opening) {
+            DB::table('savings_accounts')->where('id', $accountId)->update(['opening_balance' => $opening]);
+        }
+        foreach ([['2026-09-15', 'cr', 5000], ['2026-10-05', 'cr', 7000], ['2026-10-20', 'dr', 2000], ['2026-11-02', 'cr', 999]] as [$date, $drCr, $amount]) {
+            DB::table('transactions')->insert(['user_id' => 1, 'member_branch_membership_id' => 101, 'savings_account_id' => 201, 'trans_date' => $date, 'amount' => $amount, 'dr_cr' => $drCr, 'branch_id' => 10, 'is_branch' => 0, 'tracking_id' => 'regular']);
+        }
+        // A deleted transaction and a branch mirror never count.
+        DB::table('transactions')->insert(['user_id' => 1, 'savings_account_id' => 201, 'trans_date' => '2026-10-10', 'amount' => 50000, 'dr_cr' => 'cr', 'branch_id' => 10, 'is_branch' => 0, 'tracking_id' => 'regular', 'deleted_at' => now()]);
+
+        // Loan of 100,000 released in September; principal repaid 10,000 in Sep, 10,000 (+1,500 interest) in Oct, 5,000 in Nov.
+        DB::table('loans')->insert(['id' => 1, 'loan_id' => 'LN-1', 'borrower_id' => 1, 'branch_id' => 10, 'member_branch_membership_id' => 101, 'applied_amount' => 100000, 'balanace' => 75000]);
+        DB::table('loan_details')->insert(['id' => 1, 'loan_id' => 1, 'applied_amount' => 100000, 'release_date' => '2026-09-01', 'decision_status' => 'approved']);
+        foreach ([['2026-09-30', 10000, 0], ['2026-10-31', 10000, 1500], ['2026-11-15', 5000, 500]] as [$paid, $principal, $interest]) {
+            DB::table('loan_payments')->insert(['loan_id' => 1, 'loan_details_id' => 1, 'paid_at' => $paid, 'repayment_amount' => $principal, 'interest_paid' => $interest]);
+        }
+
         // An archived member of the same society must not receive it.
         DB::table('users')->insert(['id' => 2, 'name' => 'ARCHIVED', 'last_name' => 'MEMBER', 'user_type' => 'customer', 'branch_account' => 0, 'branch_id' => 10, 'status' => 1]);
         DB::table('user_details')->insert(['user_id' => 2, 'mobile' => '08030000001']);
         DB::table('member_branch_memberships')->insert(['id' => 103, 'user_id' => 2, 'branch_id' => 10, 'member_number' => 'ASEOLU_0999', 'is_primary' => 1, 'status' => 0]);
 
         $service = app(SmsAutomationService::class);
-        $this->assertSame(0, $service->processDateBasedAutomations(\Illuminate\Support\Carbon::parse('2026-11-29 08:00')));
-        $this->assertSame(1, $service->processDateBasedAutomations(\Illuminate\Support\Carbon::parse('2026-11-30 08:00')));
+        $this->assertSame(0, $service->processDateBasedAutomations(\Illuminate\Support\Carbon::parse('2026-11-01 07:59')));
+        $this->assertSame(1, $service->processDateBasedAutomations(\Illuminate\Support\Carbon::parse('2026-11-01 08:00')));
 
+        // Sent 1 Nov -> October statement, as at 31 Oct (the November entries are excluded).
         $this->assertSame(
-            ['ASEOLUWA CTCS ILARO LTD ASEOLU_0123 Savings 50,000.00, Shares 30,000.00, Authentication 20,000.00, Deposit 11,000.00 = 111,000.00'],
+            ['ASEOLUWA CTCS ILARO LTD|ASEOLU_0123|October 2026|106,000.00|7,000.00|2,000.00|111,000.00|80,000.00|1,500.00|31,000.00|3|45,000.00|50,000.00|30,000.00'],
             SmsMessage::query()->pluck('message')->all()
         );
+    }
+
+    public function test_credited_account_balances_lists_only_the_posted_accounts(): void
+    {
+        $this->rule('transaction_credit', '{{credited_account_balances}}');
+        app(SmsAutomationService::class)->handleTransactionBatch($this->posting([['shares', 'cr', 2000], ['savings', 'cr', 5000]]));
+
+        $this->assertSame('Savings 50,000.00, Shares 30,000.00', SmsMessage::query()->value('message'));
+    }
+
+    public function test_delivery_reports_mark_messages_delivered_or_failed(): void
+    {
+        $token = app(SmsSettingsService::class)->deliveryReportToken();
+        foreach (['MSG-1', 'MSG-2', 'MSG-3'] as $externalId) {
+            SmsMessage::create(['message' => 'x', 'phone' => '2348030000000', 'status' => SmsMessage::STATUS_SENT, 'external_id' => $externalId]);
+        }
+
+        // BulkSMSNigeria/generic style (form), Termii style (JSON), and a list of reports.
+        $this->post('/sms/delivery-report/' . $token, ['message_id' => 'MSG-1', 'status' => 'DELIVRD'])->assertOk()->assertJson(['updated' => 1]);
+        $this->postJson('/sms/delivery-report/' . $token, ['messageId' => 'MSG-2', 'status' => 'DND Active on Phone Number'])->assertOk();
+        $this->postJson('/sms/delivery-report/' . $token, [['id' => 'MSG-3', 'delivery_status' => 'Delivered']])->assertOk();
+
+        $this->assertSame(
+            ['MSG-1' => 'delivered', 'MSG-2' => 'failed', 'MSG-3' => 'delivered'],
+            SmsMessage::query()->orderBy('id')->pluck('status', 'external_id')->all()
+        );
+        $this->assertSame('Delivery failed: DND Active on Phone Number', SmsMessage::query()->where('external_id', 'MSG-2')->value('error_message'));
+
+        // A wrong token is rejected.
+        $this->post('/sms/delivery-report/wrong-token', ['message_id' => 'MSG-1', 'status' => 'Failed'])->assertNotFound();
+        $this->assertSame('delivered', SmsMessage::query()->where('external_id', 'MSG-1')->value('status'));
     }
 
     public function test_catalog_flags_broken_and_unknown_placeholders(): void
@@ -281,10 +333,11 @@ class SmsAlertsTest extends TestCase
         Schema::create('user_details', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('user_id'); $t->string('mobile')->nullable(); $t->string('member_no')->nullable(); $t->date('date_of_birth')->nullable(); $t->unsignedBigInteger('branch_id')->nullable(); $t->timestamps(); });
         Schema::create('member_branch_memberships', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('user_id'); $t->unsignedBigInteger('branch_id'); $t->string('member_number'); $t->boolean('is_primary')->default(0); $t->boolean('status')->default(1); $t->timestamp('joined_at')->nullable(); $t->timestamps(); });
         Schema::create('savings_products', function (Blueprint $t) { $t->id(); $t->string('name'); $t->string('type'); $t->integer('status')->default(1); $t->timestamps(); });
-        Schema::create('savings_accounts', function (Blueprint $t) { $t->id(); $t->string('account_number')->nullable(); $t->unsignedBigInteger('user_id'); $t->unsignedBigInteger('member_branch_membership_id')->nullable(); $t->unsignedBigInteger('branch_id')->nullable(); $t->unsignedBigInteger('savings_product_id'); $t->integer('status')->default(1); $t->decimal('balance', 15, 2)->default(0); $t->boolean('is_branch_acount')->default(0); $t->timestamps(); });
-        Schema::create('transactions', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('user_id')->nullable(); $t->unsignedBigInteger('member_branch_membership_id')->nullable(); $t->unsignedBigInteger('savings_account_id')->nullable(); $t->date('trans_date')->nullable(); $t->decimal('amount', 15, 2); $t->string('dr_cr'); $t->unsignedBigInteger('branch_id')->nullable(); $t->boolean('is_branch')->default(0); $t->string('batch_id')->nullable(); $t->integer('status')->default(2); $t->json('transaction_details')->nullable(); $t->softDeletes(); $t->timestamps(); });
+        Schema::create('savings_accounts', function (Blueprint $t) { $t->id(); $t->string('account_number')->nullable(); $t->unsignedBigInteger('user_id'); $t->unsignedBigInteger('member_branch_membership_id')->nullable(); $t->unsignedBigInteger('branch_id')->nullable(); $t->unsignedBigInteger('savings_product_id'); $t->integer('status')->default(1); $t->decimal('opening_balance', 15, 2)->default(0); $t->decimal('balance', 15, 2)->default(0); $t->boolean('is_branch_acount')->default(0); $t->timestamps(); });
+        Schema::create('transactions', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('user_id')->nullable(); $t->unsignedBigInteger('member_branch_membership_id')->nullable(); $t->unsignedBigInteger('savings_account_id')->nullable(); $t->date('trans_date')->nullable(); $t->decimal('amount', 15, 2); $t->string('dr_cr'); $t->unsignedBigInteger('branch_id')->nullable(); $t->boolean('is_branch')->default(0); $t->string('batch_id')->nullable(); $t->string('tracking_id')->default('regular'); $t->integer('status')->default(2); $t->json('transaction_details')->nullable(); $t->softDeletes(); $t->timestamps(); });
         Schema::create('loans', function (Blueprint $t) { $t->id(); $t->string('loan_id')->nullable(); $t->unsignedBigInteger('borrower_id'); $t->unsignedBigInteger('branch_id')->nullable(); $t->unsignedBigInteger('member_branch_membership_id')->nullable(); $t->decimal('applied_amount', 15, 2)->default(0); $t->decimal('balanace', 15, 2)->default(0); $t->softDeletes(); $t->timestamps(); });
-        Schema::create('loan_payments', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('loan_id'); $t->date('paid_at')->nullable(); $t->decimal('repayment_amount', 15, 2)->default(0); $t->decimal('interest_paid', 15, 2)->default(0); $t->decimal('total_amount', 15, 2)->default(0); $t->decimal('balance', 15, 2)->default(0); $t->decimal('outstanding_interest', 15, 2)->default(0); $t->softDeletes(); $t->timestamps(); });
+        Schema::create('loan_details', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('loan_id'); $t->decimal('applied_amount', 15, 2)->default(0); $t->date('release_date')->nullable(); $t->string('decision_status')->default('approved'); $t->timestamps(); });
+        Schema::create('loan_payments', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('loan_id'); $t->unsignedBigInteger('loan_details_id')->nullable(); $t->date('paid_at')->nullable(); $t->decimal('repayment_amount', 15, 2)->default(0); $t->decimal('interest_paid', 15, 2)->default(0); $t->decimal('total_amount', 15, 2)->default(0); $t->decimal('balance', 15, 2)->default(0); $t->decimal('outstanding_interest', 15, 2)->default(0); $t->softDeletes(); $t->timestamps(); });
         Schema::create('sms_templates', function (Blueprint $t) { $t->id(); $t->string('name'); $t->string('slug')->nullable(); $t->string('category'); $t->string('description')->nullable(); $t->text('body'); $t->boolean('status')->default(1); $t->unsignedBigInteger('created_by')->nullable(); $t->unsignedBigInteger('updated_by')->nullable(); $t->timestamps(); });
         Schema::create('sms_automation_rules', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('branch_id')->nullable(); $t->unsignedBigInteger('template_id')->nullable(); $t->string('name'); $t->string('event'); $t->boolean('status')->default(1); $t->string('send_mode', 20)->default('automatic'); $t->string('schedule_time', 5)->nullable(); $t->unsignedTinyInteger('day_of_month')->nullable(); $t->json('filters')->nullable(); $t->unsignedBigInteger('created_by')->nullable(); $t->unsignedBigInteger('updated_by')->nullable(); $t->timestamps(); });
         Schema::create('sms_messages', function (Blueprint $t) { $t->id(); $t->unsignedBigInteger('campaign_id')->nullable(); $t->unsignedBigInteger('automation_rule_id')->nullable(); $t->unsignedBigInteger('user_id')->nullable(); $t->unsignedBigInteger('branch_id')->nullable(); $t->string('phone')->nullable(); $t->string('recipient_name')->nullable(); $t->text('message'); $t->string('provider')->nullable(); $t->string('sender_id')->nullable(); $t->string('status', 20)->default('pending'); $t->string('external_id')->nullable(); $t->text('error_message')->nullable(); $t->string('related_type')->nullable(); $t->unsignedBigInteger('related_id')->nullable(); $t->string('reference_key')->nullable(); $t->timestamp('scheduled_for')->nullable(); $t->timestamp('processed_at')->nullable(); $t->timestamp('sent_at')->nullable(); $t->json('meta')->nullable(); $t->timestamps(); });

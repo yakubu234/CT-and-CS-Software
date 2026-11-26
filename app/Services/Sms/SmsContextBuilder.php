@@ -179,10 +179,175 @@ class SmsContextBuilder
             $context[$key . '_' . $verb] = $this->money($amount);
         }
 
+        $balances = $this->balances($user, $membership, $balanceAdjustments);
+
+        // New balance of just the accounts in this posting, e.g. "Savings 55,000.00, Shares 32,000.00".
+        $postedBalances = [];
+        foreach (array_keys($details) as $label) {
+            $key = $this->accountKey($label);
+            if ($key) {
+                $postedBalances[] = $label . ' ' . $balances[$key . '_balance'];
+            }
+        }
+        $context[$verb . '_account_balances'] = implode(', ', $postedBalances);
+
         return [
             ...$this->common($user, $branch, $membership),
             ...$context,
-            ...$this->balances($user, $membership, $balanceAdjustments),
+            ...$balances,
+        ];
+    }
+
+    /**
+     * Monthly statement figures for one society membership and month, rebuilt from the
+     * transaction and loan history so they are month-end figures even if sent later.
+     */
+    public function monthlyStatement(User $user, ?Branch $branch, ?MemberBranchMembership $membership, Carbon $month): array
+    {
+        $start = $month->copy()->startOfMonth()->startOfDay();
+        $end = $month->copy()->endOfMonth()->endOfDay();
+        $startDate = $start->toDateString();
+        $endDate = $end->toDateString();
+
+        $accounts = SavingsAccount::query()
+            ->with('product')
+            ->where('user_id', $user->id)
+            ->where('is_branch_acount', false)
+            ->when($membership, fn ($query) => $query->where('member_branch_membership_id', $membership->id))
+            ->get();
+
+        // Same rule as BalanceSyncService: opening_balance plus credits minus debits of
+        // regular, non-deleted member transactions.
+        $totals = $accounts->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table('transactions')
+            ->whereIn('savings_account_id', $accounts->pluck('id'))
+            ->where('tracking_id', 'regular')
+            ->where('is_branch', 0)
+            ->whereNull('deleted_at')
+            ->where('trans_date', '<=', $endDate)
+            ->groupBy('savings_account_id')
+            ->selectRaw('savings_account_id,
+                SUM(CASE WHEN LOWER(dr_cr) = ? AND trans_date < ? THEN amount ELSE 0 END) AS cr_before,
+                SUM(CASE WHEN LOWER(dr_cr) <> ? AND trans_date < ? THEN amount ELSE 0 END) AS dr_before,
+                SUM(CASE WHEN LOWER(dr_cr) = ? AND trans_date >= ? THEN amount ELSE 0 END) AS cr_month,
+                SUM(CASE WHEN LOWER(dr_cr) <> ? AND trans_date >= ? THEN amount ELSE 0 END) AS dr_month,
+                SUM(CASE WHEN trans_date >= ? THEN 1 ELSE 0 END) AS count_month', ['cr', $startDate, 'cr', $startDate, 'cr', $startDate, 'cr', $startDate, $startDate])
+            ->get()
+            ->keyBy('savings_account_id');
+
+        $figures = array_fill_keys(array_keys(SmsPlaceholderCatalog::ACCOUNT_TYPES), ['opening' => 0.0, 'deposits' => 0.0, 'withdrawals' => 0.0, 'closing' => 0.0]);
+        $transactionCount = 0;
+        foreach ($accounts as $account) {
+            $key = $this->accountKey($account->product?->type);
+            if (! $key) {
+                continue;
+            }
+            $row = $totals->get($account->id);
+            $opening = (float) $account->opening_balance + (float) ($row->cr_before ?? 0) - (float) ($row->dr_before ?? 0);
+            $deposits = (float) ($row->cr_month ?? 0);
+            $withdrawals = (float) ($row->dr_month ?? 0);
+
+            $figures[$key]['opening'] += $opening;
+            $figures[$key]['deposits'] += $deposits;
+            $figures[$key]['withdrawals'] += $withdrawals;
+            $figures[$key]['closing'] += $opening + $deposits - $withdrawals;
+            $transactionCount += (int) ($row->count_month ?? 0);
+        }
+
+        $loans = $this->loanFigures($user, $branch, $membership, $startDate, $endDate);
+        $transactionCount += $loans['repayments'];
+
+        $sum = fn (string $field): float => array_sum(array_column($figures, $field));
+        $closing = $sum('closing');
+
+        $context = [
+            'statement_month' => $month->format('F Y'),
+            'month_label' => $month->format('F Y'),
+            'statement_period' => $start->format('d M Y') . ' - ' . $end->format('d M Y'),
+            'opening_savings_balance' => $this->money($sum('opening')),
+            'total_savings_deposits' => $this->money($sum('deposits')),
+            'total_savings_withdrawals' => $this->money($sum('withdrawals')),
+            'closing_savings_balance' => $this->money($closing),
+            'total_loan_balance' => $this->money($loans['balance']),
+            'total_principal_paid' => $this->money($loans['principal']),
+            'total_interest_paid' => $this->money($loans['interest']),
+            'net_balance' => $this->money($closing - $loans['balance']),
+            'transaction_count' => (string) $transactionCount,
+        ];
+
+        $summary = [];
+        $compact = [];
+        $short = ['savings' => 'Sav', 'shares' => 'Shr', 'authentication' => 'Auth', 'deposit' => 'Dep'];
+        foreach ($figures as $key => $values) {
+            $label = $this->accountLabel(SmsPlaceholderCatalog::ACCOUNT_TYPES[$key]);
+            $context[$key . '_opening_balance'] = $this->money($values['opening']);
+            $context[$key . '_deposits'] = $this->money($values['deposits']);
+            $context[$key . '_withdrawals'] = $this->money($values['withdrawals']);
+            $context[$key . '_closing_balance'] = $this->money($values['closing']);
+            $context[$key . '_balance'] = $this->money($values['closing']);
+            $summary[] = $label . ' ' . $this->money($values['closing']);
+            $compact[] = $short[$key] . ' ' . $this->money($values['closing']);
+        }
+
+        return [
+            ...$this->common($user, $branch, $membership),
+            ...$context,
+            'total_member_balance' => $this->money($closing),
+            'current_balance' => $this->money($closing),
+            'balance_summary' => implode(', ', $summary),
+            'statement_summary' => implode(', ', $summary),
+            'statement_compact' => implode(' | ', $compact),
+            'statement_total_balance' => $this->money($closing),
+        ];
+    }
+
+    /**
+     * Loan position for a statement month: balance outstanding at month-end (approved
+     * amounts released by then, minus principal repaid by then) and repayments in the month.
+     */
+    protected function loanFigures(User $user, ?Branch $branch, ?MemberBranchMembership $membership, string $startDate, string $endDate): array
+    {
+        $db = \Illuminate\Support\Facades\DB::connection();
+
+        $loanIds = $db->table('loans')
+            ->where('borrower_id', $user->id)
+            ->when($membership, fn ($query) => $query->where(fn ($inner) => $inner
+                ->where('member_branch_membership_id', $membership->id)
+                ->orWhere(fn ($legacy) => $legacy->whereNull('member_branch_membership_id')->where('branch_id', $membership->branch_id))))
+            ->when(! $membership && $branch, fn ($query) => $query->where('branch_id', $branch->id))
+            ->pluck('id');
+
+        if ($loanIds->isEmpty()) {
+            return ['balance' => 0.0, 'principal' => 0.0, 'interest' => 0.0, 'repayments' => 0];
+        }
+
+        $details = $db->table('loan_details')
+            ->whereIn('loan_id', $loanIds)
+            ->where('decision_status', 'approved')
+            ->where(fn ($query) => $query->where('release_date', '<=', $endDate)->orWhereNull('release_date'))
+            ->get(['id', 'loan_id', 'applied_amount']);
+
+        $payments = $db->table('loan_payments')
+            ->whereIn('loan_id', $loanIds)
+            ->whereNull('deleted_at')
+            ->whereDate('paid_at', '<=', $endDate)
+            ->get(['loan_id', 'loan_details_id', 'paid_at', 'repayment_amount', 'interest_paid']);
+
+        $balance = 0.0;
+        foreach ($details->groupBy('loan_id') as $loanId => $loanDetails) {
+            $approved = (float) $loanDetails->sum('applied_amount');
+            $repaid = (float) $payments->where('loan_id', $loanId)
+                ->filter(fn ($payment) => ! $payment->loan_details_id || $loanDetails->pluck('id')->contains($payment->loan_details_id))
+                ->sum('repayment_amount');
+            $balance += max($approved - $repaid, 0);
+        }
+
+        $inMonth = $payments->filter(fn ($payment) => substr((string) $payment->paid_at, 0, 10) >= $startDate);
+
+        return [
+            'balance' => $balance,
+            'principal' => (float) $inMonth->sum('repayment_amount'),
+            'interest' => (float) $inMonth->sum('interest_paid'),
+            'repayments' => $inMonth->count(),
         ];
     }
 

@@ -10,6 +10,8 @@ class SmsMessage extends Model
 {
     public const STATUS_PENDING = 'pending';
     public const STATUS_SENT = 'sent';
+    /** The provider's delivery report confirmed the message reached the phone. */
+    public const STATUS_DELIVERED = 'delivered';
     public const STATUS_FAILED = 'failed';
     public const STATUS_SKIPPED = 'skipped';
     /** Prepared by a Manual automation rule; staff must send it from SMS Logs. */

@@ -37,9 +37,21 @@ class SmsSettingsService
         return $this->string('sms.sender_id');
     }
 
+    /** Where providers send delivery reports: the configured URL, or this app's own receiver. */
     public function callbackUrl(): ?string
     {
-        return $this->string('sms.callback_url');
+        return $this->string('sms.callback_url') ?: $this->deliveryReportUrl();
+    }
+
+    /** Secret part of the delivery report address, derived from the app key. */
+    public function deliveryReportToken(): string
+    {
+        return substr(hash_hmac('sha256', 'sms-delivery-report', (string) config('app.key')), 0, 40);
+    }
+
+    public function deliveryReportUrl(): string
+    {
+        return route('sms.delivery-report', ['token' => $this->deliveryReportToken()]);
     }
 
     public function providerConfig(?string $provider = null): array

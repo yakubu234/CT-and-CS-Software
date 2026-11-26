@@ -23,7 +23,9 @@ class SmsSettingsController extends Controller
             'providers' => $this->providerOptions(),
             'activeProvider' => $this->settings->activeProvider(),
             'senderId' => $this->settings->senderId(),
-            'callbackUrl' => $this->settings->callbackUrl(),
+            // Only the custom URL an admin typed; empty means this app's own receiver is used.
+            'callbackUrl' => $this->settings->get('sms.callback_url'),
+            'deliveryReportUrl' => $this->settings->deliveryReportUrl(),
             'termii' => $this->providerConfig('termii'),
             'bulkSmsNigeria' => $this->providerConfig('bulksmsnigeria'),
             'generic' => $this->providerConfig('generic'),

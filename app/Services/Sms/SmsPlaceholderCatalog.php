@@ -95,13 +95,7 @@ class SmsPlaceholderCatalog
             SmsAutomationRule::EVENT_BIRTHDAY => [
                 'birth_day' => ['Birthday (day and month)', '22 Nov'],
             ],
-            SmsAutomationRule::EVENT_MONTHLY_STATEMENT => [
-                'month_label' => ['Statement month', 'November 2026'],
-                'statement_summary' => ['Same as balance_summary', 'Savings 25,000.00, Shares 25,000.00, Authentication 25,000.00, Deposit 25,000.00'],
-                'statement_compact' => ['Short account summary', 'Sav 25,000.00 | Shr 25,000.00 | Auth 25,000.00 | Dep 25,000.00'],
-                'statement_total_balance' => ['Same as total_member_balance', '100,000.00'],
-                ...$this->balances(),
-            ],
+            SmsAutomationRule::EVENT_MONTHLY_STATEMENT => $this->statement(),
             'manual' => [
                 'month_label' => ['Current month', 'November 2026'],
                 'statement_summary' => ['Every account with its balance', 'Savings 25,000.00, Shares 25,000.00, Authentication 25,000.00, Deposit 25,000.00'],
@@ -111,6 +105,53 @@ class SmsPlaceholderCatalog
         };
 
         return [...$this->common(), ...$specific];
+    }
+
+    /**
+     * Monthly statement: figures for the statement month, worked out from the member's
+     * transactions and loans as at month-end (not the balance on the day it is sent).
+     * "Savings" totals cover all four member accounts together.
+     */
+    protected function statement(): array
+    {
+        $placeholders = [
+            'statement_month' => ['Statement month (the last full month before sending)', 'October 2026'],
+            'month_label' => ['Same as statement_month', 'October 2026'],
+            'statement_period' => ['First and last day of the statement month', '01 Oct 2026 - 31 Oct 2026'],
+            'opening_savings_balance' => ['All four accounts combined, at the start of the month', '95,000.00'],
+            'total_savings_deposits' => ['All money paid into the four accounts during the month', '7,000.00'],
+            'total_savings_withdrawals' => ['All money taken out of the four accounts during the month', '2,000.00'],
+            'closing_savings_balance' => ['All four accounts combined, at month-end', '100,000.00'],
+            'total_loan_balance' => ['Outstanding loan balance at month-end', '80,000.00'],
+            'total_principal_paid' => ['Loan principal repaid during the month', '20,000.00'],
+            'total_interest_paid' => ['Loan interest paid during the month', '2,000.00'],
+            'net_balance' => ['closing_savings_balance minus total_loan_balance', '20,000.00'],
+            'transaction_count' => ['Number of account transactions and loan repayments in the month', '5'],
+        ];
+
+        foreach (self::ACCOUNT_TYPES as $key => $type) {
+            $label = ucfirst(strtolower($type));
+            $placeholders[$key . '_opening_balance'] = [$label . ' balance at the start of the month', '25,000.00'];
+            $placeholders[$key . '_deposits'] = ['Paid into ' . $label . ' during the month', '2,000.00'];
+            $placeholders[$key . '_withdrawals'] = ['Taken out of ' . $label . ' during the month', '0.00'];
+            $placeholders[$key . '_closing_balance'] = [$label . ' balance at month-end', '27,000.00'];
+        }
+
+        $balances = $this->balances();
+        foreach (self::ACCOUNT_TYPES as $key => $type) {
+            $balances[$key . '_balance'][0] .= ' at month-end';
+        }
+        $balances['total_member_balance'][0] = 'Same as closing_savings_balance';
+        $balances['current_balance'][0] = 'Same as closing_savings_balance';
+        $balances['balance_summary'][0] = 'Every account with its month-end balance';
+
+        return [
+            ...$placeholders,
+            ...$balances,
+            'statement_summary' => ['Same as balance_summary', 'Savings 25,000.00, Shares 25,000.00, Authentication 25,000.00, Deposit 25,000.00'],
+            'statement_compact' => ['Short month-end account summary', 'Sav 25,000.00 | Shr 25,000.00 | Auth 25,000.00 | Dep 25,000.00'],
+            'statement_total_balance' => ['Same as closing_savings_balance', '100,000.00'],
+        ];
     }
 
     protected function transaction(string $verb): array
@@ -123,6 +164,7 @@ class SmsPlaceholderCatalog
             'account_number' => ['Account number(s) ' . $verb, '1000123, 1000124'],
             'transaction_type' => ['CR or DR', $verb === 'credited' ? 'CR' : 'DR'],
             'transaction_date' => ['Posting date', '22 Nov 2026'],
+            $verb . '_account_balances' => ['New balance of each account ' . $verb, 'Savings 55,000.00, Shares 32,000.00'],
         ];
 
         foreach (self::ACCOUNT_TYPES as $key => $type) {

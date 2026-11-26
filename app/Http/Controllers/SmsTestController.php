@@ -53,6 +53,7 @@ class SmsTestController extends Controller
             'branch_id' => $rule?->branch_id ?: $currentBranch?->id,
             'data_source' => 'sample',
             'transaction_date' => now()->format('Y-m-d'),
+            'statement_month' => now()->subMonthNoOverflow()->format('Y-m'),
             'amounts' => ['savings' => 5000, 'shares' => 2000, 'authentication' => 0, 'deposit' => 0],
             'principal_paid' => 20000,
             'interest_paid' => 2000,
@@ -77,6 +78,7 @@ class SmsTestController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'data_source' => ['required', Rule::in(['sample', 'latest'])],
             'transaction_date' => ['nullable', 'date'],
+            'statement_month' => ['nullable', 'date_format:Y-m'],
             'amounts' => ['nullable', 'array'],
             'amounts.*' => ['nullable', 'numeric', 'min:0'],
             'principal_paid' => ['nullable', 'numeric', 'min:0'],
@@ -230,6 +232,15 @@ class SmsTestController extends Controller
             SmsAutomationRule::EVENT_BIRTHDAY => [
                 ...$context,
                 'birth_day' => optional($member?->detail?->date_of_birth)->format('d M') ?: Carbon::parse($date)->format('d M'),
+            ],
+            SmsAutomationRule::EVENT_MONTHLY_STATEMENT => [
+                ...$this->contexts->monthlyStatement(
+                    $user,
+                    $branch,
+                    $membership,
+                    Carbon::createFromFormat('Y-m-d', ($data['statement_month'] ?? now()->subMonthNoOverflow()->format('Y-m')) . '-01')
+                ),
+                ...$override,
             ],
             default => [
                 ...$context,

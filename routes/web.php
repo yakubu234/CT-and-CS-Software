@@ -60,6 +60,11 @@ Route::get('/blogs/{blogPost:slug}', [PublicBlogController::class, 'show'])->nam
 Route::get('/email/verify-member/{member}/{hash}', MemberEmailVerificationController::class)
     ->middleware('signed')->name('member-email.verify');
 
+// SMS providers post delivery reports here; protected by a secret token in the address.
+Route::match(['get', 'post'], '/sms/delivery-report/{token}', \App\Http\Controllers\SmsDeliveryReportController::class)
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+    ->name('sms.delivery-report');
+
 Route::middleware('guest')->group(function () {
     Route::get('/email/verification-request', [MemberVerificationRequestController::class, 'create'])->name('member-email.request');
     Route::post('/email/verification-request', [MemberVerificationRequestController::class, 'store'])->middleware('throttle:3,1')->name('member-email.resend');

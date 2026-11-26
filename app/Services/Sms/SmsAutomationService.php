@@ -294,17 +294,17 @@ class SmsAutomationService
             ->where('status', true)
             ->when($rule->branch_id, fn ($inner) => $inner->where('branch_id', $rule->branch_id));
 
+        // The statement covers the last complete month before the send date, so every
+        // figure is a true month-end figure (e.g. sent on 1 Nov -> October statement).
+        $statementMonth = $now->copy()->startOfMonth()->subMonthNoOverflow();
+
         foreach ($this->eligibleMembers($membershipScope)->get() as $user) {
             foreach ($user->branchMemberships as $membership) {
                 $sent = $this->createAndDispatch(
                     $rule,
                     $user,
                     $membership->branch,
-                    [
-                        ...$this->contexts->common($user, $membership->branch, $membership),
-                        ...$this->contexts->balances($user, $membership),
-                        'month_label' => $now->format('F Y'),
-                    ],
+                    $this->contexts->monthlyStatement($user, $membership->branch, $membership, $statementMonth),
                     $user,
                     'automation:' . $rule->id . ':monthly:' . $user->id . ':' . $membership->id . ':' . $now->format('Y-m')
                 );
