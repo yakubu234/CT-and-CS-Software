@@ -68,6 +68,17 @@
             box-shadow: 0 14px 35px rgba(15, 23, 42, 0.18);
         }
 
+        /* Website line: keep the longer address on one line and clear of the logo on the right. */
+        .info-down {
+            padding: 10px 88px 10px 12px;
+        }
+
+        .info-down p {
+            margin: 0;
+            font-size: 19px;
+            white-space: nowrap;
+        }
+
         .image-wrapper-empty {
             background: #fff;
         }
@@ -124,6 +135,16 @@
     @php
         $headquartersAddress = 'Udoji Road, Along Odo-Aje Road, Opposite, Okobo Joint, Ilaro, Ogun State';
         $downloadBaseName = \Illuminate\Support\Str::slug($member->display_member_no ?: $member->name);
+
+        // First number: the society's own contact phone (in +234 form like the second
+        // number), falling back to the union's number when the society has none.
+        $branchPhone = preg_replace('/[^\d+]/', '', (string) $branch->contact_phone);
+        if (preg_match('/^0\d{10}$/', $branchPhone)) {
+            $branchPhone = '+234' . substr($branchPhone, 1);
+        } elseif (preg_match('/^234\d{10}$/', $branchPhone)) {
+            $branchPhone = '+' . $branchPhone;
+        }
+        $firstContactPhone = $branchPhone !== '' ? $branchPhone : '+2348151273635';
     @endphp
 
     <div class="id-card-toolbar">
@@ -138,7 +159,8 @@
         <div class="front-card-wrapper" id="idCardFront">
             <img src="{{ asset('id-card/bg/image 5.svg') }}" alt="" class="bg-up">
             <img src="{{ $branchLogo }}" alt="{{ $branch->name }} logo" class="logo">
-            <p class="rc-number">RC: {{ $branch->registration_number ?: '14043' }}</p>
+            {{-- The society's own RC number; never fall back to the parent union's (14043). --}}
+            <p class="rc-number">RC: {{ trim((string) $branch->registration_number) ?: 'Not provided' }}</p>
 
             <div class="content">
                 <h1>{{ strtoupper($branch->name) }}</h1>
@@ -152,7 +174,7 @@
                     </p>
                     <div class="number">
                         <span class="phone-icon"><i class="fas fa-phone-alt"></i></span>
-                        <span>+2348151273635</span>
+                        <span>{{ $firstContactPhone }}</span>
                         <span>+2348060957070</span>
                     </div>
                 </div>
@@ -179,7 +201,7 @@
 
             <img src="{{ asset('id-card/bg/vecto_logo.png') }}" alt="Oreoluwapo Ilaro CTCU logo" class="company-logo">
             <div class="info-down">
-                <p>www.oreoluwapoilaroctcultd.com</p>
+                <p>https://oreoluwapoilarocoop.com.ng</p>
             </div>
         </div>
 
